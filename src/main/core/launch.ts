@@ -5,7 +5,7 @@ import { dirs, instanceDir, versionDir } from './paths'
 import { getState, updateProfile } from './store'
 import { emitGameStatus, emitLog, emitProgress } from './events'
 import { findJava, inspectJava, requiredJavaMajor } from './java'
-import { argValues, classpathLibraries, extractNatives, readVersionJson, resolveVersion, type VersionJson } from './install'
+import { argValues, classpathLibraries, extractNatives, resolveVersion, type VersionJson } from './install'
 import type { GameStatus, JavaInfo } from '@shared/types'
 
 let child: ChildProcess | null = null
