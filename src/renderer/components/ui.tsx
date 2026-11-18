@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { X } from 'lucide-react'
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Check, ChevronDown, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 export function Button({
   children,
@@ -24,6 +24,99 @@ export function Badge({ children, tone = 'slate' }: { children: ReactNode; tone?
     amber: 'border-amber-400/25 bg-amber-400/10 text-amber-300'
   }
   return <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-semibold ${tones[tone]}`}>{children}</span>
+}
+
+export interface SelectOption {
+  value: string
+  label: string
+}
+
+export function Select({
+  value,
+  onChange,
+  options,
+  className = '',
+  placeholder = 'Выберите...',
+  disabled = false
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: SelectOption[]
+  className?: string
+  placeholder?: string
+  disabled?: boolean
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selected = options.find((option) => option.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const onOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-left text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-45 ${
+          open
+            ? 'border-mint-400/60 bg-ink-900 ring-2 ring-mint-400/10'
+            : 'border-white/[0.08] bg-ink-900/80 hover:border-white/20 focus:border-mint-400/60 focus:ring-2 focus:ring-mint-400/10'
+        }`}
+      >
+        <span className={`truncate ${selected ? 'text-slate-100' : 'text-slate-500'}`}>
+          {selected?.label ?? placeholder}
+        </span>
+        <ChevronDown size={15} className={`shrink-0 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.14 }}
+            className="absolute z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border border-white/10 bg-ink-800/95 p-1.5 shadow-panel backdrop-blur-xl"
+          >
+            {options.map((option) => {
+              const active = option.value === value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${
+                    active ? 'bg-mint-400/10 text-mint-300' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                  }`}
+                >
+                  <span className="truncate">{option.label}</span>
+                  {active && <Check size={13} className="shrink-0" />}
+                </button>
+              )
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }
 
 export function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }): JSX.Element {

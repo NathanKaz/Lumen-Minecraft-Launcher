@@ -40,7 +40,7 @@ export function Modpacks(): JSX.Element {
     try {
       await api.installModpackFromModrinth(profile.id, projectId)
       await refresh()
-      pushToast('success', `Сборка «${title}» установлена`)
+      pushToast('success', `Модпак «${title}» установлен`)
     } finally {
       setInstalling(null)
       setBusy(false)
@@ -63,7 +63,7 @@ export function Modpacks(): JSX.Element {
   return (
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
-        title="Сборки"
+        title="Модпаки"
         subtitle="Готовые модпаки из Modrinth или установка из файла .mrpack."
         action={<Button onClick={() => void installLocal()} disabled={busy}><FileArchive size={16} /> Установить .mrpack</Button>}
       />
@@ -79,7 +79,7 @@ export function Modpacks(): JSX.Element {
           setBusy(true)
           void api.installModpackFilePath(profile.id, file.path).then(async () => {
             await refresh()
-            pushToast('success', 'Сборка добавлена')
+            pushToast('success', 'Модпак добавлен')
           }).finally(() => setBusy(false))
         }}
         className={`panel mb-6 flex items-center gap-5 border-2 border-dashed p-6 transition ${dragging ? 'border-mint-400/60 bg-mint-400/[0.06]' : 'border-white/[0.08]'}`}
@@ -88,15 +88,15 @@ export function Modpacks(): JSX.Element {
           <Upload size={24} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-white">Перетащите файл сборки сюда</div>
-          <p className="mt-1 text-xs text-slate-500">Поддерживаются файлы .mrpack и .zip из Modrinth. Сборка установится в выбранный профиль «{profile?.name ?? '—'}».</p>
+          <div className="text-sm font-bold text-white">Перетащите файл модпака сюда</div>
+          <p className="mt-1 text-xs text-slate-500">Поддерживаются файлы .mrpack и .zip из Modrinth. Модпак установится в выбранную сборку «{profile?.name ?? '—'}».</p>
         </div>
         <Button onClick={() => void installLocal()} disabled={busy}>Выбрать файл</Button>
       </div>
 
       {installedPacks.length > 0 && (
         <div className="mb-7">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Установленные сборки</h3>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Установленные модпаки</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {installedPacks.map((item) => (
               <div key={item.id} className="panel flex items-center gap-3 p-4">
@@ -105,7 +105,7 @@ export function Modpacks(): JSX.Element {
                   <div className="truncate text-sm font-semibold text-white">{item.modpack?.name}</div>
                   <div className="text-[11px] text-slate-500">v{item.modpack?.version} · MC {item.versionId} · {item.loader}</div>
                 </div>
-                <Badge tone="mint">Установлена</Badge>
+                <Badge tone="mint">Установлен</Badge>
               </div>
             ))}
           </div>
@@ -113,10 +113,10 @@ export function Modpacks(): JSX.Element {
       )}
 
       <div className="mb-4 flex items-center gap-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Популярные сборки</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Популярные модпаки</h3>
         <div className="relative ml-auto w-full max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input className="input py-2 pl-9 text-xs" placeholder="Поиск сборок" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input className="input py-2 pl-9 text-xs" placeholder="Поиск модпаков" value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
       </div>
 
@@ -148,14 +148,14 @@ export function Modpacks(): JSX.Element {
                 </div>
                 <Button variant="primary" className="mt-4 w-full" disabled={busy} onClick={() => void install(pack.project_id, pack.title)}>
                   {installing === pack.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                  {installing === pack.project_id ? 'Установка...' : 'Установить сборку'}
+                  {installing === pack.project_id ? 'Установка...' : 'Установить модпак'}
                 </Button>
               </div>
             </motion.div>
           ))}
         </div>
       ) : (
-        <EmptyState icon={<Package size={22} />} title="Сборки не найдены" description="Попробуйте изменить запрос." />
+        <EmptyState icon={<Package size={22} />} title="Модпаки не найдены" description="Попробуйте изменить запрос." />
       )}
     </div>
   )

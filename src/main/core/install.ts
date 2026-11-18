@@ -314,7 +314,7 @@ async function installAssets(indexId: string): Promise<void> {
     size: object.size,
     label: 'ассеты'
   }))
-  await downloadMany(tasks, 'assets', 'Загрузка ассетов', 8)
+  await downloadMany(tasks, 'assets', 'Загрузка ассетов', 3)
 
   if (indexId === 'legacy') {
     for (const [relative, object] of Object.entries(index.objects)) {

@@ -57,7 +57,7 @@ export function Mods(): JSX.Element {
     try {
       await api.installMod(profile.id, projectId)
       await loadMods()
-      pushToast('success', 'Мод добавлен в профиль')
+      pushToast('success', 'Мод добавлен в сборку')
     } finally {
       setInstalling(null)
       setBusy(false)
@@ -91,7 +91,7 @@ export function Mods(): JSX.Element {
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
         title="Моды"
-        subtitle={`Каталог Modrinth и управление модами профиля «${profile?.name ?? '—'}».`}
+        subtitle={`Каталог Modrinth и управление модами сборки «${profile?.name ?? '—'}».`}
         action={<Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> Установить из файла</Button>}
       />
 

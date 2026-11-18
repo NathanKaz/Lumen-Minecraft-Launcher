@@ -47,7 +47,7 @@ async function installFabric(gameVersion: string, requestedVersion?: string): Pr
   const intermediary = intermediaries[0]
   if (!intermediary) throw new Error('Не удалось получить intermediary для Fabric')
 
-  emitLoader('Сборка профиля Fabric', 35)
+  emitLoader('Сборка загрузчика Fabric', 35)
   const profile = await fetchJson<VersionJson>(
     `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}/${selected.version}/${intermediary.version}/profile/json`
   )

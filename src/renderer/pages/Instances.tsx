@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Boxes, Check, Download, Gamepad2, Layers3, Pencil, Plus, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../components/ui'
+import { Badge, Button, EmptyState, Modal, SectionHeader, Select, Spinner } from '../components/ui'
 import type { LoaderType, Profile } from '@shared/types'
 
 const loaders: Array<{ id: LoaderType; label: string; hint: string }> = [
@@ -15,7 +15,7 @@ const loaders: Array<{ id: LoaderType; label: string; hint: string }> = [
 
 const emptyProfile = (version: string): Profile => ({
   id: crypto.randomUUID(),
-  name: 'Новый профиль',
+  name: 'Новая сборка',
   versionId: version,
   loader: 'fabric',
   memory: 2048,
@@ -48,7 +48,7 @@ export function Instances(): JSX.Element {
       if (creating) await api.createProfile(editing)
       else await api.updateProfile(editing.id, editing)
       await refresh()
-      pushToast('success', creating ? 'Профиль создан' : 'Профиль сохранён')
+      pushToast('success', creating ? 'Сборка создана' : 'Сборка сохранена')
       setEditing(null)
       setCreating(false)
     } finally {
@@ -70,7 +70,7 @@ export function Instances(): JSX.Element {
   }
 
   const remove = async (profile: Profile) => {
-    if (!confirm(`Удалить профиль «${profile.name}»? Файлы игры останутся на диске.`)) return
+    if (!confirm(`Удалить сборку «${profile.name}»? Файлы игры останутся на диске.`)) return
     await api.deleteProfile(profile.id)
     await refresh()
   }
@@ -78,17 +78,17 @@ export function Instances(): JSX.Element {
   return (
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
-        title="Профили"
-        subtitle="Каждый профиль — отдельная версия игры со своими модами и настройками."
-        action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать профиль</Button>}
+        title="Сборки"
+        subtitle="Каждая сборка — отдельная версия игры со своими модами и настройками."
+        action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
       />
 
       {state.profiles.length === 0 ? (
         <EmptyState
           icon={<Boxes size={22} />}
-          title="Пока нет профилей"
-          description="Создайте первый профиль, чтобы установить Minecraft и моды."
-          action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать профиль</Button>}
+          title="Пока нет сборок"
+          description="Создайте первую сборку, чтобы установить Minecraft и моды."
+          action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -155,7 +155,7 @@ export function Instances(): JSX.Element {
         </div>
       )}
 
-      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={creating ? 'Новый профиль' : 'Редактирование профиля'}>
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={creating ? 'Новая сборка' : 'Редактирование сборки'}>
         {editing && (
           <div className="space-y-5">
             <div>
@@ -164,13 +164,11 @@ export function Instances(): JSX.Element {
             </div>
             <div>
               <label className="label">Версия Minecraft</label>
-              <select
-                className="input"
+              <Select
                 value={editing.versionId}
-                onChange={(event) => setEditing({ ...editing, versionId: event.target.value, loaderVersionId: undefined })}
-              >
-                {releaseVersions.map((version) => <option key={version.id} value={version.id}>{version.id}</option>)}
-              </select>
+                onChange={(versionId) => setEditing({ ...editing, versionId, loaderVersionId: undefined })}
+                options={releaseVersions.map((version) => ({ value: version.id, label: `Minecraft ${version.id}` }))}
+              />
             </div>
             <div>
               <label className="label">Загрузчик модов</label>

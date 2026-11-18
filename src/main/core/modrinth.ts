@@ -90,7 +90,7 @@ export async function installModrinthProject(
   visited = new Set<string>()
 ): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Профиль не найден')
+  if (!profile) throw new Error('Сборка не найдена')
   if (visited.has(`${projectId}:${versionId ?? ''}`)) return
   visited.add(`${projectId}:${versionId ?? ''}`)
 
@@ -134,7 +134,7 @@ export async function installModrinthProject(
 
 export async function installMod(profileId: string, projectId: string): Promise<void> {
   await installModrinthProject(profileId, projectId)
-  emitToast('success', 'Мод установлен в выбранный профиль')
+  emitToast('success', 'Мод установлен в выбранную сборку')
 }
 
 export async function getModVersionsForMrpack(projectId: string) {

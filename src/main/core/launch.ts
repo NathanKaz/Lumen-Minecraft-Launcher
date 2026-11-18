@@ -34,7 +34,7 @@ export async function launchGame(profileId: string): Promise<void> {
   if (child && !child.killed) throw new Error('Игра уже запущена')
   const state = getState()
   const profile = state.profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Профиль не найден')
+  if (!profile) throw new Error('Сборка не найдена')
 
   const versionId = profile.loaderVersionId ?? profile.versionId
   const version = (await readVersionJson(versionId)) ?? (await resolveVersion(versionId))

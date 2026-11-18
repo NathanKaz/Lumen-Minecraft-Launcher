@@ -1,11 +1,11 @@
 import path from 'node:path'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
-import { Readable, Transform } from 'node:stream'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { emitProgress } from './events'
+import { request, withRetry } from './net'
 import type { ProgressPhase } from '@shared/types'
-import { USER_AGENT } from './http'
 
 export interface DownloadTask {
   url: string
@@ -19,6 +19,8 @@ interface DownloadResult {
   bytes: number
   skipped: boolean
 }
+
+const READ_TIMEOUT = 180000
 
 function hashFile(file: string, algorithm: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -45,60 +47,61 @@ async function downloadOne(task: DownloadTask, onChunk: (bytes: number, total: n
     return { bytes: task.size ?? fs.statSync(task.dest).size, skipped: true }
   }
 
-  let lastError: Error | undefined
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await fs.ensureDir(path.dirname(task.dest))
-      const response = await fetch(task.url, {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(180000)
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${task.url}`)
+  const label = task.label ?? path.basename(task.dest)
+  const part = `${task.dest}.part`
 
-      const total = Number(response.headers.get('content-length') ?? task.size ?? 0)
-      const part = `${task.dest}.part`
-      await fs.remove(part)
+  return withRetry(`Не удалось скачать ${label}`, async () => {
+    await fs.ensureDir(path.dirname(task.dest))
+    await fs.remove(part)
 
-      let received = 0
-      let lastEmit = 0
-      const source = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream)
-      const counter = new Transform({
-        transform(chunk: Buffer, _encoding, callback) {
-          received += chunk.length
-          const now = Date.now()
-          if (now - lastEmit > 90) {
-            lastEmit = now
-            onChunk(received, total)
-          }
-          callback(null, chunk)
+    const { response } = await request(task.url, READ_TIMEOUT)
+    // Защита от «зависшего» соединения после получения заголовков.
+    response.setTimeout(READ_TIMEOUT, () => {
+      response.destroy(new Error(`Таймаут чтения ${Math.round(READ_TIMEOUT / 1000)} с`))
+    })
+
+    const headerSize = Number(response.headers['content-length'] ?? 0)
+    const total = Number.isFinite(headerSize) && headerSize > 0 ? headerSize : (task.size ?? 0)
+
+    let received = 0
+    let lastEmit = 0
+    const counter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        received += chunk.length
+        const now = Date.now()
+        if (now - lastEmit > 90) {
+          lastEmit = now
+          onChunk(received, total)
         }
-      })
-      await pipeline(source, counter, fs.createWriteStream(part))
+        callback(null, chunk)
+      }
+    })
+
+    try {
+      await pipeline(response, counter, fs.createWriteStream(part))
       onChunk(received, total)
 
       if (task.sha1) {
         const actual = await hashFile(part, 'sha1')
         if (actual !== task.sha1.toLowerCase()) {
-          await fs.remove(part)
-          throw new Error(`Контрольная сумма не совпала: ${task.label ?? path.basename(task.dest)}`)
+          throw new Error(`Контрольная сумма не совпала: ${label}`)
         }
       }
 
       await fs.move(part, task.dest, { overwrite: true })
       return { bytes: received, skipped: false }
     } catch (error) {
-      lastError = error as Error
-      await fs.remove(`${task.dest}.part`)
+      await fs.remove(part)
+      throw error
     }
-  }
-  throw new Error(`Не удалось скачать ${task.label ?? path.basename(task.dest)}: ${lastError?.message ?? 'неизвестная ошибка'}`)
+  }, 3)
 }
 
 export async function downloadMany(
   tasks: DownloadTask[],
   phase: ProgressPhase,
   label: string,
-  concurrency = 6
+  concurrency = 4
 ): Promise<void> {
   if (tasks.length === 0) return
 
@@ -107,6 +110,7 @@ export async function downloadMany(
   let completed = 0
   let activeBytes = 0
   const active = new Map<number, number>()
+  const workerState = new Map<number, number>()
   let lastEmit = 0
   let windowBytes = 0
   let windowTime = Date.now()
@@ -156,7 +160,7 @@ export async function downloadMany(
       report(true)
     }
   }
-  const workerState = new Map<number, number>()
+
   await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()))
   report(true)
 }

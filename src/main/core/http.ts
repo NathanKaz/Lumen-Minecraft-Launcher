@@ -1,21 +1,16 @@
-export const USER_AGENT = 'NeonLauncher/1.0.0 (+https://github.com/NathanKaz/Minecraft-launcher)'
+import { requestText } from './net'
+
+export { USER_AGENT } from './net'
 
 export async function fetchJson<T>(url: string, timeout = 30000): Promise<T> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    signal: AbortSignal.timeout(timeout)
-  })
-  if (!response.ok) {
-    throw new Error(`Запрос ${url} завершился с кодом ${response.status}`)
+  const text = await requestText(url, timeout)
+  try {
+    return JSON.parse(text) as T
+  } catch (error) {
+    throw new Error(`Неверный JSON в ответе ${url}: ${(error as Error).message}`)
   }
-  return (await response.json()) as T
 }
 
 export async function fetchText(url: string, timeout = 30000): Promise<string> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-    signal: AbortSignal.timeout(timeout)
-  })
-  if (!response.ok) throw new Error(`Запрос ${url} завершился с кодом ${response.status}`)
-  return response.text()
+  return requestText(url, timeout)
 }

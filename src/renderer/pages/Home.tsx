@@ -14,7 +14,7 @@ const phaseNames: Record<ProgressPhase, string> = {
   assets: 'Ассеты',
   loader: 'Загрузчик',
   mod: 'Мод',
-  modpack: 'Сборка',
+  modpack: 'Модпак',
   launch: 'Запуск'
 }
 
@@ -74,7 +74,7 @@ export function Home(): JSX.Element {
   }
 
   if (!profile) {
-    return <div className="panel p-10 text-center text-slate-400">Создайте профиль, чтобы начать игру.</div>
+    return <div className="panel p-10 text-center text-slate-400">Создайте сборку, чтобы начать игру.</div>
   }
 
   const isPlaying = gameStatus === 'running' || gameStatus === 'starting'
@@ -86,7 +86,7 @@ export function Home(): JSX.Element {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-400">Приветствую, {state?.account.name}</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white">Готовы к приключению?</h1>
-          <p className="subtitle mt-2">Управляйте версиями, модами и сборками из одного места.</p>
+          <p className="subtitle mt-2">Управляйте версиями, модами и модпаками из одного места.</p>
         </div>
         <div className="hidden items-center gap-2 sm:flex">
           <Badge tone="mint"><span className="h-1.5 w-1.5 rounded-full bg-mint-400" /> Система готова</Badge>
@@ -109,7 +109,7 @@ export function Home(): JSX.Element {
           <div className="flex flex-col justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="mint"><Gamepad2 size={12} /> Активный профиль</Badge>
+                <Badge tone="mint"><Gamepad2 size={12} /> Активная сборка</Badge>
                 <Badge>Minecraft {profile.versionId}</Badge>
                 <Badge tone="iris">{profile.loader.toUpperCase()}</Badge>
                 {profile.modpack && <Badge tone="amber"><Layers3 size={12} /> {profile.modpack.name}</Badge>}
@@ -214,8 +214,8 @@ export function Home(): JSX.Element {
           <div className="grid gap-2 sm:grid-cols-2">
             {[
               { icon: Wrench, label: 'Установить мод', page: 'mods' as const },
-              { icon: Layers3, label: 'Найти сборку', page: 'modpacks' as const },
-              { icon: Box, label: 'Другой профиль', page: 'instances' as const },
+              { icon: Layers3, label: 'Найти модпак', page: 'modpacks' as const },
+              { icon: Box, label: 'Другая сборка', page: 'instances' as const },
               { icon: FolderOpen, label: 'Папка игры', page: null }
             ].map((action) => (
               <button

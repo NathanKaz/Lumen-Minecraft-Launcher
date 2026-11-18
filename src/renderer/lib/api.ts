@@ -191,15 +191,15 @@ function createMock(): LauncherAPI {
       return normalized ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized)) : packs
     },
     installModpack: async () => {
-      await mockProgress('Установка сборки', 'modpack')
+      await mockProgress('Установка модпака', 'modpack')
     },
     installModpackFilePath: async () => {
-      await mockProgress('Установка сборки', 'modpack')
+      await mockProgress('Установка модпака', 'modpack')
     },
     installModpackFromModrinth: async (profileId, projectId) => {
-      await mockProgress('Скачивание сборки', 'modpack')
+      await mockProgress('Скачивание модпака', 'modpack')
       await mockProgress('Установка модов', 'mod',)
-      emit('toast', { id: String(Date.now()), type: 'success', message: 'Сборка установлена (демо-режим)' })
+      emit('toast', { id: String(Date.now()), type: 'success', message: 'Модпак установлен (демо-режим)' })
     },
     windowAction: async () => undefined,
     getJavaInfo: async (): Promise<JavaInfo> => ({ path: '/usr/lib/jvm/java-17-openjdk/bin/java', version: '17.0.12', major: 17, valid: true }),

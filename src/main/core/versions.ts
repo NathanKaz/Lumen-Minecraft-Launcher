@@ -7,7 +7,7 @@ import { installLoader } from './loaders'
 
 export async function installProfile(profileId: string, loaderVersion?: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Профиль не найден')
+  if (!profile) throw new Error('Сборка не найдена')
 
   emitProgress({
     phase: 'version',

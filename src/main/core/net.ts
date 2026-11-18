@@ -1,0 +1,99 @@
+import http, { type IncomingMessage } from 'node:http'
+import https from 'node:https'
+import { URL } from 'node:url'
+import { emitLog } from './events'
+
+export const USER_AGENT = 'NeonLauncher/1.0.0 (+https://github.com/NathanKaz/Minecraft-launcher)'
+
+// Общий агент с ограничением сокетов: Mojang CDN чувствителен к большим
+// скачкам, поэтому параллельные запросы не должны открывать десятки соединений.
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 4 })
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 4 })
+
+export interface NetworkResponse {
+  response: IncomingMessage
+  url: string
+}
+
+function describeError(error: unknown, url: string): string {
+  const err = error as Error & { code?: string; cause?: unknown }
+  const cause = err?.cause
+  let detail = ''
+  if (cause instanceof Error) detail = `: ${cause.message}`
+  else if (cause) detail = `: ${String(cause)}`
+  else if (err?.code) detail = `: ${err.code}`
+  return `${err?.message ?? String(error)}${detail} [${url}]`
+}
+
+export function request(
+  url: string,
+  timeout = 30000,
+  headers: Record<string, string> = {},
+  redirectsLeft = 5
+): Promise<NetworkResponse> {
+  const target = new URL(url)
+  const isHttps = target.protocol === 'https:'
+  const transport = isHttps ? https : http
+
+  return new Promise<NetworkResponse>((resolve, reject) => {
+    const req = transport.get(
+      target,
+      {
+        agent: isHttps ? httpsAgent : httpAgent,
+        headers: { 'User-Agent': USER_AGENT, ...headers }
+      },
+      (response) => {
+        const status = response.statusCode ?? 0
+
+        if (status >= 300 && status < 400 && response.headers.location) {
+          response.resume()
+          if (redirectsLeft <= 0) {
+            reject(new Error(`Слишком много перенаправлений: ${url}`))
+            return
+          }
+          const next = new URL(response.headers.location, target).toString()
+          request(next, timeout, headers, redirectsLeft - 1).then(resolve, reject)
+          return
+        }
+
+        if (status < 200 || status >= 300) {
+          response.resume()
+          reject(new Error(`HTTP ${status} при запросе ${target.toString()}`))
+          return
+        }
+
+        resolve({ response, url: target.toString() })
+      }
+    )
+
+    req.setTimeout(timeout, () => {
+      req.destroy(new Error(`Таймаут подключения ${Math.round(timeout / 1000)} с`))
+    })
+    req.on('error', (error) => reject(new Error(describeError(error, target.toString()))))
+  })
+}
+
+export async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: Error | undefined
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error as Error
+      emitLog('warn', `${label} · попытка ${attempt}/${attempts} не удалась: ${lastError.message}`)
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
+      }
+    }
+  }
+  throw new Error(`${label}: ${lastError?.message ?? 'неизвестная ошибка'}`)
+}
+
+export async function requestText(url: string, timeout = 30000): Promise<string> {
+  return withRetry(`Запрос ${url}`, async () => {
+    const { response } = await request(url, timeout, { Accept: 'application/json' })
+    const chunks: Buffer[] = []
+    for await (const chunk of response) chunks.push(Buffer.from(chunk))
+    return Buffer.concat(chunks).toString('utf8')
+  })
+}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Coffee, Copy, FolderOpen, RefreshCw, Terminal, Trash2, XCircle } from 'lucide-react'
 import { api, isMock } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, SectionHeader, Spinner, Toggle } from '../components/ui'
+import { Badge, Button, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
 import type { JavaInfo } from '@shared/types'
 
 export function Settings(): JSX.Element {
@@ -123,8 +123,8 @@ export function Settings(): JSX.Element {
           <div className="grid gap-2">
             {([
               ['root', 'Данные лаунчера'],
-              ['instances', 'Профили и миры'],
-              ['mods', 'Моды активного профиля'],
+              ['instances', 'Сборки и миры'],
+              ['mods', 'Моды активной сборки'],
               ['logs', 'Журналы']
             ] as const).map(([kind, label]) => (
               <button
@@ -156,14 +156,15 @@ export function Settings(): JSX.Element {
                 <div className="text-xs font-semibold text-slate-200">Язык интерфейса</div>
                 <div className="text-[10px] text-slate-500">Русский и английский</div>
               </div>
-              <select
-                className="input w-28 py-1.5 text-xs"
+              <Select
+                className="w-28"
                 value={settings.language}
-                onChange={(event) => void update({ language: event.target.value as 'ru' | 'en' })}
-              >
-                <option value="ru">Русский</option>
-                <option value="en">English</option>
-              </select>
+                onChange={(language) => void update({ language: language as 'ru' | 'en' })}
+                options={[
+                  { value: 'ru', label: 'Русский' },
+                  { value: 'en', label: 'English' }
+                ]}
+              />
             </div>
             {isMock && <Badge tone="iris">Демо-режим: файлы не изменяются</Badge>}
           </div>
