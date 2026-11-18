@@ -67,6 +67,12 @@ export async function launchGame(profileId: string): Promise<void> {
     auth_uuid: state.account.uuid,
     auth_access_token: state.account.token,
     auth_session: state.account.token,
+    clientid: state.account.uuid,
+    auth_xuid: '',
+    quickPlayPath: '',
+    quickPlaySingleplayer: '',
+    quickPlayMultiplayer: '',
+    quickPlayRealms: '',
     user_properties: '{}',
     user_type: state.account.type === 'microsoft' ? 'mojang' : 'legacy',
     version_name: version.id,
@@ -91,7 +97,9 @@ export async function launchGame(profileId: string): Promise<void> {
   replacements.classpath = classpath
 
   const substitute = (value: string): string =>
-    value.replace(/\$\{([^}]+)\}/g, (match, key: string) => replacements[key] ?? match)
+    typeof value === 'string'
+      ? value.replace(/\$\{([^}]+)\}/g, (match, key: string) => replacements[key] ?? match)
+      : ''
 
   const jvmArgs: string[] = [
     `-Xmx${profile.memory || state.settings.memory}M`,

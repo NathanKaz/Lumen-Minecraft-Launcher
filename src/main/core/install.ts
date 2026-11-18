@@ -20,6 +20,9 @@ export interface ArgItem {
   value: string | string[]
 }
 
+// Mojang в новых версиях метаданных смешивает объекты с rules/value и обычные строки.
+export type Arg = string | ArgItem
+
 export interface Library {
   name: string
   downloads?: {
@@ -40,7 +43,7 @@ export interface VersionJson {
   released?: string
   mainClass?: string
   minecraftArguments?: string
-  arguments?: { game?: ArgItem[]; jvm?: ArgItem[] }
+  arguments?: { game?: Arg[]; jvm?: Arg[] }
   libraries?: Library[]
   assetIndex?: { id: string; url: string; size: number; sha1?: string }
   assets?: string
@@ -76,9 +79,14 @@ export function ruleAllowed(rules: Rule[] | undefined, features: Record<string, 
   return allowed
 }
 
-export function argValues(items: ArgItem[] | undefined, features: Record<string, boolean> = {}): string[] {
+export function argValues(items: Arg[] | undefined, features: Record<string, boolean> = {}): string[] {
   const result: string[] = []
   for (const item of items ?? []) {
+    if (typeof item === 'string') {
+      result.push(item)
+      continue
+    }
+    if (!item || typeof item.value === 'undefined') continue
     if (!ruleAllowed(item.rules, features)) continue
     if (Array.isArray(item.value)) result.push(...item.value)
     else result.push(item.value)
