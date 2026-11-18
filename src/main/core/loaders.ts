@@ -32,24 +32,20 @@ async function saveVersionJson(json: VersionJson): Promise<string> {
 
 async function installFabric(gameVersion: string, requestedVersion?: string): Promise<string> {
   emitLoader('Получение данных Fabric', 12)
-  const loaders = await fetchJson<Array<{ version: string; stable?: boolean; maven: string }>>(
-    `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}`
-  )
+  const loaders = await fetchJson<
+    Array<{ loader: { version: string; stable?: boolean }; intermediary?: { version: string } }>
+  >(`https://meta.fabricmc.net/v2/versions/loader/${gameVersion}`)
   if (!loaders.length) throw new Error(`Fabric недоступен для Minecraft ${gameVersion}`)
-  const selected = requestedVersion
-    ? loaders.find((entry) => entry.version === requestedVersion)
-    : (loaders.find((entry) => entry.stable) ?? loaders[0])
-  if (!selected) throw new Error(`Версия Fabric ${requestedVersion} не найдена`)
 
-  const intermediaries = await fetchJson<Array<{ version: string; maven: string }>>(
-    `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}/${selected.version}/intermediary`
-  )
-  const intermediary = intermediaries[0]
-  if (!intermediary) throw new Error('Не удалось получить intermediary для Fabric')
+  const selected = requestedVersion
+    ? loaders.find((entry) => entry.loader?.version === requestedVersion)
+    : (loaders.find((entry) => entry.loader?.stable) ?? loaders[0])
+  const loaderVersion = selected?.loader?.version
+  if (!loaderVersion) throw new Error(`Версия Fabric ${requestedVersion ?? ''} не найдена`.trim())
 
   emitLoader('Сборка загрузчика Fabric', 35)
   const profile = await fetchJson<VersionJson>(
-    `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}/${selected.version}/${intermediary.version}/profile/json`
+    `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}/${loaderVersion}/profile/json`
   )
   profile.inheritsFrom = profile.inheritsFrom ?? gameVersion
   const id = await saveVersionJson(profile)
