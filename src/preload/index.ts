@@ -32,6 +32,7 @@ const api: LauncherAPI = {
   searchMods: (query, gameVersion, loader, offset) => invoke(IPC.searchMods, query, gameVersion, loader, offset),
   installMod: (id, projectId) => invoke(IPC.installMod, id, projectId),
   searchModpacks: (query) => invoke(IPC.searchModpacks, query),
+  getProjectDetails: (projectId) => invoke(IPC.getProjectDetails, projectId),
   installModpack: (id) => invoke(IPC.installModpack, id),
   installModpackFilePath: (id, filePath) => invoke(IPC.installModpackFilePath, id, filePath),
   installModpackFromModrinth: (id, projectId) => invoke(IPC.installModpackFromModrinth, id, projectId),

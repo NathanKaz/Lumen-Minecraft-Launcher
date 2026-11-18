@@ -6,6 +6,7 @@ import type {
   LogPayload,
   ModInfo,
   ModrinthProject,
+  ModrinthProjectDetails,
   ProgressPayload,
   Profile,
   ScreenshotInfo,
@@ -273,6 +274,31 @@ function createMock(): LauncherAPI {
       ]
       const normalized = query.trim().toLowerCase()
       return normalized ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized)) : packs
+    },
+    getProjectDetails: async (projectId): Promise<ModrinthProjectDetails> => {
+      await wait(220)
+      const base = mockProjects.find((project) => project.project_id === projectId)
+      const pack = !base ? [
+        { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] },
+        { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
+        { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
+      ].find((item) => item.project_id === projectId) : null
+      const project = base ?? pack
+      if (!project) throw new Error('Проект не найден')
+      return {
+        ...project,
+        body: `## О проекте\n\n${project.description}\n\n### Возможности\n- Подробное описание и скриншоты прямо в лаунчере\n- Быстрая установка в выбранную сборку\n- Совместимость и версии отображаются в панели деталей\n\n### Примечание\nЭто демонстрационные данные, показанные в режиме предпросмотра.`,
+        gallery: [
+          { url: screenshotImage(project.title, '#1e3a8a'), featured: true, title: 'Главный экран', description: project.description, ordering: 0 },
+          { url: screenshotImage(`${project.title} · Мир`, '#312e81'), featured: false, title: 'Игровой процесс', description: 'Пример скриншота проекта', ordering: 1 },
+          { url: screenshotImage(`${project.title} · Детали`, '#065f46'), featured: false, title: 'Интерфейс', description: 'Дополнительный вид', ordering: 2 }
+        ],
+        game_versions: project.versions ?? ['1.21.4', '1.20.1', '1.19.4'],
+        loaders: project.categories.filter((category) => ['fabric', 'forge', 'neoforge', 'quilt'].includes(category)),
+        source_url: 'https://example.com/source',
+        issues_url: 'https://example.com/issues',
+        wiki_url: 'https://example.com/wiki'
+      }
     },
     installModpack: async () => {
       await mockProgress('Установка модпака', 'modpack')

@@ -84,6 +84,8 @@ export function Instances(): JSX.Element {
   const [newGroupName, setNewGroupName] = useState('')
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
+  const [renamingGroupName, setRenamingGroupName] = useState('')
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
@@ -203,11 +205,21 @@ export function Instances(): JSX.Element {
     setNewGroupName('')
   }
 
-  const renameGroup = async (group: BuildGroup) => {
-    const name = prompt('Название группы', group.name)?.trim()
-    if (!name || name === group.name) return
+  const startRenameGroup = (group: BuildGroup) => {
+    setRenamingGroupId(group.id)
+    setRenamingGroupName(group.name)
+  }
+
+  const commitRenameGroup = async () => {
+    if (!renamingGroupId) return
+    const group = state.groups.find((item) => item.id === renamingGroupId)
+    const name = renamingGroupName.trim()
+    setRenamingGroupId(null)
+    setRenamingGroupName('')
+    if (!group || !name || name === group.name) return
     await api.setState({ groups: state.groups.map((item) => (item.id === group.id ? { ...item, name } : item)) })
     await refresh()
+    pushToast('success', 'Группа переименована')
   }
 
   const deleteGroup = async (group: BuildGroup) => {
@@ -544,15 +556,40 @@ export function Instances(): JSX.Element {
         )}
       </Modal>
 
-      <Modal open={groupsOpen} onClose={() => setGroupsOpen(false)} title="Группы сборок">
+      <Modal
+        open={groupsOpen}
+        onClose={() => {
+          setGroupsOpen(false)
+          setRenamingGroupId(null)
+          setRenamingGroupName('')
+        }}
+        title="Группы сборок"
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             {state.groups.map((group) => (
               <div key={group.id} className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-mint-400/10 text-mint-400"><Users size={15} /></div>
-                <div className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-200">{group.name}</div>
+                {renamingGroupId === group.id ? (
+                  <input
+                    autoFocus
+                    value={renamingGroupName}
+                    onChange={(event) => setRenamingGroupName(event.target.value)}
+                    onBlur={() => void commitRenameGroup()}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void commitRenameGroup()
+                      if (event.key === 'Escape') {
+                        setRenamingGroupId(null)
+                        setRenamingGroupName('')
+                      }
+                    }}
+                    className="input min-w-0 flex-1 py-2 text-sm"
+                  />
+                ) : (
+                  <div className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-200">{group.name}</div>
+                )}
                 <button
-                  onClick={() => void renameGroup(group)}
+                  onClick={() => startRenameGroup(group)}
                   className="rounded-lg border border-white/[0.08] p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
                   title="Переименовать"
                 >

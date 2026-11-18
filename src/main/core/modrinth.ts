@@ -5,7 +5,7 @@ import { downloadMany, type DownloadTask } from './downloader'
 import { fetchJson } from './http'
 import { emitProgress, emitToast } from './events'
 import { getState } from './store'
-import type { ModrinthProject } from '@shared/types'
+import type { ModrinthProject, ModrinthProjectDetails } from '@shared/types'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -79,6 +79,17 @@ export async function searchModpacks(query: string): Promise<ModrinthProject[]> 
   } catch {
     return []
   }
+}
+
+export async function getProjectDetails(projectId: string): Promise<ModrinthProjectDetails> {
+  const project = await fetchJson<ModrinthProjectDetails>(`${API}/project/${encodeURIComponent(projectId)}`)
+  if (project.follow_count == null && typeof project.followers === 'number') {
+    project.follow_count = project.followers
+  }
+  if (Array.isArray(project.gallery)) {
+    project.gallery = [...project.gallery].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0))
+  }
+  return project
 }
 
 async function projectVersions(projectId: string, gameVersion?: string, loader?: string): Promise<ModrinthVersion[]> {

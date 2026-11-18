@@ -42,8 +42,17 @@
     "productName": "Neon Launcher",
     "directories": { "output": "release" },
     "files": ["dist/**/*", "package.json"],
-    "linux": { "target": ["AppImage"], "category": "Game" },
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"] }
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Game",
+      "maintainer": "NathanKaz <nathankaz@example.com>"
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.games"
+    }
   }
 }

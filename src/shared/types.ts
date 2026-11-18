@@ -122,12 +122,35 @@ export interface ModrinthProject {
   description: string
   icon_url?: string | null
   downloads: number
-  follow_count: number
+  /** Some API responses use `followers` instead of `follow_count`. */
+  follow_count?: number
+  followers?: number
   categories: string[]
   project_type?: string
   client_side?: string
   server_side?: string
   versions?: string[]
+}
+
+export interface ModrinthGalleryImage {
+  url: string
+  featured?: boolean
+  title?: string | null
+  description?: string | null
+  ordering?: number
+}
+
+export interface ModrinthProjectDetails extends ModrinthProject {
+  body?: string
+  gallery?: ModrinthGalleryImage[]
+  issues_url?: string | null
+  source_url?: string | null
+  wiki_url?: string | null
+  discord_url?: string | null
+  game_versions?: string[]
+  loaders?: string[]
+  published?: string
+  updated?: string
 }
 
 export interface ModpackInfo {
@@ -177,6 +200,7 @@ export interface LauncherAPI {
   searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
   installMod(profileId: string, projectId: string): Promise<void>
   searchModpacks(query: string): Promise<ModrinthProject[]>
+  getProjectDetails(projectId: string): Promise<ModrinthProjectDetails>
   installModpack(profileId: string): Promise<void>
   installModpackFilePath(profileId: string, filePath: string): Promise<void>
   installModpackFromModrinth(profileId: string, projectId: string): Promise<void>

@@ -4,6 +4,7 @@ import { Download, FileArchive, Layers3, Loader2, Package, Search, Upload } from
 import { api } from '../lib/api'
 import { selectedProfile, useLauncher } from '../store'
 import { Badge, Button, EmptyState, SectionHeader } from '../components/ui'
+import { ProjectDetailPanel } from '../components/ProjectDetailPanel'
 import type { ModrinthProject } from '@shared/types'
 
 export function Modpacks({ profileId, embedded = false }: { profileId?: string; embedded?: boolean }): JSX.Element {
@@ -15,6 +16,7 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
   const [loading, setLoading] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -132,10 +134,19 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
           {packs.map((pack, index) => (
             <motion.div
               key={pack.project_id}
+              role="button"
+              tabIndex={0}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              className="panel group overflow-hidden transition hover:border-iris-400/30"
+              onClick={() => setSelectedProjectId(pack.project_id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setSelectedProjectId(pack.project_id)
+                }
+              }}
+              className="panel group cursor-pointer overflow-hidden transition hover:border-iris-400/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-mint-400/40"
             >
               <div className="relative h-24 overflow-hidden bg-gradient-to-br from-iris-600/30 via-ink-800 to-mint-500/20">
                 {pack.icon_url && <img src={pack.icon_url} alt="" className="h-full w-full object-cover opacity-80 transition group-hover:scale-105" />}
@@ -149,7 +160,15 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
                   <span>{(pack.downloads / 1e6).toFixed(1)}M загрузок</span>
                   <span>{pack.categories.slice(0, 2).join(' · ')}</span>
                 </div>
-                <Button variant="primary" className="mt-4 w-full" disabled={busy} onClick={() => void install(pack.project_id, pack.title)}>
+                <Button
+                  variant="primary"
+                  className="mt-4 w-full"
+                  disabled={busy}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void install(pack.project_id, pack.title)
+                  }}
+                >
                   {installing === pack.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                   {installing === pack.project_id ? 'Установка...' : 'Установить модпак'}
                 </Button>
@@ -160,6 +179,21 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
       ) : (
         <EmptyState icon={<Package size={22} />} title="Модпаки не найдены" description="Попробуйте изменить запрос." />
       )}
+
+      <ProjectDetailPanel
+        projectId={selectedProjectId}
+        kind="modpack"
+        onClose={() => setSelectedProjectId(null)}
+        action={selectedProjectId ? {
+          label: target ? `Установить в «${target.name}»` : 'Установить модпак',
+          onClick: () => {
+            const pack = packs.find((item) => item.project_id === selectedProjectId)
+            if (pack) void install(pack.project_id, pack.title)
+          },
+          disabled: busy || !targetId,
+          loading: installing === selectedProjectId
+        } : undefined}
+      />
     </div>
   )
 }

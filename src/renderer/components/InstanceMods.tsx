@@ -4,6 +4,7 @@ import { ChevronDown, Download, FolderPlus, Loader2, Power, Search, SlidersHoriz
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
+import { ProjectDetailPanel } from './ProjectDetailPanel'
 import type { ModInfo, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 24
@@ -28,6 +29,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const [hasMore, setHasMore] = useState(false)
   const [offset, setOffset] = useState(0)
   const [installing, setInstalling] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   const versionFilter = matchVersion ? profile?.versionId : undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
@@ -176,10 +178,19 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
               {projects.map((project, index) => (
                 <motion.div
                   key={project.project_id}
+                  role="button"
+                  tabIndex={0}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(index, 12) * 0.02 }}
-                  className="panel group flex flex-col p-4 transition hover:border-mint-400/25"
+                  onClick={() => setSelectedProjectId(project.project_id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedProjectId(project.project_id)
+                    }
+                  }}
+                  className="panel group flex cursor-pointer flex-col p-4 transition hover:border-mint-400/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-mint-400/40"
                 >
                   <div className="flex items-start gap-3">
                     {project.icon_url ? (
@@ -201,7 +212,10 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                     variant="primary"
                     className="mt-4 w-full"
                     disabled={busy}
-                    onClick={() => void install(project.project_id)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void install(project.project_id)
+                    }}
                   >
                     {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                     {installing === project.project_id ? 'Установка...' : 'Установить'}
@@ -257,6 +271,18 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
           action={<Button variant="primary" onClick={() => setTab('catalog')}>Открыть каталог</Button>}
         />
       )}
+
+      <ProjectDetailPanel
+        projectId={selectedProjectId}
+        kind="mod"
+        onClose={() => setSelectedProjectId(null)}
+        action={selectedProjectId ? {
+          label: 'Установить в сборку',
+          onClick: () => void install(selectedProjectId),
+          disabled: busy,
+          loading: installing === selectedProjectId
+        } : undefined}
+      />
 
       {busy && installing && <div className="fixed bottom-6 left-1/2 -translate-x-1/2"><Spinner /></div>}
     </div>

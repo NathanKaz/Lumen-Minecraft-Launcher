@@ -19,6 +19,7 @@ export const IPC = {
   searchMods: 'modrinth:searchMods',
   installMod: 'modrinth:installMod',
   searchModpacks: 'modrinth:searchModpacks',
+  getProjectDetails: 'modrinth:getProject',
   installModpack: 'modpack:install',
   installModpackFilePath: 'modpack:installPath',
   installModpackFromModrinth: 'modpack:installModrinth',

@@ -123,7 +123,7 @@ if (command === 'build') {
   runSequence(node, [
     ['tsc', ['--noEmit']],
     ['electron-vite', ['build']],
-    ['electron-builder', []]
+    ['electron-builder', args]
   ])
 } else {
   run(node, command, args)

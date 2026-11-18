@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Box, Check, Download, FolderOpen, Gamepad2, Layers3, Pencil, Play,
-  Settings, Square, Trash2, Wrench
+  ArrowLeft, Box, Camera, Check, Download, FolderOpen, Gamepad2, Image as ImageIcon, Layers3, Pencil, Play,
+  Settings, Square, Trash2, Wrench, X
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
 import { useLauncher } from '../store'
-import { Badge, Button, Spinner } from '../components/ui'
+import { Badge, Button, EmptyState, Modal, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { InstanceMods } from '../components/InstanceMods'
 import { ProfileFields } from '../components/ProfileFields'
-import type { Profile } from '@shared/types'
+import type { Profile, ScreenshotInfo } from '@shared/types'
 
-type Tab = 'mods' | 'settings'
+type Tab = 'mods' | 'screenshots' | 'settings'
+
+function formatSize(bytes: number): string {
+  if (bytes > 1e6) return `${(bytes / 1e6).toFixed(1)} МБ`
+  return `${Math.max(1, Math.round(bytes / 1000))} КБ`
+}
+
+function formatDate(value: number): string {
+  return new Date(value).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}
 
 export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
   const {
@@ -24,12 +35,29 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
   const [installing, setInstalling] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(profile.name)
+  const [shots, setShots] = useState<ScreenshotInfo[]>([])
+  const [shotsLoading, setShotsLoading] = useState(false)
+  const [selectedShot, setSelectedShot] = useState<ScreenshotInfo | null>(null)
 
   useEffect(() => {
     setDraft({ ...profile })
     setNameDraft(profile.name)
     setEditingName(false)
+    setTab('mods')
   }, [profile.id, profile.name])
+
+  useEffect(() => {
+    let cancelled = false
+    setShotsLoading(true)
+    void api.listScreenshots(profile.id).then((result) => {
+      if (!cancelled) setShots(result)
+    }).catch(() => {
+      if (!cancelled) setShots([])
+    }).finally(() => {
+      if (!cancelled) setShotsLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [profile.id, tab])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -100,6 +128,13 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
   const remove = async () => {
     const removed = await removeProfile(current.id)
     if (removed) backToInstances()
+  }
+
+  const removeShot = async (shot: ScreenshotInfo) => {
+    await api.deleteScreenshot(shot.profileId, shot.fileName)
+    if (selectedShot?.profileId === shot.profileId && selectedShot.fileName === shot.fileName) setSelectedShot(null)
+    setShots((currentShots) => currentShots.filter((item) => !(item.profileId === shot.profileId && item.fileName === shot.fileName)))
+    pushToast('info', 'Скриншот удалён')
   }
 
   return (
@@ -201,6 +236,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
             { id: 'mods', label: 'Моды', icon: Wrench },
+            { id: 'screenshots', label: `Скриншоты${shots.length ? ` (${shots.length})` : ''}`, icon: Camera },
             { id: 'settings', label: 'Настройки', icon: Settings }
           ] as const).map((item) => (
             <button
@@ -219,6 +255,49 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
 
       <div className="panel p-5">
         {tab === 'mods' && <InstanceMods profileId={current.id} />}
+        {tab === 'screenshots' && (
+          shotsLoading ? (
+            <div className="flex items-center justify-center py-12"><Spinner size={22} /></div>
+          ) : shots.length ? (
+            <>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span>{shots.length} снимков · папка <span className="font-mono text-slate-400">&lt;сборка&gt;/screenshots</span></span>
+                <Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={14} /> Открыть папку</Button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {shots.map((shot, index) => (
+                  <motion.button
+                    key={`${shot.profileId}/${shot.fileName}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index, 12) * 0.02 }}
+                    onClick={() => setSelectedShot(shot)}
+                    className="group overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] text-left transition hover:border-mint-400/30"
+                  >
+                    <div className="relative aspect-video overflow-hidden bg-ink-950">
+                      <img src={shot.dataUrl} alt={shot.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-8">
+                        <div className="truncate text-xs font-semibold text-white">{shot.name}</div>
+                        <div className="text-[10px] text-slate-300">{formatDate(shot.createdAt)}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-3 py-2.5 text-[11px] text-slate-500">
+                      <span className="inline-flex items-center gap-1.5"><Camera size={12} /> {formatSize(shot.size)}</span>
+                      <span>Открыть</span>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<ImageIcon size={22} />}
+              title="Скриншотов пока нет"
+              description="Сделайте снимок в игре клавишей F2 — он появится здесь автоматически."
+              action={<Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={15} /> Открыть папку</Button>}
+            />
+          )
+        )}
         {tab === 'settings' && draft && (
           <div className="max-w-2xl space-y-5">
             <ProfileFields
@@ -238,6 +317,34 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
           </div>
         )}
       </div>
+
+      <Modal open={Boolean(selectedShot)} onClose={() => setSelectedShot(null)} title={selectedShot?.name ?? ''} width="max-w-4xl">
+        {selectedShot && (
+          <div className="space-y-4">
+            <img src={selectedShot.dataUrl} alt={selectedShot.name} className="w-full rounded-xl border border-white/[0.06] object-contain" />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                <Badge tone="mint">{current.name}</Badge>
+                <span>{formatDate(selectedShot.createdAt)}</span>
+                <span>· {formatSize(selectedShot.size)}</span>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={selectedShot.dataUrl}
+                  download={selectedShot.fileName}
+                  className="btn-ghost inline-flex items-center gap-2"
+                >
+                  <Download size={15} /> Скачать
+                </a>
+                <Button variant="danger" onClick={() => void removeShot(selectedShot)}>
+                  <Trash2 size={15} /> Удалить
+                </Button>
+                <Button onClick={() => setSelectedShot(null)}><X size={15} /> Закрыть</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
