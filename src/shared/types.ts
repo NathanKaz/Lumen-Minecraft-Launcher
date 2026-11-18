@@ -1,12 +1,20 @@
 export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
+export interface BuildGroup {
+  id: string
+  name: string
+  color?: string
+}
+
 export interface Profile {
   id: string
   name: string
   versionId: string
   loader: LoaderType
   loaderVersionId?: string
-  memory: number
+  /** Individual RAM override. When absent, Settings.memory is used. */
+  memory?: number
+  groupId?: string
   javaPath?: string
   createdAt: number
   lastPlayed?: number
@@ -28,6 +36,7 @@ export interface Settings {
   language: 'ru' | 'en'
   closeBehavior: 'exit' | 'tray'
   checkUpdates: boolean
+  instancesView: 'grid' | 'list'
 }
 
 export interface Account {
@@ -38,7 +47,10 @@ export interface Account {
 }
 
 export interface AppState {
+  /** Bumped when a one-time state migration is required. */
+  schemaVersion: number
   profiles: Profile[]
+  groups: BuildGroup[]
   selectedProfileId: string
   settings: Settings
   account: Account

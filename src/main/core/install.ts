@@ -275,15 +275,17 @@ export async function installClientVersion(versionId: string, version: VersionJs
   await fs.ensureDir(dir)
 
   const tasks: DownloadTask[] = []
-  if (version.client) {
-    tasks.push({
-      url: version.client.url,
-      dest: path.join(dir, `${version.id}.jar`),
-      sha1: version.client.sha1,
-      size: version.client.size,
-      label: `minecraft ${version.id}`
-    })
+  const client = version.downloads?.client ?? version.client
+  if (!client) {
+    throw new Error(`Не удалось определить файл клиента для ${version.id}`)
   }
+  tasks.push({
+    url: client.url,
+    dest: path.join(dir, `${version.id}.jar`),
+    sha1: client.sha1,
+    size: client.size,
+    label: `minecraft ${version.id}`
+  })
 
   if (version.assetIndex) {
     const indexPath = path.join(dirs.assets, 'indexes', `${version.assetIndex.id}.json`)

@@ -2,9 +2,10 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { dirs, root } from './paths'
-import type { Account, AppState, Profile, Settings } from '@shared/types'
+import type { Account, AppState, BuildGroup, Profile, Settings } from '@shared/types'
 
 const statePath = path.join(root, 'launcher-state.json')
+const currentSchemaVersion = 2
 
 function offlineUuid(name: string): string {
   const hash = crypto.createHash('md5').update(`OfflinePlayer:${name}`, 'utf8').digest('hex')
@@ -20,8 +21,11 @@ const defaultSettings: Settings = {
   fullscreen: false,
   language: 'ru',
   closeBehavior: 'exit',
-  checkUpdates: true
+  checkUpdates: true,
+  instancesView: 'grid'
 }
+
+const defaultGroups: BuildGroup[] = []
 
 function defaultState(): AppState {
   const playerName = 'Steve'
@@ -30,12 +34,13 @@ function defaultState(): AppState {
     name: 'Мой Minecraft',
     versionId: '1.20.1',
     loader: 'fabric',
-    memory: 2048,
     createdAt: Date.now(),
     playtimeMinutes: 0
   }
   return {
+    schemaVersion: currentSchemaVersion,
     profiles: [profile],
+    groups: [...defaultGroups],
     selectedProfileId: profile.id,
     settings: { ...defaultSettings },
     account: {
@@ -56,21 +61,30 @@ export function getState(): AppState {
 
 export function initStore(): AppState {
   fs.ensureDirSync(dirs.root)
+  const fallback = defaultState()
   if (fs.existsSync(statePath)) {
     try {
       const saved = fs.readJsonSync(statePath) as Partial<AppState>
+      const needsMigration = (saved.schemaVersion ?? 1) < currentSchemaVersion
+      const profiles = (saved.profiles?.length ? saved.profiles : fallback.profiles).map((profile) => {
+        if (!needsMigration) return profile
+        const { memory: _legacyMemory, ...rest } = profile
+        return rest
+      })
       state = {
-        ...defaultState(),
+        ...fallback,
         ...saved,
+        schemaVersion: currentSchemaVersion,
+        groups: saved.groups ?? fallback.groups,
         settings: { ...defaultSettings, ...(saved.settings ?? {}) },
-        profiles: saved.profiles?.length ? saved.profiles : defaultState().profiles,
-        account: saved.account ?? defaultState().account
+        profiles,
+        account: saved.account ?? fallback.account
       }
     } catch {
-      state = defaultState()
+      state = fallback
     }
   } else {
-    state = defaultState()
+    state = fallback
   }
   saveState()
   return state!
@@ -90,7 +104,11 @@ export function setState(patch: Partial<AppState>): AppState {
 }
 
 export function createProfile(profile: Profile): AppState {
-  state = { ...state!, profiles: [...state!.profiles, profile] }
+  state = {
+    ...state!,
+    profiles: [...state!.profiles, profile],
+    selectedProfileId: profile.id
+  }
   saveState()
   return state
 }

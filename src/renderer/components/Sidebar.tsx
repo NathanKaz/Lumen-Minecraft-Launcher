@@ -1,17 +1,16 @@
 import { motion } from 'framer-motion'
-import { Boxes, Gamepad2, LayoutDashboard, Package, Settings, Wrench, ChevronRight } from 'lucide-react'
+import { Boxes, Gamepad2, LayoutDashboard, Package, Settings, ChevronRight } from 'lucide-react'
 import { selectedProfile, useLauncher, type Page } from '../store'
 
 const items: Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'home', label: 'Главная', icon: LayoutDashboard },
   { id: 'instances', label: 'Сборки', icon: Boxes },
-  { id: 'mods', label: 'Моды', icon: Wrench },
   { id: 'modpacks', label: 'Модпаки', icon: Package },
   { id: 'settings', label: 'Настройки', icon: Settings }
 ]
 
 export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
-  const { page, setPage, state } = useLauncher()
+  const { page, setPage, state, openProfile } = useLauncher()
   const profile = selectedProfile(state)
 
   return (
@@ -48,7 +47,11 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
 
       <div className="mt-auto px-3 pb-3">
         <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Активная сборка</div>
-        <div className="mx-1 mb-3 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5">
+        <button
+          onClick={() => profile && void openProfile(profile.id)}
+          disabled={!profile}
+          className="mx-1 mb-3 flex w-[calc(100%-0.5rem)] items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 text-left transition hover:border-mint-400/25 hover:bg-mint-400/[0.05] disabled:cursor-default disabled:hover:border-white/[0.06] disabled:hover:bg-white/[0.025]"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-iris-500/40 to-mint-500/30 text-iris-400">
             <Gamepad2 size={17} />
           </div>
@@ -56,7 +59,8 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
             <div className="truncate text-xs font-semibold text-slate-200">{profile?.name ?? 'Нет сборки'}</div>
             <div className="truncate text-[10px] text-slate-500">{profile?.versionId} · {profile?.loader}</div>
           </div>
-        </div>
+          {profile && <ChevronRight size={13} className="text-slate-600" />}
+        </button>
 
         <button
           onClick={onAccount}

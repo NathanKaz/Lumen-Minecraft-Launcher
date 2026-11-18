@@ -2,21 +2,21 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2, UserRound } from 'lucide-react'
 import { api } from './lib/api'
-import { useLauncher } from './store'
+import { findProfile, useLauncher } from './store'
 import { Titlebar } from './components/Titlebar'
 import { Sidebar } from './components/Sidebar'
 import { ToastHost } from './components/ToastHost'
 import { Button, Modal } from './components/ui'
-import { Home } from './pages/Home'
 import { Instances } from './pages/Instances'
-import { Mods } from './pages/Mods'
+import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
 import { Settings } from './pages/Settings'
 
 export default function App(): JSX.Element {
-  const { state, page, init, refresh } = useLauncher()
+  const { state, page, openedProfileId, init, refresh } = useLauncher()
   const [accountOpen, setAccountOpen] = useState(false)
   const [playerName, setPlayerName] = useState('')
+  const openedProfile = findProfile(state, openedProfileId)
 
   useEffect(() => {
     void init()
@@ -47,16 +47,20 @@ export default function App(): JSX.Element {
               </div>
             ) : (
               <motion.div
-                key={page}
+                key={openedProfile?.id ?? page}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {page === 'home' && <Home />}
-                {page === 'instances' && <Instances />}
-                {page === 'mods' && <Mods />}
-                {page === 'modpacks' && <Modpacks />}
-                {page === 'settings' && <Settings />}
+                {openedProfile ? (
+                  <InstanceDetail profile={openedProfile} />
+                ) : (
+                  <>
+                    {(page === 'home' || page === 'instances') && <Instances />}
+                    {page === 'modpacks' && <Modpacks />}
+                    {page === 'settings' && <Settings />}
+                  </>
+                )}
               </motion.div>
             )}
           </div>

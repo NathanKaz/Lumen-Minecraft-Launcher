@@ -94,6 +94,10 @@ export function Settings(): JSX.Element {
                 className="w-full"
               />
               <div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>1 ГБ</span><span>16 ГБ</span></div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                Используется всеми сборками, у которых нет своего значения. Свою память можно задать в настройках сборки
+                {state.profiles.some((profile) => profile.memory !== undefined) ? ` (таких сборок: ${state.profiles.filter((profile) => profile.memory !== undefined).length})` : ''}.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

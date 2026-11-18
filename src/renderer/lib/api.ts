@@ -57,12 +57,17 @@ const mockProjects: ModrinthProject[] = [
 function mockState(): AppState {
   const now = Date.now()
   return {
+    schemaVersion: 2,
     profiles: [
-      { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric', memory: 2048, createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
-      { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge', memory: 4096, createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' } }
+      { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric', groupId: 'survival', createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
+      { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge', groupId: 'modpacks', createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' } }
+    ],
+    groups: [
+      { id: 'survival', name: 'Выживание' },
+      { id: 'modpacks', name: 'Модпаки' }
     ],
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid' },
     account: { name: 'Steve', uuid: '00000000-0000-0000-0000-000000000000', token: 'mock', type: 'offline' },
     installedVersions: ['1.20.1', 'fabric-loader-0.15.11-1.20.1']
   }
@@ -110,7 +115,14 @@ function createMock(): LauncherAPI {
   let state = mockState()
   let status: GameStatus = 'idle'
   let logs: LogPayload[] = []
-  let mods = [...mockMods]
+  const modsByProfile: Record<string, ModInfo[]> = {
+    default: [...mockMods],
+    adventuria: [mockMods[1], mockMods[2]]
+  }
+  const modsFor = (profileId: string): ModInfo[] => {
+    if (!modsByProfile[profileId]) modsByProfile[profileId] = []
+    return modsByProfile[profileId]
+  }
 
   const api: LauncherAPI = {
     isMock: true,
@@ -137,10 +149,22 @@ function createMock(): LauncherAPI {
       return state
     },
     getVersions: async () => mockVersions,
-    installProfile: async () => {
+    installProfile: async (id) => {
       await mockProgress('Подготовка клиента', 'version')
       await mockProgress('Библиотеки', 'libraries')
       await mockProgress('Ассеты', 'assets')
+      const profile = state.profiles.find((entry) => entry.id === id)
+      const loaderVersionId = profile && profile.loader !== 'vanilla'
+        ? `${profile.loader}-loader-0.15.11-${profile.versionId}`
+        : undefined
+      const installed = new Set(state.installedVersions)
+      if (profile) installed.add(profile.versionId)
+      if (loaderVersionId) installed.add(loaderVersionId)
+      state = {
+        ...state,
+        installedVersions: [...installed],
+        profiles: state.profiles.map((entry) => (entry.id === id ? { ...entry, loaderVersionId } : entry))
+      }
       emit('toast', { id: String(Date.now()), type: 'success', message: 'Версия установлена (демо-режим)' })
     },
     launch: async () => {
@@ -157,17 +181,20 @@ function createMock(): LauncherAPI {
       emit('gameStatus', status)
     },
     getGameStatus: async () => status,
-    listMods: async () => mods,
-    installLocalMod: async () => {
+    listMods: async (profileId) => [...modsFor(profileId)],
+    installLocalMod: async (profileId) => {
       await mockProgress('Установка мода', 'mod')
-      mods = [...mods, { fileName: 'new-mod.jar', name: 'Новый мод', version: '1.0.0', loader: 'fabric', enabled: true, size: 1_200_000 }]
+      modsByProfile[profileId] = [
+        ...modsFor(profileId),
+        { fileName: `local-mod-${Date.now()}.jar`, name: 'Новый мод', version: '1.0.0', loader: 'fabric', enabled: true, size: 1_200_000 }
+      ]
     },
     installModFile: async () => undefined,
     toggleMod: async (profileId, fileName) => {
-      mods = mods.map((mod) => (mod.fileName === fileName ? { ...mod, enabled: !mod.enabled } : mod))
+      modsByProfile[profileId] = modsFor(profileId).map((mod) => (mod.fileName === fileName ? { ...mod, enabled: !mod.enabled } : mod))
     },
     deleteMod: async (profileId, fileName) => {
-      mods = mods.filter((mod) => mod.fileName !== fileName)
+      modsByProfile[profileId] = modsFor(profileId).filter((mod) => mod.fileName !== fileName)
     },
     searchMods: async (query) => {
       await wait(260)
@@ -177,7 +204,10 @@ function createMock(): LauncherAPI {
     installMod: async (id, projectId) => {
       const project = mockProjects.find((entry) => entry.project_id === projectId)
       await mockProgress(`Установка ${project?.title ?? 'мода'}`, 'mod')
-      mods = [...mods, { fileName: `${projectId}-1.0.0.jar`, name: project?.title ?? projectId, version: '1.0.0', loader: 'fabric', enabled: true, size: 2_000_000 }]
+      modsByProfile[id] = [
+        ...modsFor(id),
+        { fileName: `${projectId}-1.0.0-${Date.now()}.jar`, name: project?.title ?? projectId, version: '1.0.0', loader: 'fabric', enabled: true, size: 2_000_000 }
+      ]
       emit('toast', { id: String(Date.now()), type: 'success', message: `${project?.title ?? 'Мод'} установлен` })
     },
     searchModpacks: async (query) => {

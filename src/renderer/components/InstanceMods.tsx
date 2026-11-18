@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, FolderPlus, Loader2, Power, Search, Trash2, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
-import { selectedProfile, useLauncher } from '../store'
-import { Badge, Button, EmptyState, SectionHeader, Spinner, Toggle } from '../components/ui'
+import { useLauncher } from '../store'
+import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
 import type { ModInfo, ModrinthProject } from '@shared/types'
 
 function formatDownloads(value: number): string {
@@ -12,9 +12,9 @@ function formatDownloads(value: number): string {
   return String(value)
 }
 
-export function Mods(): JSX.Element {
+export function InstanceMods({ profileId }: { profileId: string }): JSX.Element {
   const { state, busy, setBusy, pushToast } = useLauncher()
-  const profile = selectedProfile(state)
+  const profile = state?.profiles.find((item) => item.id === profileId) ?? null
   const [tab, setTab] = useState<'catalog' | 'installed'>('catalog')
   const [query, setQuery] = useState('')
   const [projects, setProjects] = useState<ModrinthProject[]>([])
@@ -23,14 +23,13 @@ export function Mods(): JSX.Element {
   const [installing, setInstalling] = useState<string | null>(null)
 
   const loadMods = async () => {
-    if (!profile) return
-    const result = await api.listMods(profile.id)
+    const result = await api.listMods(profileId)
     setMods(result)
   }
 
   useEffect(() => {
     void loadMods()
-  }, [profile?.id, state?.installedVersions.length])
+  }, [profileId, state?.installedVersions.length])
 
   useEffect(() => {
     let cancelled = false
@@ -51,11 +50,10 @@ export function Mods(): JSX.Element {
   }, [query, profile?.versionId, profile?.loader])
 
   const install = async (projectId: string) => {
-    if (!profile) return
     setInstalling(projectId)
     setBusy(true)
     try {
-      await api.installMod(profile.id, projectId)
+      await api.installMod(profileId, projectId)
       await loadMods()
       pushToast('success', 'Мод добавлен в сборку')
     } finally {
@@ -65,36 +63,28 @@ export function Mods(): JSX.Element {
   }
 
   const installLocal = async () => {
-    if (!profile) return
     setBusy(true)
     try {
-      await api.installLocalMod(profile.id)
+      await api.installLocalMod(profileId)
       await loadMods()
+      pushToast('success', 'Моды добавлены в сборку')
     } finally {
       setBusy(false)
     }
   }
 
   const toggle = async (fileName: string) => {
-    if (!profile) return
-    await api.toggleMod(profile.id, fileName)
+    await api.toggleMod(profileId, fileName)
     await loadMods()
   }
 
   const remove = async (fileName: string) => {
-    if (!profile) return
-    await api.deleteMod(profile.id, fileName)
+    await api.deleteMod(profileId, fileName)
     await loadMods()
   }
 
   return (
-    <div className="mx-auto max-w-[1180px]">
-      <SectionHeader
-        title="Моды"
-        subtitle={`Каталог Modrinth и управление модами сборки «${profile?.name ?? '—'}».`}
-        action={<Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> Установить из файла</Button>}
-      />
-
+    <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {(['catalog', 'installed'] as const).map((item) => (
@@ -103,14 +93,15 @@ export function Mods(): JSX.Element {
               onClick={() => setTab(item)}
               className={`relative rounded-lg px-4 py-2 text-xs font-semibold transition ${tab === item ? 'text-mint-300' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              {tab === item && <motion.span layoutId="mods-tab" className="absolute inset-0 rounded-lg bg-mint-400/10" />}
+              {tab === item && <motion.span layoutId="instance-mods-tab" className="absolute inset-0 rounded-lg bg-mint-400/10" />}
               <span className="relative">{item === 'catalog' ? 'Каталог' : `Установленные (${mods.length})`}</span>
             </button>
           ))}
         </div>
+        <Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> Из файла</Button>
         {tab === 'catalog' && (
           <>
-            <div className="relative min-w-[260px] flex-1">
+            <div className="relative min-w-[220px] flex-1">
               <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 className="input pl-10"
@@ -120,7 +111,7 @@ export function Mods(): JSX.Element {
               />
             </div>
             <div className="hidden items-center gap-2 lg:flex">
-              <Badge tone="iris">{profile?.versionId}</Badge>
+              <Badge tone="iris">{profile?.versionId ?? '—'}</Badge>
               <Badge tone="mint">{(profile?.loader ?? 'vanilla').toUpperCase()}</Badge>
             </div>
           </>
@@ -129,13 +120,13 @@ export function Mods(): JSX.Element {
 
       {tab === 'catalog' ? (
         loading && !projects.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <div key={index} className="panel shimmer h-44 animate-shimmer" />
             ))}
           </div>
         ) : projects.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {projects.map((project, index) => (
               <motion.div
                 key={project.project_id}

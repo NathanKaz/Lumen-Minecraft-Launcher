@@ -37,7 +37,7 @@ export async function launchGame(profileId: string): Promise<void> {
   if (!profile) throw new Error('Сборка не найдена')
 
   const versionId = profile.loaderVersionId ?? profile.versionId
-  const version = (await readVersionJson(versionId)) ?? (await resolveVersion(versionId))
+  const version = await resolveVersion(versionId)
   const required = requiredJavaMajor(profile.versionId)
   const configuredJava = (profile.javaPath || state.settings.javaPath || '').trim()
   let selectedJava: JavaInfo
@@ -122,9 +122,10 @@ export async function launchGame(profileId: string): Promise<void> {
       ? value.replace(/\$\{([^}]+)\}/g, (match, key: string) => replacements[key] ?? match)
       : ''
 
+  const memory = profile.memory ?? state.settings.memory
   const jvmArgs: string[] = [
-    `-Xmx${profile.memory || state.settings.memory}M`,
-    `-Xms${Math.min(profile.memory || state.settings.memory, 512)}M`,
+    `-Xmx${memory}M`,
+    `-Xms${Math.min(memory, 512)}M`,
     '-Dfile.encoding=UTF-8',
     ...argValues(version.arguments?.jvm, features).map(substitute)
   ]
@@ -139,7 +140,7 @@ export async function launchGame(profileId: string): Promise<void> {
 
   const args = [...jvmArgs, version.mainClass ?? 'net.minecraft.client.main.Main', ...gameArgs]
   emitLog('info', `Java ${selectedJava.version}: ${javaPath}`)
-  emitLog('info', `Версия: ${version.id} · Память: ${profile.memory} МБ`)
+  emitLog('info', `Версия: ${version.id} · Память: ${memory} МБ (${profile.memory === undefined ? 'глобально' : 'своя'})`)
 
   child = spawn(javaPath, args, {
     cwd: directory,

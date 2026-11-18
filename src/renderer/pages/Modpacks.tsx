@@ -6,9 +6,10 @@ import { selectedProfile, useLauncher } from '../store'
 import { Badge, Button, EmptyState, SectionHeader } from '../components/ui'
 import type { ModrinthProject } from '@shared/types'
 
-export function Modpacks(): JSX.Element {
+export function Modpacks({ profileId, embedded = false }: { profileId?: string; embedded?: boolean }): JSX.Element {
   const { state, busy, setBusy, refresh, pushToast } = useLauncher()
-  const profile = selectedProfile(state)
+  const targetId = profileId ?? selectedProfile(state)?.id
+  const target = state?.profiles.find((item) => item.id === targetId)
   const [packs, setPacks] = useState<ModrinthProject[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -34,11 +35,11 @@ export function Modpacks(): JSX.Element {
   }, [query])
 
   const install = async (projectId: string, title: string) => {
-    if (!profile) return
+    if (!targetId) return
     setInstalling(projectId)
     setBusy(true)
     try {
-      await api.installModpackFromModrinth(profile.id, projectId)
+      await api.installModpackFromModrinth(targetId, projectId)
       await refresh()
       pushToast('success', `Модпак «${title}» установлен`)
     } finally {
@@ -48,10 +49,10 @@ export function Modpacks(): JSX.Element {
   }
 
   const installLocal = async () => {
-    if (!profile) return
+    if (!targetId) return
     setBusy(true)
     try {
-      await api.installModpack(profile.id)
+      await api.installModpack(targetId)
       await refresh()
     } finally {
       setBusy(false)
@@ -62,11 +63,13 @@ export function Modpacks(): JSX.Element {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <SectionHeader
-        title="Модпаки"
-        subtitle="Готовые модпаки из Modrinth или установка из файла .mrpack."
-        action={<Button onClick={() => void installLocal()} disabled={busy}><FileArchive size={16} /> Установить .mrpack</Button>}
-      />
+      {!embedded && (
+        <SectionHeader
+          title="Модпаки"
+          subtitle="Готовые модпаки из Modrinth или установка из файла .mrpack."
+          action={<Button onClick={() => void installLocal()} disabled={busy}><FileArchive size={16} /> Установить .mrpack</Button>}
+        />
+      )}
 
       <div
         onDragOver={(event) => { event.preventDefault(); setDragging(true) }}
@@ -75,9 +78,9 @@ export function Modpacks(): JSX.Element {
           event.preventDefault()
           setDragging(false)
           const file = event.dataTransfer.files[0]
-          if (!file || !profile) return
+          if (!file || !targetId) return
           setBusy(true)
-          void api.installModpackFilePath(profile.id, file.path).then(async () => {
+          void api.installModpackFilePath(targetId, file.path).then(async () => {
             await refresh()
             pushToast('success', 'Модпак добавлен')
           }).finally(() => setBusy(false))
@@ -89,12 +92,12 @@ export function Modpacks(): JSX.Element {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-white">Перетащите файл модпака сюда</div>
-          <p className="mt-1 text-xs text-slate-500">Поддерживаются файлы .mrpack и .zip из Modrinth. Модпак установится в выбранную сборку «{profile?.name ?? '—'}».</p>
+          <p className="mt-1 text-xs text-slate-500">Поддерживаются файлы .mrpack и .zip из Modrinth. Модпак установится в сборку «{target?.name ?? '—'}».</p>
         </div>
         <Button onClick={() => void installLocal()} disabled={busy}>Выбрать файл</Button>
       </div>
 
-      {installedPacks.length > 0 && (
+      {!embedded && installedPacks.length > 0 && (
         <div className="mb-7">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Установленные модпаки</h3>
           <div className="grid gap-3 sm:grid-cols-2">
