@@ -76,7 +76,7 @@ const mockProjects: ModrinthProject[] = [
 ]
 
 function screenshotImage(title: string, color: string): string {
-  return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="#0b1020"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><rect y="250" width="640" height="110" fill="#2f5d34"/><circle cx="520" cy="80" r="34" fill="#fde68a" opacity="0.8"/><text x="32" y="52" font-family="sans-serif" font-size="30" font-weight="700" fill="#fff">${title}</text><text x="32" y="86" font-family="sans-serif" font-size="18" fill="#e2e8f0">Minecraft · Neon Launcher</text></svg>`)}`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="#0b1020"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><rect y="250" width="640" height="110" fill="#2f5d34"/><circle cx="520" cy="80" r="34" fill="#fde68a" opacity="0.8"/><text x="32" y="52" font-family="sans-serif" font-size="30" font-weight="700" fill="#fff">${title}</text><text x="32" y="86" font-family="sans-serif" font-size="18" fill="#e2e8f0">Minecraft · Lumen Launcher</text></svg>`)}`
 }
 
 const mockScreenshots: ScreenshotInfo[] = [

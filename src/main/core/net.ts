@@ -3,7 +3,7 @@ import https from 'node:https'
 import { URL } from 'node:url'
 import { emitLog } from './events'
 
-export const USER_AGENT = 'NeonLauncher/1.0.0 (+https://github.com/NathanKaz/Minecraft-launcher)'
+export const USER_AGENT = 'LumenLauncher/1.0.0 (+https://github.com/NathanKaz/Minecraft-launcher)'
 
 // Общий агент с ограничением сокетов: Mojang CDN чувствителен к большим
 // скачкам, поэтому параллельные запросы не должны открывать десятки соединений.

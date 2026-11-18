@@ -103,7 +103,7 @@ export async function launchGame(profileId: string): Promise<void> {
     game_assets: path.join(dirs.assets, 'virtual', 'legacy'),
     assets_index_name: version.assetIndex?.id ?? 'legacy',
     natives_directory: path.join(versionDir(version.id), 'natives'),
-    launcher_name: 'NeonLauncher',
+    launcher_name: 'LumenLauncher',
     launcher_version: '1.0.0',
     classpath_separator: path.delimiter,
     library_directory: dirs.libraries,

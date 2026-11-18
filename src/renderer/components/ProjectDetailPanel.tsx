@@ -81,18 +81,19 @@ export function ProjectDetailPanel({
       {projectId && (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px]"
+            className="fixed inset-0 z-40 bg-black/20"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onMouseDown={onClose}
+            onWheel={(event) => event.stopPropagation()}
           />
           <motion.aside
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[520px] flex-col border-l border-white/[0.08] bg-ink-900/95 shadow-2xl backdrop-blur-xl"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+            className="fixed bottom-3 right-3 top-3 z-50 flex w-full max-w-[540px] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-ink-900/98 shadow-2xl backdrop-blur-xl"
+            initial={{ x: 40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 40, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
@@ -105,7 +106,10 @@ export function ProjectDetailPanel({
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5"
+              onWheel={(event) => event.stopPropagation()}
+            >
               {loading && (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
                   <Spinner size={24} />
@@ -219,7 +223,7 @@ export function ProjectDetailPanel({
                       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                         <Globe size={14} /> Описание
                       </div>
-                      <div className="max-h-[420px] overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                         <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-300">{body}</pre>
                       </div>
                     </div>

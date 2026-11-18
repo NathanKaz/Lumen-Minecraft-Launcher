@@ -13,7 +13,7 @@ import { ProfileFields } from '../components/ProfileFields'
 import { ContextMenu, type ContextMenuState } from '../components/ContextMenu'
 import type { BuildGroup, Profile } from '@shared/types'
 
-const DRAG_TYPE = 'application/x-neon-profile'
+const DRAG_TYPE = 'application/x-lumen-profile'
 
 const emptyProfile = (version: string): Profile => ({
   id: crypto.randomUUID(),

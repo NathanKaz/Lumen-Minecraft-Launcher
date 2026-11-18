@@ -1,51 +1,54 @@
-# Neon Launcher
+# Lumen Launcher
 
-Кроссплатформенный лаунчер Minecraft с тёмным неоновым интерфейсом, установкой версий, модов и сборок.
+A cross-platform Minecraft launcher with a dark interface, version management, and mod/modpack installation.
 
-## Возможности
+## Features
 
-- **Запуск Minecraft** — официальные версии Mojang, автоматическая загрузка клиента, библиотек, ассетов и natives, проверка SHA-1.
-- **Загрузчики модов** — Fabric, Forge и NeoForge (установка через официальные установщики).
-- **Сборки** — все сборки на главной, группы (включая пустые), режимы «сетка/список», поиск. Карточки можно перетаскивать между группами; правый клик открывает меню «Открыть / Переименовать / Изменить / Удалить». Переименование доступно также двойным кликом по названию. Память по умолчанию задаётся глобально и может быть переопределена для конкретной сборки. Клик по сборке открывает её экран с модами и настройками (вкладки «Моды» и «Настройки»).
-- **Моды** — отдельный каталог и список модов внутри каждой сборки: полный каталог Modrinth с поиском и пагинацией «Показать ещё», необязательные фильтры по версии и загрузчику (выключены по умолчанию, чтобы не скрывать доступные моды), автоматическая установка зависимостей, локальные `.jar`/`.zip`, включение и отключение модов. Моды разных сборок не смешиваются.
-- **Скриншоты** — вкладка со всеми снимками из `<сборка>/screenshots` и фильтрацией по сборке; просмотр, скачивание и удаление.
-- **Модпаки** — установка `.mrpack` через диалог или drag & drop, а также установка модпаков из Modrinth (отдельная вкладка в навигации).
-- **Удаление сборки** — нативное предупреждение Electron со списком удаляемых данных (миры, моды, скриншоты, конфиги, ресурс- и шейдерпаки, `options.txt`, логи, запись в лаунчере) и полным путём папки.
-- **Удобство** — офлайн-аккаунт, автоопределение Java, журнал игры и лаунчера, настройки памяти и разрешения, кастомный заголовок окна.
+- **Launch Minecraft** — official Mojang versions with automatic download of client, libraries, assets, and natives, plus SHA-1 verification.
+- **Mod loaders** — Fabric, Forge, and NeoForge installation via official installers.
+- **Instances (builds)** — all instances on the home screen with groups (including empty groups), grid/list views, and search. Cards can be dragged between groups; right-click opens context actions (Open / Rename / Edit / Delete). Renaming is available via double-click and group management supports inline rename. Memory is global by default and can be overridden per instance. Opening an instance shows its mods, screenshots, and settings.
+- **Mods** — per-instance mod management: Modrinth catalog search with "Load more" pagination, optional version/loader filters, dependency installation, local `.jar`/`.zip` import, enable/disable, and removal. Clicking a mod in the catalog opens a separate detail panel on the right with screenshots/gallery, description, compatibility info, and links.
+- **Modpacks** — install `.mrpack` files via dialog or drag & drop, or install modpacks from Modrinth. Clicking a modpack in the catalog opens a detail panel with screenshots, description, and metadata.
+- **Screenshots** — dedicated screenshots page with per-instance filtering and an in-instance screenshots tab in the instance detail view; open, download, and delete screenshots from `<instance>/screenshots`.
+- **Instance deletion** — native confirmation dialog listing data to be removed (saves, mods, screenshots, configs, resource/shader packs, options, logs) and the full instance folder path.
+- **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
 
-## Разработка
+## Development
 
-Требуется Node.js 18+ (проверено на Node 20 и 24). Скрипты проекта сами находят подходящую версию: сначала `NEON_NODE`, затем установленные через nvm версии, затем системный `node`. Если подходящего Node нет, выполните `nvm install 20 && nvm use 20` либо задайте `NEON_NODE=/path/to/node`.
+Requires Node.js 18+ (tested with Node 20 and 24). Project scripts locate a suitable Node runtime automatically: first `LUMEN_NODE`, then nvm-installed versions, then system `node`. If no suitable Node is found, run `nvm install 20 && nvm use 20` or set `LUMEN_NODE=/path/to/node`.
 
 ```bash
 npm install
-npm run dev        # Electron + Vite (горячая перезагрузка)
-npm run dev:web    # только интерфейс в браузере, демо-режим с мок-данными
+npm run dev        # Electron + Vite (hot reload)
+npm run dev:web    # renderer-only in browser with mock data
 npm run typecheck
 npm run build
-npm run dist       # сборка AppImage / NSIS / dmg
+npm run dist       # package for current platform
+npm run dist -- --linux AppImage deb
+npm run dist -- --win nsis
+npm run dist -- --mac dmg
 ```
 
-Данные лаунчера (версии, сборки, моды) хранятся в каталоге пользовательских данных приложения, например `~/.config/neon-launcher/launcher` на Linux.
+Launcher data (versions, instances, mods) is stored in the app user data directory, e.g. `~/.config/Lumen Launcher/launcher` on Linux (exact path depends on platform/Electron userData location).
 
-## Стратегия авторизации
+## Authentication strategy
 
-Сейчас используется офлайн-профиль: имя игрока, локальный UUID и токен. Этого достаточно для одиночной игры и серверов без проверки лицензии. Вход через Microsoft (PKCE → Xbox Live → XSTS → профиль Minecraft) запланирован следующим этапом.
+Currently uses an offline profile (player name, local UUID, token), suitable for single-player and servers without license verification. Microsoft sign-in (PKCE → Xbox Live → XSTS → Minecraft profile) is planned as a next step.
 
-## Источники
+## Sources
 
-- Mojang version manifest — список версий и метаданные клиента.
-- Fabric Meta API — профили загрузчика Fabric.
-- Forge promotions / Maven и NeoForge Maven — установщики загрузчиков.
-- Modrinth API v2 — моды и модпаки.
+- Mojang version manifest — version list and client metadata.
+- Fabric Meta API — Fabric loader profiles.
+- Forge promotions/Maven and NeoForge Maven — loader installers.
+- Modrinth API v2 — mods and modpacks.
 
-## Архитектура
+## Architecture
 
 ```
-src/main/     Electron main process: загрузка, установка, запуск игры, IPC
-src/preload/  типизированный contextBridge API
-src/shared/   общие типы и имена IPC-каналов
-src/renderer/ React-интерфейс (Tailwind CSS + zustand + framer-motion)
+src/main/     Electron main process: download, install, launch, IPC
+src/preload/  typed contextBridge API
+src/shared/   shared types and IPC channel names
+src/renderer/ React UI (Tailwind CSS + zustand + framer-motion)
 ```
 
-Реализация намеренно не использует готовые лаунчер-ядра: загрузка версий, разрешение наследования JSON, сборка classpath и запуск процесса реализованы явно, чтобы иметь точный прогресс и контроль над ошибками.
+The implementation does not rely on ready-made launcher cores: version downloading, JSON inheritance resolution, classpath assembly, and process launch are implemented explicitly for precise progress reporting and error control.

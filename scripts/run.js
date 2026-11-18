@@ -35,7 +35,7 @@ function candidates() {
     if (binary && found.indexOf(binary) === -1) found.push(binary)
   }
 
-  add(process.env.NEON_NODE)
+  add(process.env.LUMEN_NODE)
   add(process.execPath)
 
   const home = process.env.HOME || process.env.USERPROFILE || ''
@@ -113,7 +113,7 @@ const node = findModernNode()
 if (!node) {
   console.error('Для запуска нужен Node.js 18+ (текущий слишком старый).')
   console.error('Установите версию через nvm:  nvm install 20 && nvm use 20')
-  console.error('Или укажите путь:  NEON_NODE=/path/to/node npm run dev')
+  console.error('Или укажите путь:  LUMEN_NODE=/path/to/node npm run dev')
   process.exit(1)
 }
 

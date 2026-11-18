@@ -1,7 +1,7 @@
 {
-  "name": "neon-launcher",
+  "name": "lumen-launcher",
   "version": "1.0.0",
-  "description": "Красивый лаунчер Minecraft с установкой модов и сборок",
+  "description": "A modern Minecraft launcher with mod and modpack management",
   "main": "./dist/main/index.js",
   "author": "NathanKaz",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "vite": "^5.4.8"
   },
   "build": {
-    "appId": "com.neonlauncher.app",
-    "productName": "Neon Launcher",
+    "appId": "com.lumenlauncher.app",
+    "productName": "Lumen Launcher",
     "directories": { "output": "release" },
     "files": ["dist/**/*", "package.json"],
     "linux": {

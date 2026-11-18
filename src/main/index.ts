@@ -68,7 +68,7 @@ async function bootstrap(): Promise<void> {
   ensureDirs()
   initStore()
   registerIpc()
-  emitLog('info', `Neon Launcher запущен · ${process.platform} · ${process.arch}`)
+  emitLog('info', `Lumen Launcher started · ${process.platform} · ${process.arch}`)
   emitLog('info', `Каталог данных: ${dirs.root}`)
   createWindow()
 
