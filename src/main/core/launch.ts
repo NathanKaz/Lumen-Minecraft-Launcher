@@ -4,9 +4,9 @@ import fs from 'fs-extra'
 import { dirs, instanceDir, versionDir } from './paths'
 import { getState, updateProfile } from './store'
 import { emitGameStatus, emitLog, emitProgress } from './events'
-import { findJava, requiredJavaMajor } from './java'
-import { argValues, classpathLibraries, readVersionJson, resolveVersion, type VersionJson } from './install'
-import type { GameStatus } from '@shared/types'
+import { findJava, inspectJava, requiredJavaMajor } from './java'
+import { argValues, classpathLibraries, extractNatives, readVersionJson, resolveVersion, type VersionJson } from './install'
+import type { GameStatus, JavaInfo } from '@shared/types'
 
 let child: ChildProcess | null = null
 let currentStatus: GameStatus = 'idle'
@@ -39,11 +39,30 @@ export async function launchGame(profileId: string): Promise<void> {
   const versionId = profile.loaderVersionId ?? profile.versionId
   const version = (await readVersionJson(versionId)) ?? (await resolveVersion(versionId))
   const required = requiredJavaMajor(profile.versionId)
-  const java = await findJava(required)
-  if (!java.valid) {
-    throw new Error(`Нужна Java ${required}+, найдена: ${java.version}. Укажите путь в настройках.`)
+  const configuredJava = (profile.javaPath || state.settings.javaPath || '').trim()
+  let selectedJava: JavaInfo
+  if (configuredJava) {
+    const inspected = await inspectJava(configuredJava)
+    if (!inspected) {
+      throw new Error(`Java не найдена по пути: ${configuredJava}. Укажите корректный путь в настройках.`)
+    }
+    if (inspected.major < required) {
+      throw new Error(`Нужна Java ${required}+, но выбрана Java ${inspected.version} (${configuredJava}).`)
+    }
+    selectedJava = inspected
+  } else {
+    const java = await findJava(required)
+    if (!java.valid) {
+      throw new Error(`Нужна Java ${required}+, найдена: ${java.version}. Укажите путь в настройках.`)
+    }
+    selectedJava = java
   }
-  const javaPath = profile.javaPath || state.settings.javaPath || java.path
+  const javaPath = selectedJava.path
+
+  const clientJar = path.join(versionDir(profile.versionId), `${profile.versionId}.jar`)
+  if (!(await fs.pathExists(clientJar))) {
+    throw new Error(`Клиент Minecraft ${profile.versionId} не установлен. Нажмите «Установить» или «Проверить файлы».`)
+  }
 
   status('starting')
   emitProgress({
@@ -60,6 +79,8 @@ export async function launchGame(profileId: string): Promise<void> {
   const directory = instanceDir(profile.id)
   await fs.ensureDir(directory)
   await fs.ensureDir(path.join(directory, 'mods'))
+
+  extractNatives({ ...version, id: version.id })
 
   const features = { has_custom_resolution: !state.settings.fullscreen }
   const replacements: Record<string, string> = {
@@ -117,7 +138,7 @@ export async function launchGame(profileId: string): Promise<void> {
     : (version.minecraftArguments ?? '').split(/\s+/).filter(Boolean).map(substitute)
 
   const args = [...jvmArgs, version.mainClass ?? 'net.minecraft.client.main.Main', ...gameArgs]
-  emitLog('info', `Java ${java.version}: ${javaPath}`)
+  emitLog('info', `Java ${selectedJava.version}: ${javaPath}`)
   emitLog('info', `Версия: ${version.id} · Память: ${profile.memory} МБ`)
 
   child = spawn(javaPath, args, {

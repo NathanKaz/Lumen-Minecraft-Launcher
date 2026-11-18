@@ -1,6 +1,13 @@
 import { getState, updateProfile } from './store'
 import { emitProgress, emitToast } from './events'
-import { extractNatives, fetchVersionJson, installClientVersion, markVersionInstalled } from './install'
+import {
+  extractNatives,
+  fetchVersionJson,
+  installClientVersion,
+  installLibraries,
+  markVersionInstalled,
+  resolveVersion
+} from './install'
 
 export { getVersionList } from './install'
 import { installLoader } from './loaders'
@@ -22,10 +29,16 @@ export async function installProfile(profileId: string, loaderVersion?: string):
 
   const baseVersion = await fetchVersionJson(profile.versionId)
   await installClientVersion(profile.versionId, baseVersion)
+  await installLibraries(baseVersion, 'Загрузка библиотек Minecraft')
   extractNatives({ ...baseVersion, id: profile.versionId })
   markVersionInstalled(profile.versionId)
 
   const loaderVersionId = await installLoader(profile.loader, profile.versionId, loaderVersion)
+  const launchId = loaderVersionId ?? profile.versionId
+  const resolved = await resolveVersion(launchId)
+  extractNatives({ ...resolved, id: launchId })
+  markVersionInstalled(launchId)
+
   updateProfile(profileId, { loaderVersionId, versionId: profile.versionId })
   emitToast('success', `Minecraft ${profile.versionId} готов к запуску`)
 }
