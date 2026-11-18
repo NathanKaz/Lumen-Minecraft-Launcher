@@ -45,6 +45,11 @@ export interface VersionJson {
   minecraftArguments?: string
   arguments?: { game?: Arg[]; jvm?: Arg[] }
   libraries?: Library[]
+  downloads?: {
+    client?: { url: string; size: number; sha1: string }
+    server?: { url: string; size: number; sha1: string }
+    [key: string]: { url: string; size: number; sha1: string } | undefined
+  }
   assetIndex?: { id: string; url: string; size: number; sha1?: string }
   assets?: string
   javaVersion?: { major: number; component?: string }
