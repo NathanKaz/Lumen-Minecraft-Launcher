@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Box, Check, Download, FolderOpen, Gamepad2, Layers3, Play,
+  ArrowLeft, Box, Check, Download, FolderOpen, Gamepad2, Layers3, Pencil, Play,
   Settings, Square, Trash2, Wrench
 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -11,22 +11,25 @@ import { Badge, Button, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { InstanceMods } from '../components/InstanceMods'
 import { ProfileFields } from '../components/ProfileFields'
-import { Modpacks } from './Modpacks'
 import type { Profile } from '@shared/types'
 
-type Tab = 'mods' | 'settings' | 'modpack'
+type Tab = 'mods' | 'settings'
 
 export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
   const {
-    state, versions, busy, gameStatus, setBusy, refresh, pushToast, backToInstances
+    state, versions, busy, gameStatus, setBusy, refresh, pushToast, backToInstances, removeProfile
   } = useLauncher()
   const [tab, setTab] = useState<Tab>('mods')
   const [draft, setDraft] = useState<Profile | null>({ ...profile })
   const [installing, setInstalling] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(profile.name)
 
   useEffect(() => {
     setDraft({ ...profile })
-  }, [profile.id])
+    setNameDraft(profile.name)
+    setEditingName(false)
+  }, [profile.id, profile.name])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -85,12 +88,18 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
     }
   }
 
-  const remove = async () => {
-    if (!confirm(`Удалить сборку «${current.name}»? Файлы игры останутся на диске.`)) return
-    await api.deleteProfile(current.id)
+  const saveName = async () => {
+    const name = nameDraft.trim()
+    setEditingName(false)
+    if (!name || name === current.name) return
+    await api.updateProfile(current.id, { name })
     await refresh()
-    pushToast('info', 'Сборка удалена')
-    backToInstances()
+    pushToast('success', 'Сборка переименована')
+  }
+
+  const remove = async () => {
+    const removed = await removeProfile(current.id)
+    if (removed) backToInstances()
   }
 
   return (
@@ -114,7 +123,31 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
               <Badge tone="iris">{current.loader.toUpperCase()}</Badge>
               {current.modpack && <Badge tone="amber"><Layers3 size={12} /> {current.modpack.name}</Badge>}
             </div>
-            <h1 className="mt-4 text-4xl font-black tracking-tight text-white">{current.name}</h1>
+            {editingName ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                onBlur={() => void saveName()}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void saveName()
+                  if (event.key === 'Escape') {
+                    setNameDraft(current.name)
+                    setEditingName(false)
+                  }
+                }}
+                className="mt-4 w-full max-w-xl rounded-xl border border-mint-400/50 bg-ink-900 px-3 py-1.5 text-4xl font-black tracking-tight text-white outline-none ring-2 ring-mint-400/10"
+              />
+            ) : (
+              <button
+                onClick={() => setEditingName(true)}
+                className="group mt-4 flex max-w-full items-center gap-3 text-left"
+                title="Нажмите, чтобы переименовать"
+              >
+                <h1 className="truncate text-4xl font-black tracking-tight text-white">{current.name}</h1>
+                <Pencil size={16} className="shrink-0 text-slate-600 transition group-hover:text-mint-400" />
+              </button>
+            )}
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
               {installed
                 ? 'Сборка готова. Управляйте модами и настройками или запускайте игру.'
@@ -168,8 +201,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
             { id: 'mods', label: 'Моды', icon: Wrench },
-            { id: 'settings', label: 'Настройки', icon: Settings },
-            { id: 'modpack', label: 'Модпак', icon: Layers3 }
+            { id: 'settings', label: 'Настройки', icon: Settings }
           ] as const).map((item) => (
             <button
               key={item.id}
@@ -187,7 +219,6 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
 
       <div className="panel p-5">
         {tab === 'mods' && <InstanceMods profileId={current.id} />}
-        {tab === 'modpack' && <Modpacks profileId={current.id} embedded />}
         {tab === 'settings' && draft && (
           <div className="max-w-2xl space-y-5">
             <ProfileFields

@@ -10,6 +10,7 @@ import { Button, Modal } from './components/ui'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
+import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
 
 export default function App(): JSX.Element {
@@ -56,7 +57,8 @@ export default function App(): JSX.Element {
                   <InstanceDetail profile={openedProfile} />
                 ) : (
                   <>
-                    {(page === 'home' || page === 'instances') && <Instances />}
+                    {page === 'home' && <Instances />}
+                    {page === 'screenshots' && <Screenshots />}
                     {page === 'modpacks' && <Modpacks />}
                     {page === 'settings' && <Settings />}
                   </>

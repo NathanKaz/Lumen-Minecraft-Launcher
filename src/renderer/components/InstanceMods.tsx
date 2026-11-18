@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, FolderPlus, Loader2, Power, Search, Trash2, Wrench } from 'lucide-react'
+import { ChevronDown, Download, FolderPlus, Loader2, Power, Search, SlidersHorizontal, Trash2, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
 import type { ModInfo, ModrinthProject } from '@shared/types'
+
+const PAGE_SIZE = 24
 
 function formatDownloads(value: number): string {
   if (value > 1e6) return `${(value / 1e6).toFixed(1)}M`
@@ -17,10 +19,18 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const profile = state?.profiles.find((item) => item.id === profileId) ?? null
   const [tab, setTab] = useState<'catalog' | 'installed'>('catalog')
   const [query, setQuery] = useState('')
+  const [matchVersion, setMatchVersion] = useState(false)
+  const [matchLoader, setMatchLoader] = useState(false)
   const [projects, setProjects] = useState<ModrinthProject[]>([])
   const [mods, setMods] = useState<ModInfo[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
   const [installing, setInstalling] = useState<string | null>(null)
+
+  const versionFilter = matchVersion ? profile?.versionId : undefined
+  const loaderFilter = matchLoader ? profile?.loader : undefined
 
   const loadMods = async () => {
     const result = await api.listMods(profileId)
@@ -35,10 +45,16 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     let cancelled = false
     setLoading(true)
     const timer = setTimeout(() => {
-      void api.searchMods(query, profile?.versionId, profile?.loader).then((result) => {
-        if (!cancelled) setProjects(result)
+      void api.searchMods(query, versionFilter, loaderFilter, 0).then((result) => {
+        if (cancelled) return
+        setProjects(result)
+        setOffset(result.length)
+        setHasMore(result.length >= PAGE_SIZE)
       }).catch(() => {
-        if (!cancelled) setProjects([])
+        if (!cancelled) {
+          setProjects([])
+          setHasMore(false)
+        }
       }).finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -47,7 +63,19 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query, profile?.versionId, profile?.loader])
+  }, [query, versionFilter, loaderFilter])
+
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const result = await api.searchMods(query, versionFilter, loaderFilter, offset)
+      setProjects((current) => [...current, ...result])
+      setOffset((current) => current + result.length)
+      setHasMore(result.length >= PAGE_SIZE)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const install = async (projectId: string) => {
     setInstalling(projectId)
@@ -110,9 +138,26 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
-            <div className="hidden items-center gap-2 lg:flex">
-              <Badge tone="iris">{profile?.versionId ?? '—'}</Badge>
-              <Badge tone="mint">{(profile?.loader ?? 'vanilla').toUpperCase()}</Badge>
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={14} className="text-slate-600" />
+              <button
+                onClick={() => setMatchVersion((value) => !value)}
+                className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                  matchVersion ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
+                }`}
+                title={`Показывать только моды для Minecraft ${profile?.versionId ?? '—'}`}
+              >
+                Версия {profile?.versionId ?? ''}
+              </button>
+              <button
+                onClick={() => setMatchLoader((value) => !value)}
+                className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                  matchLoader ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
+                }`}
+                title={`Показывать только моды для ${profile?.loader ?? '—'}`}
+              >
+                {(profile?.loader ?? 'vanilla').toUpperCase()}
+              </button>
             </div>
           </>
         )}
@@ -126,44 +171,60 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
             ))}
           </div>
         ) : projects.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project, index) => (
-              <motion.div
-                key={project.project_id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="panel group flex flex-col p-4 transition hover:border-mint-400/25"
-              >
-                <div className="flex items-start gap-3">
-                  {project.icon_url ? (
-                    <img src={project.icon_url} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-500"><Wrench size={20} /></div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-bold text-white">{project.title}</div>
-                    <div className="text-[10px] text-slate-500">{formatDownloads(project.downloads)} загрузок</div>
-                  </div>
-                </div>
-                <p className="mt-3 line-clamp-2 min-h-[36px] text-[11px] leading-relaxed text-slate-400">{project.description}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {project.categories.slice(0, 3).map((category) => <Badge key={category}>{category}</Badge>)}
-                </div>
-                <Button
-                  variant="primary"
-                  className="mt-4 w-full"
-                  disabled={busy}
-                  onClick={() => void install(project.project_id)}
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {projects.map((project, index) => (
+                <motion.div
+                  key={project.project_id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(index, 12) * 0.02 }}
+                  className="panel group flex flex-col p-4 transition hover:border-mint-400/25"
                 >
-                  {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                  {installing === project.project_id ? 'Установка...' : 'Установить'}
-                </Button>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="flex items-start gap-3">
+                    {project.icon_url ? (
+                      <img src={project.icon_url} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-500"><Wrench size={20} /></div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold text-white">{project.title}</div>
+                      <div className="text-[10px] text-slate-500">{formatDownloads(project.downloads)} загрузок</div>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-2 min-h-[36px] text-[11px] leading-relaxed text-slate-400">{project.description}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {project.categories.slice(0, 3).map((category) => <Badge key={category}>{category}</Badge>)}
+                    {project.versions?.slice(0, 2).map((version) => <Badge key={version} tone="amber">{version}</Badge>)}
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="mt-4 w-full"
+                    disabled={busy}
+                    onClick={() => void install(project.project_id)}
+                  >
+                    {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                    {installing === project.project_id ? 'Установка...' : 'Установить'}
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {loadingMore && <Spinner size={18} />}
+              {hasMore && !loadingMore && (
+                <Button onClick={() => void loadMore()}><ChevronDown size={15} /> Показать ещё</Button>
+              )}
+              <span className="text-[10px] text-slate-600">
+                Показано {projects.length} · фильтры версии и загрузчика выключены по умолчанию
+              </span>
+            </div>
+          </>
         ) : (
-          <EmptyState icon={<Search size={22} />} title="Ничего не найдено" description="Попробуйте другой запрос или снимите фильтры версии." />
+          <EmptyState
+            icon={<Search size={22} />}
+            title="Ничего не найдено"
+            description="Попробуйте другой запрос или отключите фильтры версии и загрузчика."
+          />
         )
       ) : mods.length ? (
         <div className="panel divide-y divide-white/[0.05] overflow-hidden">

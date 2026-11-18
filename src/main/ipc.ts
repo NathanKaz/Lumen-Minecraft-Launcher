@@ -1,9 +1,8 @@
-import path from 'node:path'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs-extra'
 import { IPC } from '@shared/ipc'
 import type { AppState, LogPayload, Profile } from '@shared/types'
-import { dirs, instanceDir, modsDir } from './core/paths'
+import { dirs, instanceDir, modsDir, screenshotsDir } from './core/paths'
 import {
   createProfile,
   deleteProfile,
@@ -18,6 +17,7 @@ import { getStatus, launchGame, stopGame } from './core/launch'
 import { copyModFile, deleteMod, listMods, toggleMod } from './core/mods'
 import { installMod, searchMods, searchModpacks } from './core/modrinth'
 import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
+import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
@@ -39,7 +39,47 @@ export function registerIpc(): void {
   handle(IPC.setAccount, (name: string) => setAccountName(name))
   handle(IPC.createProfile, (profile: Profile) => createProfile(profile))
   handle(IPC.updateProfile, (id: string, patch: Partial<Profile>) => updateProfile(id, patch))
-  handle(IPC.deleteProfile, (id: string) => deleteProfile(id))
+
+  // Confirmation happens here so the native dialog shows exactly what will be deleted.
+  handle(IPC.confirmDeleteProfile, async (id: string): Promise<boolean> => {
+    const summary = await deletionSummary(id)
+    const detail = [
+      'Безвозвратно удалятся:',
+      '• миры (saves)',
+      '• моды (mods)',
+      '• скриншоты (screenshots)',
+      '• конфиги, ресурс- и шейдерпаки, options.txt',
+      '• журналы и отчёты об ошибках',
+      '• запись о сборке в лаунчере',
+      '',
+      `Папка сборки: ${summary.path}`,
+      summary.directories.length ? `Обнаружено на диске: ${summary.directories.join(', ')}` : ''
+    ].filter(Boolean).join('\n')
+    const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+    const result = await dialog.showMessageBox(parent, {
+      type: 'warning',
+      title: `Удалить сборку «${summary.name}»?`,
+      message: `Сборка «${summary.name}» будет удалена из лаунчера вместе со всей папкой игры.`,
+      detail,
+      buttons: ['Удалить', 'Отмена'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true
+    })
+    return result.response === 0
+  })
+
+  handle(IPC.deleteProfile, async (id: string) => {
+    const profile = getState().profiles.find((entry) => entry.id === id)
+    const result = deleteProfile(id)
+    if (profile) {
+      await fs.remove(instanceDir(id))
+      emitLog('info', `Удалена сборка «${profile.name}»: ${instanceDir(id)}`)
+      emitToast('info', `Сборка «${profile.name}» и её файлы удалены`)
+    }
+    return result
+  })
+
   handle(IPC.getVersions, () => getVersionList())
   handle(IPC.installProfile, (id: string) => installProfile(id))
   handle(IPC.launch, (id: string) => launchGame(id))
@@ -49,12 +89,16 @@ export function registerIpc(): void {
   handle(IPC.toggleMod, (id: string, fileName: string) => toggleMod(id, fileName))
   handle(IPC.deleteMod, (id: string, fileName: string) => deleteMod(id, fileName))
   handle(IPC.installModFile, (id: string, source: string) => copyModFile(id, source))
-  handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string) => searchMods(query, gameVersion, loader))
+  handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string, offset?: number) =>
+    searchMods(query, gameVersion, loader, offset)
+  )
   handle(IPC.installMod, (id: string, projectId: string) => installMod(id, projectId))
   handle(IPC.searchModpacks, (query: string) => searchModpacks(query))
   handle(IPC.installModpack, (id: string) => installModpackFromFile(id))
   handle(IPC.installModpackFilePath, (id: string, filePath: string) => installModpackFromPath(id, filePath))
   handle(IPC.installModpackFromModrinth, (id: string, projectId: string) => installModpackFromModrinth(id, projectId))
+  handle(IPC.listScreenshots, (profileId?: string) => listScreenshots(profileId))
+  handle(IPC.deleteScreenshot, (profileId: string, fileName: string) => deleteScreenshot(profileId, fileName))
   handle(IPC.getJavaInfo, () => getJavaInfo())
   handle(IPC.detectJava, () => detectJava())
   handle(IPC.getLogs, (): LogPayload[] => getLogs())
@@ -74,12 +118,13 @@ export function registerIpc(): void {
     emitToast('success', `Установлено модов: ${result.filePaths.length}`)
   })
 
-  ipcMain.handle(IPC.openFolder, async (_event, kind: 'root' | 'instances' | 'mods' | 'logs') => {
+  ipcMain.handle(IPC.openFolder, async (_event, kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs') => {
     const profileId = getState().selectedProfileId
     const targets: Record<typeof kind, string> = {
       root: dirs.root,
       instances: dirs.instances,
       mods: modsDir(profileId),
+      screenshots: screenshotsDir(profileId),
       logs: dirs.logs
     }
     const target = targets[kind]

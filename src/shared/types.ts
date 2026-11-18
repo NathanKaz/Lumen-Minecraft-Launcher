@@ -127,6 +127,7 @@ export interface ModrinthProject {
   project_type?: string
   client_side?: string
   server_side?: string
+  versions?: string[]
 }
 
 export interface ModpackInfo {
@@ -136,6 +137,17 @@ export interface ModpackInfo {
   gameVersion: string
   modCount: number
   installedAt: number
+}
+
+export interface ScreenshotInfo {
+  fileName: string
+  profileId: string
+  profileName: string
+  name: string
+  size: number
+  createdAt: number
+  /** Inline image data so it works both in Electron and in the browser demo. */
+  dataUrl: string
 }
 
 export interface JavaInfo {
@@ -162,16 +174,20 @@ export interface LauncherAPI {
   installModFile(profileId: string, path: string): Promise<void>
   toggleMod(profileId: string, fileName: string): Promise<void>
   deleteMod(profileId: string, fileName: string): Promise<void>
-  searchMods(query: string, gameVersion?: string, loader?: string): Promise<ModrinthProject[]>
+  searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
   installMod(profileId: string, projectId: string): Promise<void>
   searchModpacks(query: string): Promise<ModrinthProject[]>
   installModpack(profileId: string): Promise<void>
   installModpackFilePath(profileId: string, filePath: string): Promise<void>
   installModpackFromModrinth(profileId: string, projectId: string): Promise<void>
+  listScreenshots(profileId?: string): Promise<ScreenshotInfo[]>
+  deleteScreenshot(profileId: string, fileName: string): Promise<void>
+  /** Native confirmation dialog. Resolves true only when the user confirms deletion. */
+  confirmDeleteProfile(profileId: string): Promise<boolean>
   windowAction(action: 'minimize' | 'maximize' | 'close'): Promise<void>
   getJavaInfo(): Promise<JavaInfo>
   detectJava(): Promise<JavaInfo>
-  openFolder(kind: 'root' | 'instances' | 'mods' | 'logs'): Promise<void>
+  openFolder(kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs'): Promise<void>
   getLogs(): Promise<LogPayload[]>
   clearLogs(): Promise<void>
   onProgress(cb: (payload: ProgressPayload) => void): () => void

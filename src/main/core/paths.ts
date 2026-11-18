@@ -27,6 +27,10 @@ export function modsDir(profileId: string): string {
   return path.join(instanceDir(profileId), 'mods')
 }
 
+export function screenshotsDir(profileId: string): string {
+  return path.join(instanceDir(profileId), 'screenshots')
+}
+
 export function versionDir(versionId: string): string {
   return path.join(dirs.versions, versionId)
 }

@@ -34,13 +34,24 @@ interface ModrinthVersion {
   dependencies: ModrinthDependency[]
 }
 
-export async function searchMods(query: string, gameVersion?: string, loader?: string): Promise<ModrinthProject[]> {
+/**
+ * Search the whole catalogue by default. Version/loader facets are applied only when the
+ * user explicitly enables them in the UI, so builds never show an empty catalogue just
+ * because a mod has no file for one exact Minecraft patch version.
+ */
+export async function searchMods(
+  query: string,
+  gameVersion?: string,
+  loader?: string,
+  offset = 0
+): Promise<ModrinthProject[]> {
   const facets: string[][] = [['project_type:mod']]
-  if (loader && loader !== 'vanilla') facets.push([`categories:${loader === 'neoforge' ? 'neoforge' : loader}`])
+  if (loader && loader !== 'vanilla') facets.push([`categories:${loader}`])
   if (gameVersion) facets.push([`versions:${gameVersion}`])
   const params = new URLSearchParams({
     query,
     limit: '24',
+    offset: String(Math.max(0, offset)),
     index: 'relevance',
     facets: JSON.stringify(facets)
   })
@@ -48,7 +59,13 @@ export async function searchMods(query: string, gameVersion?: string, loader?: s
     const result = await fetchJson<{ hits: ModrinthProject[] }>(`${API}/search?${params}`)
     return result.hits
   } catch {
-    const fallback = new URLSearchParams({ query, limit: '24', index: 'relevance' })
+    // The filtered request may fail on older proxies; fall back to the unfiltered index.
+    const fallback = new URLSearchParams({
+      query,
+      limit: '24',
+      offset: String(Math.max(0, offset)),
+      index: 'relevance'
+    })
     const result = await fetchJson<{ hits: ModrinthProject[] }>(`${API}/search?${fallback}`)
     return result.hits
   }
@@ -76,11 +93,22 @@ async function versionById(versionId: string): Promise<ModrinthVersion> {
   return fetchJson<ModrinthVersion>(`${API}/version/${encodeURIComponent(versionId)}`)
 }
 
+function preferredVersion(versions: ModrinthVersion[]): ModrinthVersion {
+  return versions.find((version) => !version.version_number.toLowerCase().includes('beta')) ?? versions[0]
+}
+
 async function resolveVersion(projectId: string, gameVersion: string, loader: string, versionId?: string): Promise<ModrinthVersion> {
   if (versionId) return versionById(versionId)
-  const versions = await projectVersions(projectId, gameVersion, loader)
-  if (!versions.length) throw new Error(`Для проекта ${projectId} нет версии под Minecraft ${gameVersion} (${loader})`)
-  return versions.find((version) => !version.version_number.toLowerCase().includes('beta')) ?? versions[0]
+  const exact = await projectVersions(projectId, gameVersion, loader)
+  if (exact.length) return preferredVersion(exact)
+
+  // A mod may support the loader but not this exact patch version. Fall back to any
+  // version for this loader (or, for vanilla, to the newest available release).
+  const all = await projectVersions(projectId)
+  if (!all.length) throw new Error(`Для проекта ${projectId} нет доступных версий`)
+  const loaderMatches = loader !== 'vanilla' ? all.filter((version) => version.loaders.includes(loader)) : all
+  if (loaderMatches.length) return preferredVersion(loaderMatches)
+  return preferredVersion(all)
 }
 
 export async function installModrinthProject(

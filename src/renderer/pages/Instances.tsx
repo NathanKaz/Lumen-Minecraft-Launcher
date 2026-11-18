@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ArrowRight, Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, LayoutGrid,
-  Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Users, Wrench
+  ArrowRight, Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
+  LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Users, Wrench
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
@@ -10,7 +10,10 @@ import { selectedProfile, useLauncher } from '../store'
 import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { ProfileFields } from '../components/ProfileFields'
+import { ContextMenu, type ContextMenuState } from '../components/ContextMenu'
 import type { BuildGroup, Profile } from '@shared/types'
+
+const DRAG_TYPE = 'application/x-neon-profile'
 
 const emptyProfile = (version: string): Profile => ({
   id: crypto.randomUUID(),
@@ -26,10 +29,51 @@ function groupTone(color?: string): 'slate' | 'mint' | 'iris' | 'amber' {
   return 'slate'
 }
 
+function RenameField({ value, onCommit, onCancel }: {
+  value: string
+  onCommit: (value: string) => void
+  onCancel: () => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+  const committed = useRef(false)
+
+  useEffect(() => {
+    ref.current?.focus()
+    ref.current?.select()
+  }, [])
+
+  const commit = () => {
+    if (committed.current) return
+    committed.current = true
+    onCommit(draft)
+  }
+
+  return (
+    <input
+      ref={ref}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation()
+        if (event.key === 'Enter') commit()
+        if (event.key === 'Escape') {
+          committed.current = true
+          onCancel()
+        }
+      }}
+      onBlur={commit}
+      className="w-full rounded-lg border border-mint-400/50 bg-ink-900 px-2 py-1 text-sm font-bold text-white outline-none ring-2 ring-mint-400/10"
+    />
+  )
+}
+
 export function Instances(): JSX.Element {
   const {
     state, versions, busy, gameStatus, logs, setBusy, refresh, pushToast,
-    openProfile, setPage
+    openProfile, setPage, removeProfile
   } = useLauncher()
   const [editing, setEditing] = useState<Profile | null>(null)
   const [creating, setCreating] = useState(false)
@@ -38,6 +82,10 @@ export function Instances(): JSX.Element {
   const [query, setQuery] = useState('')
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   if (!state) return <Spinner />
 
@@ -57,24 +105,29 @@ export function Instances(): JSX.Element {
     return matchesGroup && matchesQuery
   })
 
+  // Every group is rendered, including empty ones — they are drop targets too.
+  const allSections: Array<{
+    id: string
+    label: string
+    groupId: string | undefined
+    items: Profile[]
+  }> = [
+    ...state.groups.map((group) => ({
+      id: group.id,
+      label: group.name,
+      groupId: group.id as string | undefined,
+      items: visibleProfiles.filter((profile) => profile.groupId === group.id)
+    })),
+    {
+      id: 'ungrouped',
+      label: 'Без группы',
+      groupId: undefined,
+      items: visibleProfiles.filter((profile) => !profile.groupId || !groupsById.has(profile.groupId))
+    }
+  ]
   const sections = groupFilter === 'all'
-    ? [
-        ...state.groups.map((group) => ({
-          id: group.id,
-          label: group.name,
-          items: visibleProfiles.filter((profile) => profile.groupId === group.id)
-        })),
-        {
-          id: 'ungrouped',
-          label: 'Без группы',
-          items: visibleProfiles.filter((profile) => !profile.groupId || !groupsById.has(profile.groupId))
-        }
-      ].filter((section) => section.items.length > 0)
-    : [{
-        id: groupFilter,
-        label: groupFilter === 'ungrouped' ? 'Без группы' : groupsById.get(groupFilter)?.name ?? 'Группа',
-        items: visibleProfiles
-      }]
+    ? allSections
+    : allSections.filter((section) => section.id === groupFilter)
 
   const openCreate = () => {
     const groupId = groupFilter !== 'all' && groupFilter !== 'ungrouped' ? groupFilter : undefined
@@ -95,6 +148,14 @@ export function Instances(): JSX.Element {
     } finally {
       setBusy(false)
     }
+  }
+
+  const rename = async (profile: Profile, value: string) => {
+    const name = value.trim()
+    if (!name || name === profile.name) return
+    await api.updateProfile(profile.id, { name })
+    await refresh()
+    pushToast('success', 'Сборка переименована')
   }
 
   const install = async (profile: Profile) => {
@@ -125,13 +186,6 @@ export function Instances(): JSX.Element {
     } finally {
       setBusy(false)
     }
-  }
-
-  const remove = async (profile: Profile) => {
-    if (!confirm(`Удалить сборку «${profile.name}»? Файлы игры останутся на диске.`)) return
-    await api.deleteProfile(profile.id)
-    await refresh()
-    pushToast('info', 'Сборка удалена')
   }
 
   const setViewMode = async (mode: 'grid' | 'list') => {
@@ -168,12 +222,53 @@ export function Instances(): JSX.Element {
     await refresh()
   }
 
+  const openCardMenu = (event: MouseEvent, profile: Profile) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setMenu({
+      x: event.clientX,
+      y: event.clientY,
+      items: [
+        { label: 'Открыть сборку', icon: <ChevronRight size={14} />, onClick: () => void openProfile(profile.id) },
+        { label: 'Переименовать', icon: <Pencil size={14} />, onClick: () => setRenaming({ id: profile.id, value: profile.name }) },
+        { label: 'Изменить', icon: <Settings size={14} />, onClick: () => { setEditing({ ...profile }); setCreating(false) } },
+        { label: 'Удалить сборку', icon: <Trash2 size={14} />, tone: 'danger', onClick: () => void removeProfile(profile.id) }
+      ]
+    })
+  }
+
+  const moveToGroup = async (profileId: string, groupId: string | undefined) => {
+    const profile = state.profiles.find((item) => item.id === profileId)
+    if (!profile || (profile.groupId ?? '') === (groupId ?? '')) return
+    await api.updateProfile(profileId, { groupId })
+    await refresh()
+    const label = groupId ? groupsById.get(groupId)?.name ?? 'группа' : 'Без группы'
+    pushToast('success', `«${profile.name}» → ${label}`)
+  }
+
+  const onDragStart = (event: DragEvent, profile: Profile) => {
+    event.dataTransfer.setData(DRAG_TYPE, profile.id)
+    event.dataTransfer.setData('text/plain', profile.id)
+    event.dataTransfer.effectAllowed = 'move'
+    setDraggingId(profile.id)
+  }
+
+  const onDrop = (event: DragEvent, groupId: string | undefined, sectionId: string) => {
+    event.preventDefault()
+    const profileId = event.dataTransfer.getData(DRAG_TYPE) || event.dataTransfer.getData('text/plain')
+    setDropTarget(null)
+    setDraggingId(null)
+    if (profileId) void moveToGroup(profileId, groupId)
+    else void sectionId
+  }
+
   const renderCard = (profile: Profile) => {
     const installed = isProfileInstalled(profile, state)
     const active = profile.id === state.selectedProfileId
     const group = profile.groupId ? groupsById.get(profile.groupId) : null
     const isPlaying = (gameStatus === 'running' || gameStatus === 'starting') && active
     const memory = effectiveMemory(profile, state.settings)
+    const isRenaming = renaming?.id === profile.id
 
     return (
       <motion.div
@@ -181,28 +276,54 @@ export function Instances(): JSX.Element {
         layout
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
+        draggable
         role="button"
         tabIndex={0}
-        onClick={() => void openProfile(profile.id)}
+        onClick={() => { if (!isRenaming) void openProfile(profile.id) }}
         onKeyDown={(event) => {
+          if (isRenaming) return
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
             void openProfile(profile.id)
           }
         }}
+        onContextMenu={(event) => openCardMenu(event, profile)}
+        onDragStartCapture={(event) => onDragStart(event, profile)}
+        onDragEndCapture={() => { setDraggingId(null); setDropTarget(null) }}
         className={`panel relative cursor-pointer overflow-hidden p-5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-mint-400/40 ${
           active ? 'border-mint-400/35 shadow-glow' : 'hover:border-white/15'
-        } ${view === 'grid' ? 'flex flex-col' : 'flex items-center gap-5'}`}
+        } ${draggingId === profile.id ? 'opacity-40' : ''} ${view === 'grid' ? 'flex flex-col' : 'flex items-center gap-5'}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1 ${active ? 'bg-gradient-to-r from-mint-400 to-iris-500' : 'bg-white/5'}`} />
 
         <div className={`flex min-w-0 items-start gap-3 ${view === 'list' ? 'flex-1' : ''}`}>
+          <div
+            onClick={(event) => event.stopPropagation()}
+            title="Перетащите, чтобы изменить группу"
+            className="-ml-1 mt-1 cursor-grab text-slate-600 transition hover:text-slate-300 active:cursor-grabbing"
+          >
+            <GripVertical size={16} />
+          </div>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-iris-500/25 to-mint-500/20 text-iris-400">
             {profile.modpack ? <Layers3 size={20} /> : <Gamepad2 size={20} />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-bold text-white">{profile.name}</span>
+              {isRenaming ? (
+                <RenameField
+                  value={renaming.value}
+                  onCommit={(value) => { void rename(profile, value); setRenaming(null) }}
+                  onCancel={() => setRenaming(null)}
+                />
+              ) : (
+                <span
+                  className="truncate font-bold text-white"
+                  onDoubleClick={(event) => { event.stopPropagation(); setRenaming({ id: profile.id, value: profile.name }) }}
+                  title="Двойной клик — переименовать"
+                >
+                  {profile.name}
+                </span>
+              )}
               {active && <Badge tone="mint"><Check size={11} /> Активная</Badge>}
             </div>
             <div className="mt-0.5 text-[11px] text-slate-500">Minecraft {profile.versionId}</div>
@@ -233,20 +354,6 @@ export function Instances(): JSX.Element {
             {installing === profile.id ? 'Установка...' : isPlaying ? 'Остановить' : installed ? 'Играть' : 'Установить'}
           </Button>
           <button
-            onClick={(event) => { event.stopPropagation(); setEditing({ ...profile }); setCreating(false) }}
-            className="rounded-xl border border-white/[0.08] p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
-            title="Изменить"
-          >
-            <Pencil size={15} />
-          </button>
-          <button
-            onClick={(event) => { event.stopPropagation(); void remove(profile) }}
-            className="rounded-xl border border-white/[0.08] p-2.5 text-slate-400 transition hover:bg-rose-500/15 hover:text-rose-300"
-            title="Удалить"
-          >
-            <Trash2 size={15} />
-          </button>
-          <button
             onClick={(event) => { event.stopPropagation(); void openProfile(profile.id) }}
             className="rounded-xl border border-white/[0.08] p-2.5 text-slate-400 transition hover:bg-mint-400/10 hover:text-mint-300"
             title="Открыть сборку"
@@ -262,7 +369,7 @@ export function Instances(): JSX.Element {
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
         title="Мои сборки"
-        subtitle="Нажмите на сборку, чтобы открыть её: моды, настройки и запуск в одном месте."
+        subtitle="Нажмите на сборку, чтобы открыть её. Перетаскивайте карточку между группами, правый клик открывает меню."
         action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
       />
 
@@ -271,8 +378,8 @@ export function Instances(): JSX.Element {
           <div className="flex flex-wrap items-center gap-2">
             {[
               { id: 'all', label: 'Все' },
-              { id: 'ungrouped', label: 'Без группы' },
-              ...state.groups.map((group) => ({ id: group.id, label: group.name }))
+              ...state.groups.map((group) => ({ id: group.id, label: group.name })),
+              { id: 'ungrouped', label: 'Без группы' }
             ].map((item) => (
               <button
                 key={item.id}
@@ -335,20 +442,45 @@ export function Instances(): JSX.Element {
             action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
           />
         </div>
-      ) : visibleProfiles.length === 0 ? (
+      ) : visibleProfiles.length === 0 && groupFilter === 'all' && !query ? (
         <div className="mt-4">
-          <EmptyState icon={<Search size={22} />} title="Сборки не найдены" description="Измените запрос или выберите другую группу." />
+          <EmptyState icon={<Boxes size={22} />} title="Сборок пока нет" description="Создайте сборку или переместите сюда существующую." />
         </div>
       ) : (
         <div className="mt-4 space-y-6">
           {sections.map((section) => (
-            <div key={section.id}>
+            <div
+              key={section.id}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropTarget(section.id)
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null)
+              }}
+              onDrop={(event) => onDrop(event, section.groupId, section.id)}
+              className={`rounded-2xl border p-3 transition ${
+                dropTarget === section.id
+                  ? 'border-mint-400/50 bg-mint-400/[0.05]'
+                  : 'border-transparent'
+              }`}
+            >
               {groupFilter === 'all' && (
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">{section.label}</h3>
+                <h3 className="mb-3 flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  {section.label}
+                  <span className="rounded-md bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-slate-600">{section.items.length}</span>
+                </h3>
               )}
-              <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
-                {section.items.map(renderCard)}
-              </div>
+              {section.items.length ? (
+                <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
+                  {section.items.map(renderCard)}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center rounded-xl border border-dashed border-white/[0.08] px-4 py-7 text-[11px] text-slate-600">
+                  Пусто · перетащите сюда сборку
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -452,8 +584,10 @@ export function Instances(): JSX.Element {
         </div>
       </Modal>
 
+      <ContextMenu menu={menu} onClose={() => setMenu(null)} />
+
       <div className="mt-5 flex items-center justify-between text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><Wrench size={12} /> Моды теперь хранятся внутри каждой сборки</span>
+        <span className="flex items-center gap-1.5"><Wrench size={12} /> Моды хранятся внутри каждой сборки · правый клик по карточке — меню</span>
         <span>{state.profiles.length} сборок · {state.groups.length} групп</span>
       </div>
     </div>

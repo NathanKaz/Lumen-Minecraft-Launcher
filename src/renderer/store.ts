@@ -9,7 +9,7 @@ import type {
   VersionManifest
 } from '@shared/types'
 
-export type Page = 'home' | 'instances' | 'modpacks' | 'settings'
+export type Page = 'home' | 'screenshots' | 'modpacks' | 'settings'
 
 interface LauncherStore {
   state: AppState | null
@@ -26,6 +26,8 @@ interface LauncherStore {
   setPage: (page: Page) => void
   openProfile: (id: string) => Promise<void>
   backToInstances: () => void
+  /** Shows the native confirmation dialog, then removes the build and all of its files. */
+  removeProfile: (id: string) => Promise<boolean>
   setBusy: (busy: boolean) => void
   dismissToast: (id: string) => void
   pushToast: (type: ToastPayload['type'], message: string) => void
@@ -73,6 +75,15 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
     }
   },
   backToInstances: () => set({ openedProfileId: null }),
+  removeProfile: async (id) => {
+    const confirmed = await api.confirmDeleteProfile(id)
+    if (!confirmed) return false
+    await api.deleteProfile(id)
+    if (get().openedProfileId === id) set({ openedProfileId: null })
+    await get().refresh()
+    get().pushToast('info', 'Сборка и её файлы удалены')
+    return true
+  },
   setBusy: (busy) => set({ busy }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((toast) => toast.id !== id) }),
   pushToast: (type, message) =>

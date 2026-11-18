@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
-import { Boxes, Gamepad2, LayoutDashboard, Package, Settings, ChevronRight } from 'lucide-react'
+import { Gamepad2, Image as ImageIcon, LayoutDashboard, Package, Settings, ChevronRight } from 'lucide-react'
 import { selectedProfile, useLauncher, type Page } from '../store'
 
 const items: Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'home', label: 'Главная', icon: LayoutDashboard },
-  { id: 'instances', label: 'Сборки', icon: Boxes },
+  { id: 'screenshots', label: 'Скриншоты', icon: ImageIcon },
   { id: 'modpacks', label: 'Модпаки', icon: Package },
   { id: 'settings', label: 'Настройки', icon: Settings }
 ]
