@@ -1,0 +1,37 @@
+export const IPC = {
+  getState: 'app:getState',
+  setState: 'app:setState',
+  setAccount: 'app:setAccount',
+  createProfile: 'profile:create',
+  updateProfile: 'profile:update',
+  deleteProfile: 'profile:delete',
+  getVersions: 'version:list',
+  installProfile: 'profile:install',
+  launch: 'game:launch',
+  stopGame: 'game:stop',
+  getGameStatus: 'game:status',
+  listMods: 'mods:list',
+  installLocalMod: 'mods:installLocal',
+  installModFile: 'mods:installFile',
+  toggleMod: 'mods:toggle',
+  deleteMod: 'mods:delete',
+  searchMods: 'modrinth:searchMods',
+  installMod: 'modrinth:installMod',
+  searchModpacks: 'modrinth:searchModpacks',
+  installModpack: 'modpack:install',
+  installModpackFilePath: 'modpack:installPath',
+  installModpackFromModrinth: 'modpack:installModrinth',
+  windowAction: 'app:windowAction',
+  getJavaInfo: 'java:info',
+  detectJava: 'java:detect',
+  openFolder: 'app:openFolder',
+  getLogs: 'logs:get',
+  clearLogs: 'logs:clear'
+} as const
+
+export const EVENTS = {
+  progress: 'event:progress',
+  log: 'event:log',
+  gameStatus: 'event:gameStatus',
+  toast: 'event:toast'
+} as const
