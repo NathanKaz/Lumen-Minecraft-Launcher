@@ -36,11 +36,11 @@ npm run typecheck
 npm run build
 npm run dist       # package for current platform
 npm run dist:linux # AppImage + DEB (x64/arm64)
-npm run dist:win   # NSIS installer (x64/ia32/arm64)
+npm run dist:win   # universal NSIS installer (x64/ia32/arm64)
 npm run dist:mac   # DMG (x64/arm64)
 ```
 
-macOS DMG packaging requires macOS; use the GitHub Actions matrix in `.github/workflows/build.yml` (or a separate runner per OS) to produce all platform artifacts. `npm run dist:all` runs all three scripts sequentially and is only suitable where cross-packaging is supported.
+macOS DMG packaging requires macOS; use the GitHub Actions matrix in `.github/workflows/build.yml` (or a separate runner per OS) to produce all platform artifacts. `npm run dist:all` builds the supported formats for the current host and stores them in separate folders: `release/linux` and `release/win` on non-macOS systems (macOS is skipped with a notice), or `release/mac` on macOS. Individual `dist:*` scripts still write to `release/`.
 
 Launcher data (versions, instances, mods) is stored in the app user data directory, e.g. `~/.config/Lumen Launcher/launcher` on Linux (exact path depends on platform/Electron userData location).
 

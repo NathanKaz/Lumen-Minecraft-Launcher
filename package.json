@@ -1,6 +1,6 @@
 {
   "name": "lumen-launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A modern Minecraft launcher with mod and modpack management",
   "main": "./dist/main/index.js",
   "author": "NathanKaz",
@@ -15,7 +15,7 @@
     "dist:win": "node scripts/run.js dist --win",
     "dist:mac": "node scripts/run.js dist --mac",
     "dist:linux": "node scripts/run.js dist --linux",
-    "dist:all": "npm run dist:linux && npm run dist:win && npm run dist:mac"
+    "dist:all": "node scripts/dist-all.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -44,29 +44,60 @@
   "build": {
     "appId": "com.lumenlauncher.app",
     "productName": "Lumen Launcher",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "package.json"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
     "artifactName": "Lumen-Launcher-${version}-${os}-${arch}.${ext}",
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "Game",
       "maintainer": "NathanKaz <nathankaz@example.com>"
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64", "ia32", "arm64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32",
+            "arm64"
+          ]
+        }
       ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Lumen-Launcher-${version}-win.${ext}"
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "public.app-category.games"
     }
