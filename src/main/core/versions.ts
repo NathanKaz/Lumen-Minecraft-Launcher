@@ -12,10 +12,15 @@ import {
 
 export { getVersionList } from './install'
 import { installLoader } from './loaders'
+import { createAutoBackup } from './backups'
+import { ensureJava } from './javaInstall'
+import { requiredJavaMajor } from './java'
 
-export async function installProfile(profileId: string, loaderVersion?: string): Promise<void> {
+export async function installProfile(profileId: string, loaderVersion?: string, skipAutoBackup = false): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
+
+  if (!skipAutoBackup) await createAutoBackup(profileId, msg('Автобэкап перед установкой версии'))
 
   emitProgress({
     phase: 'version',
@@ -34,6 +39,11 @@ export async function installProfile(profileId: string, loaderVersion?: string):
   extractNatives({ ...baseVersion, id: profile.versionId })
   markVersionInstalled(profile.versionId)
 
+  // Fabric/Forge/NeoForge installers are Java programs; make sure a suitable
+  // runtime exists (downloading a managed JRE if allowed) before running them.
+  if (profile.loader !== 'vanilla') {
+    await ensureJava(requiredJavaMajor(profile.versionId), profileId)
+  }
   const loaderVersionId = await installLoader(profile.loader, profile.versionId, loaderVersion)
   const launchId = loaderVersionId ?? profile.versionId
   const resolved = await resolveVersion(launchId)

@@ -23,7 +23,9 @@ const defaultSettings: Settings = {
   language: 'ru',
   closeBehavior: 'exit',
   checkUpdates: true,
-  instancesView: 'grid'
+  instancesView: 'grid',
+  autoBackupBeforeUpdates: true,
+  autoInstallJava: true
 }
 
 const defaultGroups: BuildGroup[] = []

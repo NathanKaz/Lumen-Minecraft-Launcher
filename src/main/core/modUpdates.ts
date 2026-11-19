@@ -6,6 +6,7 @@ import { modsDir } from './paths'
 import { getState } from './store'
 import { fetchJson } from './http'
 import { downloadMany, type DownloadTask } from './downloader'
+import { createAutoBackup } from './backups'
 import { listMods } from './mods'
 import type { ModUpdateInfo } from '@shared/types'
 
@@ -98,6 +99,8 @@ export async function checkModUpdates(profileId: string): Promise<ModUpdateInfo[
 export async function updateMod(profileId: string, fileName: string, projectId: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg('Сборка не найдена'))
+
+  await createAutoBackup(profileId, msg('Автобэкап перед обновлением модов'))
 
   const versions = await projectVersions(projectId, profile.versionId, profile.loader)
   const version = versions[0]

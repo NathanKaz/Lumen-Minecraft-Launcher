@@ -4,20 +4,22 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 
 ## Features
 
-- **Launch Minecraft** — official Mojang versions with automatic download of client, libraries, assets, and natives, plus SHA-1 verification. Instance creation supports release, snapshot, beta, and alpha versions via a type filter; non-release versions are marked as unstable.
+- **Launch Minecraft** — official Mojang versions with automatic download of client, libraries, assets, and natives, plus SHA-1 verification. Instance creation supports a multi-select type filter (release / snapshot / beta / alpha) and version search; non-release versions are marked as unstable and loader compatibility warnings are shown.
 - **Mod loaders** — Fabric, Forge, and NeoForge installation via official installers.
 - **Instances (builds)** — all instances on the home screen with groups (including empty groups), grid/list views, and search. Cards can be dragged between groups; right-click opens context actions (Open / Rename / Edit / Delete). Renaming is available via double-click and group management supports inline rename. Memory is global by default and can be overridden per instance. Opening an instance shows its mods, screenshots, and settings.
 - **Mods** — per-instance mod management: Modrinth catalog search with "Load more" pagination, optional version/loader filters, dependency installation, local `.jar`/`.zip` import, enable/disable, and removal. Clicking a mod in the catalog opens a separate detail panel on the right with screenshots/gallery, description, compatibility info, and links.
 - **Modpacks** — install `.mrpack` files via dialog or drag & drop, or install modpacks from Modrinth. Clicking a modpack in the catalog opens a detail panel with screenshots, description, and metadata.
 - **Screenshots** — dedicated screenshots page with per-instance filtering and an in-instance screenshots tab in the instance detail view; open, download, and delete screenshots from `<instance>/screenshots`.
-- **Skins (Account window)** — offline skin library in the Account modal with PNG import (64×64 / 64×32), preview, active skin selection, and wide/slim model switching. The chosen skin is applied to every offline instance through a generated resource pack on launch. Skins are visible only to you: offline mode does not provide a Mojang signature, so other players will not see them.
+- **Skins (Account window)** — offline skin library in the Account modal with PNG import (64×64 / 64×32), an interactive 3D model preview (drag to rotate), active skin selection, and wide/slim model switching. The chosen skin is applied to every offline instance through a generated resource pack on launch. Skins are visible only to you: offline mode does not provide a Mojang signature, so other players will not see them.
 - **File verification** — compare an instance's client, libraries, and assets against Mojang checksums and optionally repair missing/corrupted files.
-- **World backups** — create, list, restore, and delete ZIP backups of an instance's `saves` folder, with a confirmation before restoring.
+- **World backups** — create, list, restore, and delete ZIP backups of an instance's `saves` folder, with a confirmation before restoring. Optional automatic backups are created before mod/version/modpack updates, and `Back up all worlds` creates backups for every instance.
 - **Resource & shader packs** — install `.zip` packs per instance, toggle them on/off, and delete them. Packs are enabled through the instance's `options.txt`; the generated offline-skin pack is managed automatically.
 - **Mod updates** — check installed mods against Modrinth by SHA-1 and update them to the latest compatible version for the instance's Minecraft version and loader.
 - **Launcher updates & tray** — check for new launcher releases on startup or on demand, minimize to the system tray on close, and launch/stop the game from the tray menu.
 - **Localization** — full Russian and English interface, including dialogs, toasts, progress messages, and tray menu; switching the language updates the UI immediately.
 - **Instance deletion** — native confirmation dialog listing data to be removed (saves, mods, screenshots, configs, resource/shader packs, options, logs) and the full instance folder path.
+- **Instance transfer & bulk actions** — export selected instances (full folders + manifest) to ZIP, import them back with fresh IDs, and run install/export/delete on a selection from the home screen.
+- **Per-instance Java** — override the Java executable and JVM arguments for each build. If no compatible Java is found, the launcher can download a managed Temurin JRE automatically into its own data directory (no system-wide changes).
 - **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
 
 ## Development
@@ -48,7 +50,9 @@ Build artifacts are not needed for development and can be removed to reclaim spa
 
 ## Authentication strategy
 
-Currently uses an offline profile (player name, local UUID, token), suitable for single-player and servers without license verification. Microsoft sign-in (PKCE → Xbox Live → XSTS → Minecraft profile) is planned as a next step.
+Currently uses an offline profile (player name, local UUID, token), suitable for single-player and servers without license verification.
+
+Microsoft sign-in is **not implemented**. It is substantially more complex than the rest of the launcher: it requires an Azure app registration, a PKCE browser flow, exchanging the code for an Xbox Live token, then XSTS, then a Minecraft profile/token, plus secure token storage and refresh. Online skins additionally require uploading a signed skin through the Minecraft profile API. The current offline skins are local-only and are not visible to other players.
 
 ## Sources
 
@@ -56,6 +60,7 @@ Currently uses an offline profile (player name, local UUID, token), suitable for
 - Fabric Meta API — Fabric loader profiles.
 - Forge promotions/Maven and NeoForge Maven — loader installers.
 - Modrinth API v2 — mods and modpacks.
+- Adoptium API — managed JRE downloads for automatic Java installation.
 
 ## Architecture
 

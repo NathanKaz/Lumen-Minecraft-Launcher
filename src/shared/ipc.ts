@@ -28,6 +28,7 @@ export const IPC = {
   windowAction: 'app:windowAction',
   getJavaInfo: 'java:info',
   detectJava: 'java:detect',
+  ensureJava: 'java:ensure',
   openFolder: 'app:openFolder',
   getLogs: 'logs:get',
   clearLogs: 'logs:clear',
@@ -49,6 +50,11 @@ export const IPC = {
   createBackup: 'backups:create',
   restoreBackup: 'backups:restore',
   deleteBackup: 'backups:delete',
+  backupAllProfiles: 'backups:backupAll',
+
+  // Instance transfer
+  exportProfiles: 'profiles:export',
+  importProfiles: 'profiles:import',
 
   // Resource/shader packs
   listPacks: 'packs:list',

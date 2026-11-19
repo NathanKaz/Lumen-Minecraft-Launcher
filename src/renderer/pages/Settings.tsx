@@ -88,6 +88,16 @@ export function Settings(): JSX.Element {
             <p className="text-[11px] leading-relaxed text-slate-500">
               {t("Для Minecraft 1.18+ нужна Java 17, для 1.20.5+ — Java 21. Лаунчер подберёт установленную версию автоматически.")}
             </p>
+            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-200">{t("Автоматически устанавливать Java")}</div>
+                <div className="text-[10px] text-slate-500">{t("Если подходящая Java не найдена, лаунчер скачает JRE.")}</div>
+              </div>
+              <Toggle
+                checked={settings.autoInstallJava !== false}
+                onChange={() => void update({ autoInstallJava: settings.autoInstallJava === false })}
+              />
+            </div>
           </div>
         </div>
 
@@ -173,6 +183,16 @@ export function Settings(): JSX.Element {
                 <div className="text-[10px] text-slate-500">{t("При запуске лаунчера")}</div>
               </div>
               <Toggle checked={settings.checkUpdates} onChange={() => void update({ checkUpdates: !settings.checkUpdates })} />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-200">{t("Автоматические бэкапы перед обновлениями")}</div>
+                <div className="text-[10px] text-slate-500">{t("Перед обновлением модов и версий создаётся бэкап миров.")}</div>
+              </div>
+              <Toggle
+                checked={settings.autoBackupBeforeUpdates !== false}
+                onChange={() => void update({ autoBackupBeforeUpdates: settings.autoBackupBeforeUpdates === false })}
+              />
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <div>

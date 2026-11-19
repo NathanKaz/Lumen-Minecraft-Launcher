@@ -18,6 +18,7 @@ declare module 'adm-zip' {
     getEntries(): AdmZipEntry[]
     getEntry(name: string): AdmZipEntry | null
     readAsText(name: string): string
+    readFile(entry: AdmZipEntry | string): Buffer | null
     extractEntryTo(entry: AdmZipEntry, targetPath: string, maintainEntryPath?: boolean, overwrite?: boolean): boolean
     extractAllTo(targetPath: string, overwrite?: boolean): void
     addFile(entry: ZipEntryData | string, data?: Buffer | string, comment?: string, attr?: number, date?: Date): void

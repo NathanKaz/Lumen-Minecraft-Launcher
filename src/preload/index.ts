@@ -41,6 +41,7 @@ const api: LauncherAPI = {
   windowAction: (action) => invoke(IPC.windowAction, action),
   getJavaInfo: () => invoke(IPC.getJavaInfo),
   detectJava: () => invoke(IPC.detectJava),
+  ensureJava: (major, profileId, explicit) => invoke(IPC.ensureJava, major, profileId, explicit),
   openFolder: (kind) => invoke(IPC.openFolder, kind),
   getLogs: () => invoke(IPC.getLogs),
   clearLogs: () => invoke(IPC.clearLogs),
@@ -62,6 +63,9 @@ const api: LauncherAPI = {
   createBackup: (profileId) => invoke(IPC.createBackup, profileId),
   restoreBackup: (profileId, fileName) => invoke(IPC.restoreBackup, profileId, fileName),
   deleteBackup: (profileId, fileName) => invoke(IPC.deleteBackup, profileId, fileName),
+  backupAllProfiles: () => invoke(IPC.backupAllProfiles),
+  exportProfiles: (profileIds) => invoke(IPC.exportProfiles, profileIds),
+  importProfiles: () => invoke(IPC.importProfiles),
 
   listPacks: (profileId, kind) => invoke(IPC.listPacks, profileId, kind),
   installPack: (profileId, kind) => invoke(IPC.installPack, profileId, kind),

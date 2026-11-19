@@ -6,7 +6,8 @@ import { dirs, versionDir } from './paths'
 import { downloadToFile } from './downloader'
 import { emitLog, emitProgress } from './events'
 import { fetchJson, fetchText } from './http'
-import { findJava } from './java'
+import { requiredJavaMajor } from './java'
+import { ensureJava } from './javaInstall'
 import { installLibraries, readVersionJson, extractNatives, type VersionJson } from './install'
 import type { LoaderType } from '@shared/types'
 
@@ -57,9 +58,9 @@ async function installFabric(gameVersion: string, requestedVersion?: string): Pr
   return id
 }
 
-function runInstaller(jarPath: string, args: string[]): Promise<void> {
+function runInstaller(jarPath: string, args: string[], gameVersion: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    void findJava().then((java) => {
+    void ensureJava(requiredJavaMajor(gameVersion)).then((java) => {
       if (!java.valid) {
         reject(new Error(msg("Java не найдена — не удалось установить загрузчик")))
         return
@@ -81,7 +82,7 @@ function runInstaller(jarPath: string, args: string[]): Promise<void> {
         if (code === 0) resolve()
         else reject(new Error(msg('Установщик завершился с кодом {code}: {output}', { code: code ?? 0, output: output.slice(-500) })))
       })
-    })
+    }).catch(reject)
   })
 }
 
@@ -114,7 +115,7 @@ async function installForge(gameVersion: string, requestedVersion?: string): Pro
     msg("установщик Forge")
   )
   emitLoader(msg("Установка Forge (это может занять минуту)"), 50)
-  await runInstaller(jarPath, ['--installClient', dirs.root])
+  await runInstaller(jarPath, ['--installClient', dirs.root], gameVersion)
   const id = (await findInstalledVersion(new RegExp(`${gameVersion}-forge-${forgeVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))) ?? `${gameVersion}-forge-${forgeVersion}`
   const json = await readVersionJson(id)
   if (json) {
@@ -149,7 +150,7 @@ async function installNeoForge(gameVersion: string, requestedVersion?: string): 
     msg("установщик NeoForge")
   )
   emitLoader(msg("Установка NeoForge"), 50)
-  await runInstaller(jarPath, ['--installClient', dirs.root])
+  await runInstaller(jarPath, ['--installClient', dirs.root], gameVersion)
   const escaped = neoVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const id = (await findInstalledVersion(new RegExp(`${gameVersion}-neoforge-${escaped}`))) ?? `${gameVersion}-neoforge-${neoVersion}`
   const json = await readVersionJson(id)

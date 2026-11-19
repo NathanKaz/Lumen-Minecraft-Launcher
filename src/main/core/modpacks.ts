@@ -8,6 +8,7 @@ import { downloadMany, type DownloadTask } from './downloader'
 import { emitProgress, emitToast, uid } from './events'
 import { getState, updateProfile } from './store'
 import { installProfile } from './versions'
+import { createAutoBackup } from './backups'
 import type { LoaderType } from '@shared/types'
 import { getModVersionsForMrpack } from './modrinth'
 
@@ -34,6 +35,8 @@ function detectLoader(dependencies: Record<string, string>): { loader: LoaderTyp
 async function installMrpack(profileId: string, file: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
+
+  await createAutoBackup(profileId, msg('Автобэкап перед обновлением модпака'))
 
   const zip = new AdmZip(file)
   const indexEntry = zip.getEntry('modrinth.index.json')
@@ -62,7 +65,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
     totalBytes: 0,
     speed: 0
   })
-  await installProfile(profileId, loaderVersion)
+  await installProfile(profileId, loaderVersion, true)
 
   const directory = instanceDir(profileId)
   await fs.ensureDir(directory)

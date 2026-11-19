@@ -20,10 +20,12 @@ import { getProjectDetails, installMod, searchMods, searchModpacks } from './cor
 import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
 import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
+import { ensureJava } from './core/javaInstall'
 import { deleteSkin, importSkin, listSkins, selectSkin, setSkinModel } from './core/skins'
 import { checkUpdates } from './core/updates'
 import { repairProfile, verifyProfile } from './core/verify'
-import { createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
+import { backupAllProfiles, createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
+import { exportProfiles, importProfiles } from './core/profileTransfer'
 import { deletePack, installPack, listPacks, togglePack } from './core/packs'
 import { checkModUpdates, updateMod } from './core/modUpdates'
 
@@ -109,6 +111,9 @@ export function registerIpc(): void {
   handle(IPC.deleteScreenshot, (profileId: string, fileName: string) => deleteScreenshot(profileId, fileName))
   handle(IPC.getJavaInfo, () => getJavaInfo())
   handle(IPC.detectJava, () => detectJava())
+  handle(IPC.ensureJava, (major?: number, profileId?: string, explicit?: boolean) =>
+    ensureJava(major, profileId, explicit)
+  )
   handle(IPC.getLogs, (): LogPayload[] => getLogs())
   handle(IPC.clearLogs, () => clearLogs())
 
@@ -129,6 +134,11 @@ export function registerIpc(): void {
   handle(IPC.createBackup, (profileId: string) => createBackup(profileId))
   handle(IPC.restoreBackup, (profileId: string, fileName: string) => restoreBackup(profileId, fileName))
   handle(IPC.deleteBackup, (profileId: string, fileName: string) => deleteBackup(profileId, fileName))
+  handle(IPC.backupAllProfiles, () => backupAllProfiles())
+
+  // Instance transfer
+  handle(IPC.exportProfiles, (profileIds: string[]) => exportProfiles(profileIds))
+  handle(IPC.importProfiles, () => importProfiles())
 
   // Resource/shader packs
   handle(IPC.listPacks, (profileId: string, kind: 'resource' | 'shader') => listPacks(profileId, kind))

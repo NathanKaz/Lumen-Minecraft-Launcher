@@ -6,6 +6,7 @@ import { dirs, instanceDir, versionDir } from './paths'
 import { getState, updateProfile } from './store'
 import { emitGameStatus, emitLog, emitProgress } from './events'
 import { findJava, inspectJava, requiredJavaMajor } from './java'
+import { ensureJava } from './javaInstall'
 import { argValues, classpathLibraries, extractNatives, resolveVersion, type VersionJson } from './install'
 import { applySkinResourcePack } from './skins'
 import type { GameStatus, JavaInfo } from '@shared/types'
@@ -32,6 +33,34 @@ function status(value: GameStatus): void {
   emitGameStatus(value)
 }
 
+/** Splits a user-provided JVM argument string, honoring single/double quotes. */
+function splitJvmArgs(input: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  let escaped = false
+  for (const char of input) {
+    if (escaped) {
+      current += char
+      escaped = false
+    } else if (char === '\\' && quote === '"') {
+      escaped = true
+    } else if (quote) {
+      if (char === quote) quote = null
+      else current += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (/\s/.test(char)) {
+      if (current) result.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  if (current) result.push(current)
+  return result
+}
+
 export async function launchGame(profileId: string): Promise<void> {
   if (child && !child.killed) throw new Error(msg("Игра уже запущена"))
   const state = getState()
@@ -45,19 +74,25 @@ export async function launchGame(profileId: string): Promise<void> {
   let selectedJava: JavaInfo
   if (configuredJava) {
     const inspected = await inspectJava(configuredJava)
-    if (!inspected) {
-      throw new Error(msg('Java не найдена по пути: {path}. Укажите корректный путь в настройках.', { path: configuredJava }))
+    if (!inspected || inspected.major < required) {
+      const problem = !inspected
+        ? msg('Java не найдена по пути: {path}. Укажите корректный путь в настройках.', { path: configuredJava })
+        : msg('Выбранная Java не подходит: нужна Java {major}+', { major: required })
+      if (state.settings.autoInstallJava === false) throw new Error(problem)
+      emitLog('warn', problem)
+      emitLog('info', msg('Поиск совместимой Java...'))
+      selectedJava = await ensureJava(required, profileId)
+    } else {
+      selectedJava = inspected
     }
-    if (inspected.major < required) {
-      throw new Error(msg('Нужна Java {required}+, но выбрана Java {found} ({path}).', { required, found: inspected.version, path: configuredJava }))
-    }
-    selectedJava = inspected
   } else {
     const java = await findJava(required)
-    if (!java.valid) {
-      throw new Error(msg('Нужна Java {required}+, найдена: {found}. Укажите путь в настройках.', { required, found: java.version }))
+    if (java.valid) {
+      selectedJava = java
+    } else {
+      emitLog('info', msg('Поиск совместимой Java...'))
+      selectedJava = await ensureJava(required, profileId)
     }
-    selectedJava = java
   }
   const javaPath = selectedJava.path
 
@@ -135,6 +170,10 @@ export async function launchGame(profileId: string): Promise<void> {
     '-Dfile.encoding=UTF-8',
     ...argValues(version.arguments?.jvm, features).map(substitute)
   ]
+
+  if (profile.jvmArgs?.trim()) {
+    jvmArgs.push(...splitJvmArgs(profile.jvmArgs).map(substitute))
+  }
 
   if (!version.arguments?.jvm?.length) {
     jvmArgs.push(`-Djava.library.path=${replacements.natives_directory}`, '-cp', classpath)

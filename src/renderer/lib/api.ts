@@ -99,8 +99,50 @@ const mockScreenshots: ScreenshotInfo[] = [
   { fileName: '2026-11-15_21.40.12.png', profileId: 'adventuria', profileName: 'Adventuria', name: '2026-11-15_21.40.12', size: 1_560_000, createdAt: Date.now() - 259_200_000, dataUrl: screenshotImage('Башня магов', '#4c1d95') }
 ]
 
-function skinPreview(primary: string, accent: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect width="16" height="16" fill="${primary}"/><rect x="4" y="2" width="8" height="6" fill="#f1c27d"/><rect x="4" y="2" width="8" height="2" fill="${accent}"/><rect x="5" y="4" width="2" height="2" fill="#fff"/><rect x="9" y="4" width="2" height="2" fill="#fff"/><rect x="5" y="5" width="1" height="1" fill="#3b2b22"/><rect x="10" y="5" width="1" height="1" fill="#3b2b22"/><rect x="4" y="8" width="8" height="6" fill="${accent}"/><rect x="2" y="8" width="2" height="6" fill="#f1c27d"/><rect x="12" y="8" width="2" height="6" fill="#f1c27d"/><rect x="5" y="14" width="2" height="2" fill="#3b4a63"/><rect x="9" y="14" width="2" height="2" fill="#3b4a63"/></svg>`
+function skinPreview(shirt: string, hair: string): string {
+  const skin = '#f1c27d'
+  const pants = '#2f3a51'
+  const shoe = '#1f2937'
+  const rect = (x: number, y: number, w: number, h: number, fill: string) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`
+
+  // A minimal 64×64 texture laid out like a real Minecraft skin so the 3D
+  // preview can sample the same UV regions as imported PNG skins.
+  const pixels = [
+    // Head: top/bottom, then right/front/left/back with hair strips.
+    rect(8, 0, 8, 8, hair), rect(16, 0, 8, 8, skin),
+    rect(0, 8, 8, 8, skin), rect(8, 8, 8, 8, skin), rect(16, 8, 8, 8, skin), rect(24, 8, 8, 8, skin),
+    rect(8, 8, 8, 2, hair), rect(0, 8, 8, 2, hair), rect(16, 8, 8, 2, hair), rect(24, 8, 8, 2, hair),
+    rect(10, 11, 1, 1, '#ffffff'), rect(13, 11, 1, 1, '#ffffff'),
+    rect(10, 12, 1, 1, '#3b2b22'), rect(13, 12, 1, 1, '#3b2b22'),
+    rect(11, 14, 2, 1, '#9a6245'),
+
+    // Torso.
+    rect(20, 16, 8, 4, shirt), rect(24, 16, 8, 4, pants),
+    rect(16, 20, 4, 12, shirt), rect(20, 20, 8, 12, shirt),
+    rect(36, 20, 4, 12, shirt), rect(32, 20, 8, 12, shirt),
+
+    // Right arm.
+    rect(44, 16, 4, 4, shirt), rect(48, 16, 4, 4, skin),
+    rect(40, 20, 4, 12, shirt), rect(44, 20, 4, 10, shirt), rect(44, 30, 4, 2, skin),
+    rect(48, 20, 4, 12, shirt), rect(52, 20, 4, 10, shirt), rect(52, 30, 4, 2, skin),
+
+    // Left arm.
+    rect(36, 48, 4, 4, shirt), rect(40, 48, 4, 4, skin),
+    rect(52, 48, 4, 12, shirt), rect(36, 52, 4, 10, shirt), rect(36, 62, 4, 2, skin),
+    rect(44, 52, 4, 12, shirt), rect(48, 52, 4, 10, shirt), rect(48, 62, 4, 2, skin),
+
+    // Right leg.
+    rect(4, 16, 4, 4, pants), rect(8, 16, 4, 4, shoe),
+    rect(0, 20, 4, 12, pants), rect(4, 20, 4, 10, pants), rect(4, 30, 4, 2, shoe),
+    rect(8, 20, 4, 12, pants), rect(12, 20, 4, 10, pants), rect(12, 30, 4, 2, shoe),
+
+    // Left leg.
+    rect(20, 48, 4, 4, pants), rect(24, 48, 4, 4, shoe),
+    rect(16, 52, 4, 12, pants), rect(20, 52, 4, 10, pants), rect(20, 62, 4, 2, shoe),
+    rect(24, 52, 4, 12, pants), rect(28, 52, 4, 10, pants), rect(28, 62, 4, 2, shoe)
+  ].join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" shape-rendering="crispEdges">${pixels}</svg>`
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
@@ -122,7 +164,7 @@ function mockState(): AppState {
       { id: 'modpacks', name: 'Модпаки' }
     ],
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid' },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true },
     account: { name: 'Steve', uuid: '00000000-0000-0000-0000-000000000000', token: 'mock', type: 'offline' },
     installedVersions: ['1.20.1', 'fabric-loader-0.15.11-1.20.1']
   }
@@ -372,6 +414,23 @@ function createMock(): LauncherAPI {
     windowAction: async () => undefined,
     getJavaInfo: async (): Promise<JavaInfo> => ({ path: '/usr/lib/jvm/java-17-openjdk/bin/java', version: '17.0.12', major: 17, valid: true }),
     detectJava: async (): Promise<JavaInfo> => ({ path: '/usr/lib/jvm/java-17-openjdk/bin/java', version: '17.0.12', major: 17, valid: true }),
+    ensureJava: async (major = 17, profileId, explicit): Promise<JavaInfo> => {
+      if (!explicit && state.settings.autoInstallJava === false) {
+        throw new Error(t('Требуется Java {major} или новее', { major }))
+      }
+      await mockProgress(t('Загрузка Java {version}...', { version: major }), 'java')
+      const info: JavaInfo = {
+        path: `${state.settings.javaPath || '/usr/lib/jvm'}/java-${major}/bin/java`,
+        version: `${major}.0.12`,
+        major,
+        valid: true
+      }
+      if (profileId) {
+        state = { ...state, profiles: state.profiles.map((entry) => entry.id === profileId ? { ...entry, javaPath: info.path } : entry) }
+      }
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Java {version} установлена: {path}', { version: major, path: info.path }) })
+      return info
+    },
     openFolder: async () => undefined,
     getLogs: async () => logs,
     clearLogs: async () => {
@@ -458,6 +517,23 @@ function createMock(): LauncherAPI {
     },
     deleteBackup: async (profileId, fileName) => {
       backupsByProfile[profileId] = (backupsByProfile[profileId] ?? []).filter((backup) => backup.fileName !== fileName)
+    },
+    backupAllProfiles: async () => {
+      for (const profile of state.profiles) await api.createBackup(profile.id)
+      return state.profiles.length
+    },
+    exportProfiles: async (profileIds) => {
+      if (profileIds.length === 0) return null
+      await wait(300)
+      return `demo://lumen-instances-${profileIds.length}.zip`
+    },
+    importProfiles: async () => {
+      await wait(300)
+      const source = state.profiles[0]
+      if (!source) return 0
+      const copy = { ...source, id: `imported-${Date.now()}`, name: `${source.name} (import)`, createdAt: Date.now(), playtimeMinutes: 0, lastPlayed: undefined }
+      state = { ...state, profiles: [...state.profiles, copy], selectedProfileId: copy.id }
+      return 1
     },
 
     listPacks: async (profileId, kind) => {

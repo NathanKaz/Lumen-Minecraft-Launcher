@@ -34,7 +34,7 @@ export async function listBackups(profileId: string): Promise<BackupInfo[]> {
   return result.sort((a, b) => b.createdAt - a.createdAt)
 }
 
-export async function createBackup(profileId: string): Promise<BackupInfo> {
+export async function createBackup(profileId: string, silent = false): Promise<BackupInfo> {
   const saves = path.join(instanceDir(profileId), 'saves')
   if (!(await fs.pathExists(saves))) {
     throw new Error(msg('В сборке нет миров для резервной копии'))
@@ -49,9 +49,43 @@ export async function createBackup(profileId: string): Promise<BackupInfo> {
   zip.addLocalFolder(saves, 'saves')
   await fs.writeFile(target, zip.toBuffer())
   const stats = await fs.stat(target)
-  emitToast('success', msg('Резервная копия создана'))
-  emitLog('info', msg('Резервная копия создана') + `: ${fileName}`)
+  if (!silent) {
+    emitToast('success', msg('Резервная копия создана'))
+    emitLog('info', msg('Резервная копия создана') + `: ${fileName}`)
+  }
   return { fileName, name: path.basename(fileName, '.zip'), size: stats.size, createdAt: stats.mtimeMs }
+}
+
+/** Silent pre-update backup. Skips when disabled or when the instance has no worlds. */
+export async function createAutoBackup(profileId: string, reason: string): Promise<BackupInfo | null> {
+  if (getState().settings.autoBackupBeforeUpdates === false) return null
+  const saves = path.join(instanceDir(profileId), 'saves')
+  if (!(await fs.pathExists(saves))) return null
+
+  const dir = backupDir(profileId)
+  await fs.ensureDir(dir)
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const fileName = `auto-${safeName(reason)}-${stamp}-${uid().slice(0, 6)}.zip`
+  const target = path.join(dir, fileName)
+  const zip = new AdmZip()
+  zip.addLocalFolder(saves, 'saves')
+  await fs.writeFile(target, zip.toBuffer())
+  const stats = await fs.stat(target)
+  emitLog('info', `${msg('Автобэкап перед обновлением: {reason}', { reason })}: ${fileName}`)
+  return { fileName, name: path.basename(fileName, '.zip'), size: stats.size, createdAt: stats.mtimeMs }
+}
+
+/** Creates a regular backup for every instance that actually has saves. */
+export async function backupAllProfiles(): Promise<number> {
+  const profiles = getState().profiles
+  let created = 0
+  for (const profile of profiles) {
+    const saves = path.join(instanceDir(profile.id), 'saves')
+    if (!(await fs.pathExists(saves))) continue
+    await createBackup(profile.id, true)
+    created += 1
+  }
+  return created
 }
 
 export async function restoreBackup(profileId: string, fileName: string): Promise<void> {

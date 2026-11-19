@@ -14,7 +14,9 @@ export const dirs = {
   logs: path.join(root, 'logs'),
   skins: path.join(root, 'skins'),
   backups: path.join(root, 'backups'),
-  installers: path.join(root, 'cache', 'installers')
+  installers: path.join(root, 'cache', 'installers'),
+  java: path.join(root, 'java'),
+  javaCache: path.join(root, 'cache', 'java')
 }
 
 export function ensureDirs(): void {

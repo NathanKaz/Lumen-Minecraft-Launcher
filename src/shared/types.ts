@@ -15,7 +15,10 @@ export interface Profile {
   /** Individual RAM override. When absent, Settings.memory is used. */
   memory?: number
   groupId?: string
+  /** Per-instance Java executable. Overrides Settings.javaPath. */
   javaPath?: string
+  /** Extra JVM flags appended before the main class (quotes are supported). */
+  jvmArgs?: string
   createdAt: number
   lastPlayed?: number
   playtimeMinutes: number
@@ -39,6 +42,10 @@ export interface Settings {
   instancesView: 'grid' | 'list'
   /** Id of the skin from the library applied to every offline instance. */
   activeSkinId?: string
+  /** Create a world backup before mod/version updates when saves exist. */
+  autoBackupBeforeUpdates?: boolean
+  /** Download a managed JRE when no compatible Java is installed. */
+  autoInstallJava?: boolean
 }
 
 export interface Account {
@@ -79,6 +86,7 @@ export type ProgressPhase =
   | 'mod'
   | 'modpack'
   | 'launch'
+  | 'java'
 
 export interface ProgressPayload {
   phase: ProgressPhase
@@ -266,6 +274,14 @@ export interface LauncherAPI {
   windowAction(action: 'minimize' | 'maximize' | 'close'): Promise<void>
   getJavaInfo(): Promise<JavaInfo>
   detectJava(): Promise<JavaInfo>
+  /** Finds (or downloads) a Java runtime compatible with a Minecraft version. */
+  ensureJava(major?: number, profileId?: string, explicit?: boolean): Promise<JavaInfo>
+  /** Exports whole instances to a user-selected ZIP archive. */
+  exportProfiles(profileIds: string[]): Promise<string | null>
+  /** Imports instances from a user-selected archive. Returns the count. */
+  importProfiles(): Promise<number>
+  /** Creates world backups for every instance that has saves. Returns the count. */
+  backupAllProfiles(): Promise<number>
   openFolder(kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs'): Promise<void>
   getLogs(): Promise<LogPayload[]>
   clearLogs(): Promise<void>

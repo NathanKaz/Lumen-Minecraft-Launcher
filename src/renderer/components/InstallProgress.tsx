@@ -12,7 +12,8 @@ const phaseKeys: Record<ProgressPhase, string> = {
   loader: 'Загрузчик',
   mod: 'Мод',
   modpack: 'Модпак',
-  launch: 'Запуск'
+  launch: 'Запуск',
+  java: 'Java'
 }
 
 export function InstallProgress(): JSX.Element | null {

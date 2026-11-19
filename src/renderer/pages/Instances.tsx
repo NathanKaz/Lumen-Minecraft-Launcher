@@ -89,6 +89,8 @@ export function Instances(): JSX.Element {
   const [renamingGroupName, setRenamingGroupName] = useState('')
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [selectMode, setSelectMode] = useState(false)
 
   if (!state) return <Spinner />
 
@@ -197,6 +199,94 @@ export function Instances(): JSX.Element {
     await refresh()
   }
 
+  const toggleSelected = (profileId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(profileId)) next.delete(profileId)
+      else next.add(profileId)
+      return next
+    })
+  }
+
+  const exportSelected = async () => {
+    setBusy(true)
+    try {
+      const path = await api.exportProfiles([...selectedIds])
+      if (path) pushToast('success', t('Сборки экспортированы: {path}', { path }))
+      else pushToast('info', t('Экспорт отменён'))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const importProfiles = async () => {
+    setBusy(true)
+    try {
+      const count = await api.importProfiles()
+      if (count > 0) {
+        await refresh()
+        pushToast('success', t('Импортировано сборок: {count}', { count }))
+      }
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const backupAll = async () => {
+    setBusy(true)
+    try {
+      const count = await api.backupAllProfiles()
+      pushToast(count > 0 ? 'success' : 'info', count > 0
+        ? t('Создано бэкапов: {count}', { count })
+        : t('Бэкапы не созданы: миры не найдены'))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bulkInstall = async () => {
+    const targets = state.profiles.filter((profile) => selectedIds.has(profile.id))
+    if (targets.length === 0) return
+    setBusy(true)
+    try {
+      for (const profile of targets) {
+        setInstalling(profile.id)
+        await api.installProfile(profile.id)
+      }
+      await refresh()
+      pushToast('success', t('Установлено сборок: {count}', { count: targets.length }))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setInstalling(null)
+      setBusy(false)
+    }
+  }
+
+  const bulkDelete = async () => {
+    const targets = state.profiles.filter((profile) => selectedIds.has(profile.id))
+    if (targets.length === 0) return
+    if (!confirm(t('Удалить выбранные сборки? Миры и моды будут удалены безвозвратно.') +
+      ` (${t('Выбрано сборок для удаления: {count}', { count: targets.length })})`)) return
+    setBusy(true)
+    try {
+      for (const profile of targets) await api.deleteProfile(profile.id)
+      setSelectedIds(new Set())
+      await refresh()
+      pushToast('success', t('Удалено сборок: {count}', { count: targets.length }))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const addGroup = async () => {
     const name = newGroupName.trim()
     if (!name) return
@@ -292,12 +382,17 @@ export function Instances(): JSX.Element {
         draggable
         role="button"
         tabIndex={0}
-        onClick={() => { if (!isRenaming) void openProfile(profile.id) }}
+        onClick={() => {
+          if (isRenaming) return
+          if (selectMode) toggleSelected(profile.id)
+          else void openProfile(profile.id)
+        }}
         onKeyDown={(event) => {
           if (isRenaming) return
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
-            void openProfile(profile.id)
+            if (selectMode) toggleSelected(profile.id)
+            else void openProfile(profile.id)
           }
         }}
         onContextMenu={(event) => openCardMenu(event, profile)}
@@ -308,6 +403,22 @@ export function Instances(): JSX.Element {
         } ${draggingId === profile.id ? 'opacity-40' : ''} ${view === 'grid' ? 'flex flex-col' : 'flex items-center gap-5'}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1 ${active ? 'bg-gradient-to-r from-mint-400 to-iris-500' : 'bg-white/5'}`} />
+
+        {selectMode && (
+          <button
+            type="button"
+            aria-label={t('Выбрать сборки')}
+            aria-pressed={selectedIds.has(profile.id)}
+            onClick={(event) => { event.stopPropagation(); toggleSelected(profile.id) }}
+            className={`absolute right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border transition ${
+              selectedIds.has(profile.id)
+                ? 'border-mint-400 bg-mint-400/20 text-mint-300'
+                : 'border-white/15 bg-ink-900/80 text-slate-600 hover:border-white/30'
+            }`}
+          >
+            {selectedIds.has(profile.id) ? <Check size={14} /> : <Square size={13} />}
+          </button>
+        )}
 
         <div className={`flex min-w-0 items-start gap-3 ${view === 'list' ? 'flex-1' : ''}`}>
           <div
@@ -413,6 +524,33 @@ export function Instances(): JSX.Element {
             >
               <Users size={14} /> {t("Группы")}
             </button>
+            <button
+              onClick={() => {
+                setSelectMode((current) => !current)
+                setSelectedIds(new Set())
+              }}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                selectMode
+                  ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
+                  : 'border-white/[0.07] bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
+              }`}
+            >
+              <Check size={14} /> {t("Выбрать сборки")}
+            </button>
+            <button
+              onClick={() => void importProfiles()}
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-white/20 hover:text-slate-200"
+            >
+              <Download size={14} /> {t("Импорт сборок")}
+            </button>
+            <button
+              onClick={() => void backupAll()}
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-white/20 hover:text-slate-200"
+            >
+              <FolderOpen size={14} /> {t("Создать бэкапы всех миров")}
+            </button>
           </div>
 
           <div className="relative ml-auto w-full max-w-[230px]">
@@ -441,6 +579,45 @@ export function Instances(): JSX.Element {
               <List size={16} />
             </button>
           </div>
+        </div>
+      )}
+
+      {selectMode && state.profiles.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-mint-400/25 bg-mint-400/[0.06] p-3">
+          <span className="mr-auto text-xs font-semibold text-mint-200">{t('Выбрано: {count}', { count: selectedIds.size })}</span>
+          <button
+            onClick={() => setSelectedIds(new Set(visibleProfiles.map((profile) => profile.id)))}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-mint-400/40 hover:text-mint-300"
+          >
+            {t("Выбрать все")}
+          </button>
+          <button
+            onClick={() => void exportSelected()}
+            disabled={busy || selectedIds.size === 0}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-mint-400/40 hover:text-mint-300 disabled:opacity-40"
+          >
+            {t("Экспорт сборок")}
+          </button>
+          <button
+            onClick={() => void bulkInstall()}
+            disabled={busy || selectedIds.size === 0}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-mint-400/40 hover:text-mint-300 disabled:opacity-40"
+          >
+            {t("Установить выбранные")}
+          </button>
+          <button
+            onClick={() => void bulkDelete()}
+            disabled={busy || selectedIds.size === 0}
+            className="rounded-lg border border-rose-400/25 px-3 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:border-rose-400/50 disabled:opacity-40"
+          >
+            {t("Удалить выбранные")}
+          </button>
+          <button
+            onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}
+            className="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:text-slate-300"
+          >
+            {t("Снять выделение")}
+          </button>
         </div>
       )}
 

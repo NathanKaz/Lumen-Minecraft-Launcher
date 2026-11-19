@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import fs from 'fs-extra'
 import { getState, setState } from './store'
+import { dirs } from './paths'
 import type { JavaInfo } from '@shared/types'
 
 const execFileAsync = promisify(execFile)
@@ -18,6 +19,14 @@ function candidateBases(): string[] {
   if (configured) bases.push(configured.endsWith('java') || configured.endsWith('java.exe') ? path.dirname(path.dirname(configured)) : configured)
 
   if (process.env.JAVA_HOME) bases.push(process.env.JAVA_HOME)
+
+  // Launcher-managed runtimes installed by javaInstall.ts.
+  if (fs.existsSync(dirs.java)) {
+    for (const entry of fs.readdirSync(dirs.java)) {
+      const base = path.join(dirs.java, entry)
+      if (fs.statSync(base).isDirectory()) bases.push(base)
+    }
+  }
 
   if (process.platform === 'win32') {
     const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files'
