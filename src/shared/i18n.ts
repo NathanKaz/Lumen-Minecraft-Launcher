@@ -399,6 +399,12 @@ const en: Record<string, string> = {
   'Версии игры:': 'Game versions:',
   'Версия Minecraft': 'Minecraft version',
   'Версия {version}': 'Version {version}',
+  'Релиз': 'Release',
+  'Снапшот': 'Snapshot',
+  'Бета': 'Beta',
+  'Альфа': 'Alpha',
+  'Снапшоты и беты нестабильны: возможны баги и несовместимость модов.':
+    'Snapshots and betas are unstable: bugs and mod incompatibility are possible.',
   'Все логи →': 'All logs →',
   'Выбрать файл': 'Choose file',
   'Групп пока нет. Создайте первую ниже.': 'No groups yet. Create the first one below.',

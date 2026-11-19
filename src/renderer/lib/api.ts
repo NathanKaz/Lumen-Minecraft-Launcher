@@ -33,6 +33,8 @@ type Handler<T> = (payload: T) => void
 const mockVersions = {
   latest: { release: '1.21.4', snapshot: '25w02a' },
   versions: [
+    { id: '25w02a', type: 'snapshot', released: '2025-01-08T12:00:00+00:00' },
+    { id: '24w40a', type: 'snapshot', released: '2024-10-02T12:00:00+00:00' },
     { id: '1.21.4', type: 'release', released: '2024-12-10T12:00:00+00:00' },
     { id: '1.21.1', type: 'release', released: '2024-08-08T12:00:00+00:00' },
     { id: '1.20.6', type: 'release', released: '2024-05-22T12:00:00+00:00' },
@@ -41,7 +43,10 @@ const mockVersions = {
     { id: '1.19.4', type: 'release', released: '2023-03-15T12:00:00+00:00' },
     { id: '1.18.2', type: 'release', released: '2022-02-28T12:00:00+00:00' },
     { id: '1.16.5', type: 'release', released: '2021-01-20T12:00:00+00:00' },
-    { id: '1.12.2', type: 'release', released: '2017-09-18T12:00:00+00:00' }
+    { id: '1.12.2', type: 'release', released: '2017-09-18T12:00:00+00:00' },
+    { id: 'b1.8.1', type: 'old_beta', released: '2011-04-19T12:00:00+00:00' },
+    { id: 'b1.7.3', type: 'old_beta', released: '2011-01-21T12:00:00+00:00' },
+    { id: 'a1.2.6', type: 'old_alpha', released: '2010-08-20T12:00:00+00:00' }
   ]
 } as unknown as VersionManifest
 

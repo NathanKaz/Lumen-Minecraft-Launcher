@@ -1,12 +1,38 @@
+import { useState } from 'react'
 import { Select, Toggle } from './ui'
 import { t } from '../lib/i18n'
-import type { BuildGroup, LoaderType, Profile, VersionManifest } from '@shared/types'
+import type { BuildGroup, LoaderType, Profile, VersionManifest, VersionSummary } from '@shared/types'
 
 export const loaders: Array<{ id: LoaderType; label: string; hintKey: string }> = [
   { id: 'vanilla', label: 'Vanilla', hintKey: 'Оригинальная игра' },
   { id: 'fabric', label: 'Fabric', hintKey: 'Лёгкие моды, высокая производительность' },
   { id: 'forge', label: 'Forge', hintKey: 'Классические крупные модпаки' },
   { id: 'neoforge', label: 'NeoForge', hintKey: 'Современный преемник Forge' }
+]
+
+const versionTypeLabel: Record<VersionSummary['type'], string> = {
+  release: 'Релиз',
+  snapshot: 'Снапшот',
+  old_beta: 'Бета',
+  old_alpha: 'Альфа'
+}
+
+type VersionFilter = VersionSummary['type'] | 'all'
+
+const versionFilters: Array<{ id: VersionFilter; label: string }> = [
+  { id: 'release', label: 'Релиз' },
+  { id: 'snapshot', label: 'Снапшот' },
+  { id: 'old_beta', label: 'Бета' },
+  { id: 'old_alpha', label: 'Альфа' },
+  { id: 'all', label: 'Все' }
+]
+
+const fallbackVersions: VersionSummary[] = [
+  { id: '1.21.4', type: 'release', released: '', url: '' },
+  { id: '1.20.1', type: 'release', released: '', url: '' },
+  { id: '25w02a', type: 'snapshot', released: '', url: '' },
+  { id: 'b1.8.1', type: 'old_beta', released: '', url: '' },
+  { id: 'a1.2.6', type: 'old_alpha', released: '', url: '' }
 ]
 
 export function ProfileFields({
@@ -24,10 +50,18 @@ export function ProfileFields({
   settingsMemory: number
   showMemory?: boolean
 }): JSX.Element {
-  const releaseVersions = versions?.versions.filter((version) => version.type === 'release').slice(0, 30) ?? [
-    { id: '1.21.4', type: 'release' as const, released: '' },
-    { id: '1.20.1', type: 'release' as const, released: '' }
-  ]
+  const [versionFilter, setVersionFilter] = useState<VersionFilter>('release')
+
+  const allVersions = versions?.versions ?? fallbackVersions
+  const selectedVersion = allVersions.find((version) => version.id === profile.versionId)
+  const filteredVersions = (versionFilter === 'all'
+    ? allVersions
+    : allVersions.filter((version) => version.type === versionFilter)).slice(0, 60)
+  // Keep the current version visible when editing a build created with a
+  // different type, so saving the form never silently changes its version.
+  const versionOptions = selectedVersion && !filteredVersions.some((version) => version.id === selectedVersion.id)
+    ? [selectedVersion, ...filteredVersions]
+    : filteredVersions
 
   return (
     <div className="space-y-5">
@@ -37,11 +71,35 @@ export function ProfileFields({
       </div>
       <div>
         <label className="label">{t("Версия Minecraft")}</label>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {versionFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setVersionFilter(filter.id)}
+              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                versionFilter === filter.id
+                  ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
+                  : 'border-white/[0.07] bg-white/[0.02] text-slate-500 hover:border-white/20 hover:text-slate-300'
+              }`}
+            >
+              {t(filter.label)}
+            </button>
+          ))}
+        </div>
         <Select
           value={profile.versionId}
           onChange={(versionId) => onChange({ ...profile, versionId, loaderVersionId: undefined })}
-          options={releaseVersions.map((version) => ({ value: version.id, label: `Minecraft ${version.id}` }))}
+          options={versionOptions.map((version) => ({
+            value: version.id,
+            label: `Minecraft ${version.id} · ${t(versionTypeLabel[version.type])}`
+          }))}
         />
+        {selectedVersion && selectedVersion.type !== 'release' && (
+          <p className="mt-2 text-[11px] leading-relaxed text-amber-300/80">
+            {t('Снапшоты и беты нестабильны: возможны баги и несовместимость модов.')}
+          </p>
+        )}
       </div>
       <div>
         <label className="label">{t("Загрузчик модов")}</label>

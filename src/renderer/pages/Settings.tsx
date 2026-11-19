@@ -4,7 +4,6 @@ import { CheckCircle2, Coffee, Copy, Download, FolderOpen, RefreshCw, Terminal, 
 import { api, isMock } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
-import { SkinsPanel } from '../components/SkinsPanel'
 import type { JavaInfo, UpdateInfo } from '@shared/types'
 
 export function Settings(): JSX.Element {
@@ -206,10 +205,6 @@ export function Settings(): JSX.Element {
             {isMock && <Badge tone="iris">{t("Демо-режим: файлы не изменяются")}</Badge>}
           </div>
         </div>
-      </div>
-
-      <div className="mt-5">
-        <SkinsPanel />
       </div>
 
       <div className="panel mt-5 overflow-hidden">

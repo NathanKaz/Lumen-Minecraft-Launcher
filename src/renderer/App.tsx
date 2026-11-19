@@ -8,6 +8,7 @@ import { Titlebar } from './components/Titlebar'
 import { Sidebar } from './components/Sidebar'
 import { ToastHost } from './components/ToastHost'
 import { Button, Modal } from './components/ui'
+import { SkinsPanel } from './components/SkinsPanel'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
@@ -75,7 +76,7 @@ export default function App(): JSX.Element {
 
       <ToastHost />
 
-      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")}>
+      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-2xl">
         <div className="space-y-5">
           <div className="flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
@@ -99,7 +100,11 @@ export default function App(): JSX.Element {
               {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
             </p>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="border-t border-white/[0.06] pt-5">
+            <SkinsPanel />
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-5">
             <Button onClick={() => setAccountOpen(false)}>{t("Отмена")}</Button>
             <Button variant="primary" onClick={() => void saveAccount()} disabled={!playerName.trim()}>{t("Сохранить")}</Button>
           </div>
