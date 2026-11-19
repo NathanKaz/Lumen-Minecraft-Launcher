@@ -1,5 +1,7 @@
 import { t } from './i18n'
 import type {
+  Account,
+  AccountRecord,
   AppState,
   BackupInfo,
   GameStatus,
@@ -153,19 +155,31 @@ const mockSkins: SkinInfo[] = [
 
 function mockState(): AppState {
   const now = Date.now()
+  const steve: Account = { id: 'steve', name: 'Steve', uuid: '00000000-0000-0000-0000-000000000000', token: 'mock', type: 'offline', createdAt: now - 86_400_000 }
+  const alex: Account = { id: 'alex', name: 'Alex', uuid: '11111111-1111-1111-1111-111111111111', token: 'mock', type: 'offline', createdAt: now - 43_200_000 }
+  const profiles = [
+    { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric' as const, groupId: 'survival', createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
+    { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge' as const, groupId: 'modpacks', createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' as const } }
+  ]
+  const groups = [
+    { id: 'survival', name: 'Выживание' },
+    { id: 'modpacks', name: 'Модпаки' }
+  ]
+  const alexProfiles = [
+    { id: 'alex-world', name: "Alex's World", versionId: '1.20.1', loader: 'vanilla' as const, createdAt: now - 43_200_000, lastPlayed: now - 7_200_000, playtimeMinutes: 42 }
+  ]
   return {
-    schemaVersion: 2,
-    profiles: [
-      { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric', groupId: 'survival', createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
-      { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge', groupId: 'modpacks', createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' } }
-    ],
-    groups: [
-      { id: 'survival', name: 'Выживание' },
-      { id: 'modpacks', name: 'Модпаки' }
-    ],
+    schemaVersion: 3,
+    profiles,
+    groups,
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true },
-    account: { name: 'Steve', uuid: '00000000-0000-0000-0000-000000000000', token: 'mock', type: 'offline' },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, activeSkinId: 'skin-steve' },
+    account: steve,
+    accounts: [
+      { ...steve, profiles, groups, selectedProfileId: 'default', activeSkinId: 'skin-steve' },
+      { ...alex, profiles: alexProfiles, groups: [], selectedProfileId: 'alex-world', activeSkinId: 'skin-alex' }
+    ],
+    activeAccountId: steve.id,
     installedVersions: ['1.20.1', 'fabric-loader-0.15.11-1.20.1']
   }
 }
@@ -213,7 +227,14 @@ function createMock(): LauncherAPI {
   let status: GameStatus = 'idle'
   let logs: LogPayload[] = []
   let screenshots = [...mockScreenshots]
-  let skins: SkinInfo[] = mockSkins.map((skin) => ({ ...skin, active: skin.id === state.settings.activeSkinId }))
+  const skinsByAccount: Record<string, SkinInfo[]> = {
+    steve: mockSkins.map((skin) => ({ ...skin, active: skin.id === 'skin-steve' })),
+    alex: mockSkins.map((skin) => ({ ...skin, active: skin.id === 'skin-alex' }))
+  }
+  const skinsFor = (accountId: string): SkinInfo[] => {
+    if (!skinsByAccount[accountId]) skinsByAccount[accountId] = []
+    return skinsByAccount[accountId]
+  }
   const backupsByProfile: Record<string, BackupInfo[]> = {}
   const packsByProfile: Record<string, PackInfo[]> = {
     default: [
@@ -230,30 +251,97 @@ function createMock(): LauncherAPI {
     return modsByProfile[profileId]
   }
 
+  const snapshot = (current: AppState): AppState => {
+    const record: AccountRecord = {
+      ...current.account,
+      id: current.activeAccountId,
+      profiles: current.profiles,
+      groups: current.groups,
+      selectedProfileId: current.selectedProfileId,
+      activeSkinId: current.settings.activeSkinId
+    }
+    const accounts = (current.accounts.length ? current.accounts : [record]).map((account) =>
+      account.id === current.activeAccountId ? { ...account, ...record } : account
+    )
+    return { ...current, accounts, activeAccountId: current.activeAccountId, account: { ...current.account, id: current.activeAccountId } }
+  }
+  const commit = (next: AppState): AppState => {
+    state = snapshot(next)
+    return state
+  }
+  const load = (current: AppState, id: string): AppState => {
+    const record = current.accounts.find((account) => account.id === id)
+    if (!record) throw new Error(t('Профиль не найден'))
+    return {
+      ...current,
+      account: { id: record.id, name: record.name, uuid: record.uuid, token: record.token, type: record.type, createdAt: record.createdAt },
+      activeAccountId: record.id,
+      profiles: record.profiles.map((profile) => ({ ...profile })),
+      groups: record.groups.map((group) => ({ ...group })),
+      selectedProfileId: record.selectedProfileId || record.profiles[0]?.id || '',
+      settings: { ...current.settings, activeSkinId: record.activeSkinId }
+    }
+  }
+  const rename = (current: AppState, id: string, name: string): AppState => {
+    const target = current.accounts.find((account) => account.id === id)
+    if (!target) throw new Error(t('Профиль не найден'))
+    const clean = name.trim().slice(0, 16) || 'Steve'
+    const updated: AccountRecord = {
+      ...target,
+      name: clean,
+      uuid: `${clean.length.toString(16).padStart(2, '0')}000000-0000-4000-8000-000000000000`,
+      token: `${Date.now()}`
+    }
+    const next = { ...current, accounts: current.accounts.map((account) => (account.id === id ? updated : account)) }
+    return current.activeAccountId === id ? load(next, id) : next
+  }
+
   const api: LauncherAPI = {
     isMock: true,
     getState: async () => state,
-    setState: async (patch) => {
-      state = { ...state, ...patch }
+    setState: async (patch) => commit({ ...state, ...patch }),
+    setAccount: async (name) => commit(rename(state, state.activeAccountId, name)),
+    addAccount: async (name) => {
+      const synced = snapshot(state)
+      const clean = name.trim().slice(0, 16) || 'Steve'
+      const account: Account = {
+        id: `account-${Date.now()}`,
+        name: clean,
+        uuid: `${clean.length.toString(16).padStart(2, '0')}000000-0000-4000-8000-000000000000`,
+        token: 'mock',
+        type: 'offline',
+        createdAt: Date.now()
+      }
+      const profile = { id: `profile-${Date.now()}`, name: t('Мой Minecraft'), versionId: '1.20.1', loader: 'vanilla' as const, createdAt: Date.now(), playtimeMinutes: 0 }
+      const record: AccountRecord = { ...account, profiles: [profile], groups: [], selectedProfileId: profile.id }
+      state = load({ ...synced, accounts: [...synced.accounts, record] }, account.id)
+      skinsByAccount[account.id] = []
       return state
     },
-    setAccount: async (name) => {
-      state = { ...state, account: { ...state.account, name } }
+    selectAccount: async (id) => commit(load(snapshot(state), id)),
+    renameAccount: async (id, name) => commit(rename(snapshot(state), id, name)),
+    deleteAccount: async (id) => {
+      const synced = snapshot(state)
+      if (synced.accounts.length <= 1) throw new Error(t('Последний профиль нельзя удалить.'))
+      const accounts = synced.accounts.filter((account) => account.id !== id)
+      state = synced.activeAccountId === id ? load({ ...synced, accounts }, accounts[0].id) : { ...synced, accounts }
+      delete skinsByAccount[id]
       return state
     },
-    createProfile: async (profile) => {
-      state = { ...state, profiles: [...state.profiles, profile], selectedProfileId: profile.id }
-      return state
+    confirmDeleteAccount: async (id) => {
+      const account = state.accounts.find((entry) => entry.id === id)
+      if (!account || state.accounts.length <= 1) return false
+      return window.confirm([
+        t('Удалить профиль «{name}»?', { name: account.name }),
+        t('Сборки профиля останутся на диске, но станут недоступны из лаунчера.')
+      ].join('\n'))
     },
-    updateProfile: async (id, patch) => {
-      state = { ...state, profiles: state.profiles.map((profile) => (profile.id === id ? { ...profile, ...patch } : profile)) }
-      return state
-    },
+    createProfile: async (profile) => commit({ ...state, profiles: [...state.profiles, profile], selectedProfileId: profile.id }),
+    updateProfile: async (id, patch) => commit({ ...state, profiles: state.profiles.map((profile) => (profile.id === id ? { ...profile, ...patch } : profile)) }),
     deleteProfile: async (id) => {
       const profiles = state.profiles.filter((profile) => profile.id !== id)
       screenshots = screenshots.filter((shot) => shot.profileId !== id)
-      state = { ...state, profiles, selectedProfileId: profiles[0]?.id ?? '' }
-      return state
+      return commit({ ...state, profiles, selectedProfileId: profiles[0]?.id ?? '' })
     },
     confirmDeleteProfile: async (id) => {
       const profile = state.profiles.find((entry) => entry.id === id)
@@ -288,11 +376,11 @@ function createMock(): LauncherAPI {
       const installed = new Set(state.installedVersions)
       if (profile) installed.add(profile.versionId)
       if (loaderVersionId) installed.add(loaderVersionId)
-      state = {
+      state = commit({
         ...state,
         installedVersions: [...installed],
         profiles: state.profiles.map((entry) => (entry.id === id ? { ...entry, loaderVersionId } : entry))
-      }
+      })
       emit('toast', { id: String(Date.now()), type: 'success', message: t('Версия установлена (демо-режим)') })
     },
     launch: async () => {
@@ -426,7 +514,7 @@ function createMock(): LauncherAPI {
         valid: true
       }
       if (profileId) {
-        state = { ...state, profiles: state.profiles.map((entry) => entry.id === profileId ? { ...entry, javaPath: info.path } : entry) }
+        state = commit({ ...state, profiles: state.profiles.map((entry) => entry.id === profileId ? { ...entry, javaPath: info.path } : entry) })
       }
       emit('toast', { id: String(Date.now()), type: 'success', message: t('Java {version} установлена: {path}', { version: major, path: info.path }) })
       return info
@@ -461,7 +549,7 @@ function createMock(): LauncherAPI {
       }
     },
 
-    listSkins: async () => [...skins],
+    listSkins: async () => [...skinsFor(state.activeAccountId)].map((skin) => ({ ...skin, active: skin.id === state.settings.activeSkinId })),
     importSkin: async () => {
       const id = `skin-${Date.now()}`
       const skin: SkinInfo = {
@@ -473,19 +561,21 @@ function createMock(): LauncherAPI {
         addedAt: Date.now(),
         active: false
       }
-      skins = [skin, ...skins]
+      skinsByAccount[state.activeAccountId] = [skin, ...skinsFor(state.activeAccountId)]
       emit('toast', { id: String(Date.now()), type: 'success', message: t('Скин загружен') })
       return skin
     },
     deleteSkin: async (id) => {
-      skins = skins.filter((skin) => skin.id !== id)
+      skinsByAccount[state.activeAccountId] = skinsFor(state.activeAccountId).filter((skin) => skin.id !== id)
+      if (state.settings.activeSkinId === id) {
+        state = commit({ ...state, settings: { ...state.settings, activeSkinId: undefined } })
+      }
     },
     selectSkin: async (id) => {
-      skins = skins.map((skin) => ({ ...skin, active: skin.id === id }))
-      state = { ...state, settings: { ...state.settings, activeSkinId: id ?? undefined } }
+      state = commit({ ...state, settings: { ...state.settings, activeSkinId: id ?? undefined } })
     },
     setSkinModel: async (id, model) => {
-      skins = skins.map((skin) => (skin.id === id ? { ...skin, model } : skin))
+      skinsByAccount[state.activeAccountId] = skinsFor(state.activeAccountId).map((skin) => (skin.id === id ? { ...skin, model } : skin))
     },
 
     checkUpdates: async (): Promise<UpdateInfo> => ({
@@ -532,7 +622,7 @@ function createMock(): LauncherAPI {
       const source = state.profiles[0]
       if (!source) return 0
       const copy = { ...source, id: `imported-${Date.now()}`, name: `${source.name} (import)`, createdAt: Date.now(), playtimeMinutes: 0, lastPlayed: undefined }
-      state = { ...state, profiles: [...state.profiles, copy], selectedProfileId: copy.id }
+      state = commit({ ...state, profiles: [...state.profiles, copy], selectedProfileId: copy.id })
       return 1
     },
 

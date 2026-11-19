@@ -211,7 +211,7 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
       if (!texture) return
       if (!draggingRef.current) yawRef.current += 0.004
 
-      const zoom = Math.min(cssWidth / 46, cssHeight / 42) * 0.95
+      const zoom = Math.min(cssWidth / 22, cssHeight / 38) * 1.05
       const centerX = cssWidth / 2
       const centerY = cssHeight * 0.52
       const project = (point: Vec3): { x: number; y: number; z: number } => {
@@ -296,9 +296,6 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
         }}
         onPointerCancel={() => { draggingRef.current = false }}
       />
-      <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] text-slate-600">
-        {t('3D-предпросмотр')} · {t('Перетащите, чтобы повернуть')}
-      </span>
     </div>
   )
 }

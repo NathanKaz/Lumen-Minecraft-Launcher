@@ -20,6 +20,8 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Instance deletion** — native confirmation dialog listing data to be removed (saves, mods, screenshots, configs, resource/shader packs, options, logs) and the full instance folder path.
 - **Instance transfer & bulk actions** — export selected instances (full folders + manifest) to ZIP, import them back with fresh IDs, and run install/export/delete on a selection from the home screen.
 - **Per-instance Java** — override the Java executable and JVM arguments for each build. If no compatible Java is found, the launcher can download a managed Temurin JRE automatically into its own data directory (no system-wide changes).
+- **Multiple offline profiles** — create, rename, switch between, and delete local players. Each player has an isolated set of instances, groups, and skins; switching profiles closes the current instance view and loads that player's world. Profile folders on disk are kept when a player is removed.
+- **Cross-platform builds** — electron-builder targets Windows (NSIS), macOS (DMG, x64 + Apple Silicon), and Linux (AppImage + DEB, x64 + arm64). Ready-to-use `dist:win`, `dist:mac`, `dist:linux`, and `dist:all` scripts plus a GitHub Actions matrix build native artifacts for all three systems.
 - **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
 
 ## Development
@@ -33,10 +35,12 @@ npm run dev:web    # renderer-only in browser with mock data
 npm run typecheck
 npm run build
 npm run dist       # package for current platform
-npm run dist -- --linux AppImage deb
-npm run dist -- --win nsis
-npm run dist -- --mac dmg
+npm run dist:linux # AppImage + DEB (x64/arm64)
+npm run dist:win   # NSIS installer (x64/ia32/arm64)
+npm run dist:mac   # DMG (x64/arm64)
 ```
+
+macOS DMG packaging requires macOS; use the GitHub Actions matrix in `.github/workflows/build.yml` (or a separate runner per OS) to produce all platform artifacts. `npm run dist:all` runs all three scripts sequentially and is only suitable where cross-packaging is supported.
 
 Launcher data (versions, instances, mods) is stored in the app user data directory, e.g. `~/.config/Lumen Launcher/launcher` on Linux (exact path depends on platform/Electron userData location).
 
@@ -50,7 +54,7 @@ Build artifacts are not needed for development and can be removed to reclaim spa
 
 ## Authentication strategy
 
-Currently uses an offline profile (player name, local UUID, token), suitable for single-player and servers without license verification.
+Currently uses one or more offline profiles (player name, local UUID, token), suitable for single-player and servers without license verification. Each profile owns its own builds, groups, and skin library.
 
 Microsoft sign-in is **not implemented**. It is substantially more complex than the rest of the launcher: it requires an Azure app registration, a PKCE browser flow, exchanging the code for an Xbox Live token, then XSTS, then a Minecraft profile/token, plus secure token storage and refresh. Online skins additionally require uploading a signed skin through the Minecraft profile API. The current offline skins are local-only and are not visible to other players.
 

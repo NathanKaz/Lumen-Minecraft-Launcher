@@ -11,7 +11,11 @@
     "typecheck": "node scripts/run.js tsc --noEmit",
     "preview": "node scripts/run.js electron-vite preview",
     "dev:web": "node scripts/run.js vite --config vite.preview.config.ts",
-    "dist": "node scripts/run.js dist"
+    "dist": "node scripts/run.js dist",
+    "dist:win": "node scripts/run.js dist --win",
+    "dist:mac": "node scripts/run.js dist --mac",
+    "dist:linux": "node scripts/run.js dist --linux",
+    "dist:all": "npm run dist:linux && npm run dist:win && npm run dist:mac"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -42,16 +46,28 @@
     "productName": "Lumen Launcher",
     "directories": { "output": "release" },
     "files": ["dist/**/*", "package.json"],
+    "artifactName": "Lumen-Launcher-${version}-${os}-${arch}.${ext}",
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] }
+      ],
       "category": "Game",
       "maintainer": "NathanKaz <nathankaz@example.com>"
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        { "target": "nsis", "arch": ["x64", "ia32", "arm64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
       "category": "public.app-category.games"
     }
   }

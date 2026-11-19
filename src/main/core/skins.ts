@@ -17,21 +17,58 @@ interface StoredSkin {
   addedAt: number
 }
 
-const libraryPath = path.join(dirs.skins, 'library.json')
 const packFileName = 'lumen-skin.zip'
+const migrationMarker = path.join(dirs.skins, '.lumen-skins-migrated')
+
+/** Each offline player has an isolated skin library. */
+function accountSkinDir(): string {
+  const state = getState()
+  return path.join(dirs.skins, state.activeAccountId || state.account.id)
+}
+
+function libraryPath(): string {
+  return path.join(accountSkinDir(), 'library.json')
+}
+
+/** Moves a pre-multi-account library into the original player's folder once. */
+async function ensureMigrated(): Promise<void> {
+  const dir = accountSkinDir()
+  await fs.ensureDir(dir)
+  if (await fs.pathExists(libraryPath())) return
+  if (await fs.pathExists(migrationMarker)) return
+
+  const state = getState()
+  const originalAccountId = state.accounts?.[0]?.id || state.activeAccountId || state.account.id
+  if (path.basename(dir) !== originalAccountId) return
+
+  const legacy = path.join(dirs.skins, 'library.json')
+  if (!(await fs.pathExists(legacy))) return
+  try {
+    const skins = await fs.readJson(legacy) as StoredSkin[]
+    for (const skin of skins) {
+      const source = path.join(dirs.skins, skin.fileName)
+      if (await fs.pathExists(source)) await fs.copy(source, path.join(dir, skin.fileName))
+    }
+    await fs.writeJson(libraryPath(), skins, { spaces: 2 })
+    await fs.writeJson(migrationMarker, { migratedAt: Date.now(), accountId: originalAccountId }, { spaces: 2 })
+  } catch {
+    // A corrupt legacy library is simply ignored.
+  }
+}
 
 async function readLibrary(): Promise<StoredSkin[]> {
-  if (!(await fs.pathExists(libraryPath))) return []
+  await ensureMigrated()
   try {
-    return await fs.readJson(libraryPath) as StoredSkin[]
+    return await fs.readJson(libraryPath()) as StoredSkin[]
   } catch {
     return []
   }
 }
 
 async function writeLibrary(skins: StoredSkin[]): Promise<void> {
-  await fs.ensureDir(dirs.skins)
-  await fs.writeJson(libraryPath, skins, { spaces: 2 })
+  await ensureMigrated()
+  await fs.ensureDir(accountSkinDir())
+  await fs.writeJson(libraryPath(), skins, { spaces: 2 })
 }
 
 function skinDimensions(file: string): { width: number; height: number } | null {
@@ -50,7 +87,7 @@ function skinDimensions(file: string): { width: number; height: number } | null 
 }
 
 function toInfo(skin: StoredSkin, activeId?: string): SkinInfo {
-  const filePath = path.join(dirs.skins, skin.fileName)
+  const filePath = path.join(accountSkinDir(), skin.fileName)
   const base64 = fs.existsSync(filePath) ? fs.readFileSync(filePath).toString('base64') : ''
   return {
     id: skin.id,
@@ -86,11 +123,11 @@ export async function importSkin(): Promise<SkinInfo | null> {
     throw new Error(msg('Недопустимый файл скина: нужен PNG 64×64 или 64×32.'))
   }
 
-  await fs.ensureDir(dirs.skins)
+  await ensureMigrated()
   const id = uid()
   const fileName = `${id}.png`
   const stats = await fs.stat(source)
-  await fs.copy(source, path.join(dirs.skins, fileName))
+  await fs.copy(source, path.join(accountSkinDir(), fileName))
   const skin: StoredSkin = {
     id,
     name: path.basename(source, path.extname(source)),
@@ -109,7 +146,7 @@ export async function deleteSkin(id: string): Promise<void> {
   const skins = await readLibrary()
   const skin = skins.find((entry) => entry.id === id)
   if (!skin) return
-  await fs.remove(path.join(dirs.skins, skin.fileName))
+  await fs.remove(path.join(accountSkinDir(), skin.fileName))
   await writeLibrary(skins.filter((entry) => entry.id !== id))
   const settings = getState().settings
   if (settings.activeSkinId === id) {
@@ -141,13 +178,13 @@ export async function applySkinResourcePack(profileId: string): Promise<void> {
   await fs.ensureDir(targetDir)
   const target = path.join(targetDir, packFileName)
 
-  if (!skin || !(await fs.pathExists(path.join(dirs.skins, skin.fileName)))) {
+  if (!skin || !(await fs.pathExists(path.join(accountSkinDir(), skin.fileName)))) {
     if (await fs.pathExists(target)) await fs.remove(target)
     await setPackEnabled(profileId, 'resource', packFileName, false)
     return
   }
 
-  const texture = await fs.readFile(path.join(dirs.skins, skin.fileName))
+  const texture = await fs.readFile(path.join(accountSkinDir(), skin.fileName))
   const zip = new AdmZip()
   zip.addFile('pack.mcmeta', Buffer.from(JSON.stringify({
     pack: {

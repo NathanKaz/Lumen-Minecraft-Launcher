@@ -49,20 +49,33 @@ export interface Settings {
 }
 
 export interface Account {
+  id: string
   name: string
   uuid: string
   token: string
   type: 'offline' | 'microsoft'
+  createdAt: number
+}
+
+/** A fully isolated offline player: its own builds, groups and active skin. */
+export interface AccountRecord extends Account {
+  profiles: Profile[]
+  groups: BuildGroup[]
+  selectedProfileId: string
+  activeSkinId?: string
 }
 
 export interface AppState {
   /** Bumped when a one-time state migration is required. */
   schemaVersion: number
+  /** Top-level fields mirror the currently selected account for simpler consumers. */
   profiles: Profile[]
   groups: BuildGroup[]
   selectedProfileId: string
   settings: Settings
   account: Account
+  accounts: AccountRecord[]
+  activeAccountId: string
   installedVersions: string[]
 }
 
@@ -246,7 +259,13 @@ export interface ModUpdateInfo {
 export interface LauncherAPI {
   getState(): Promise<AppState>
   setState(patch: Partial<AppState>): Promise<AppState>
+  /** Renames the active offline account (kept for backward compatibility). */
   setAccount(name: string): Promise<AppState>
+  addAccount(name: string): Promise<AppState>
+  selectAccount(id: string): Promise<AppState>
+  renameAccount(id: string, name: string): Promise<AppState>
+  deleteAccount(id: string): Promise<AppState>
+  confirmDeleteAccount(id: string): Promise<boolean>
   createProfile(profile: Profile): Promise<AppState>
   updateProfile(id: string, patch: Partial<Profile>): Promise<AppState>
   deleteProfile(id: string): Promise<AppState>

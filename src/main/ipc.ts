@@ -5,9 +5,13 @@ import { IPC } from '@shared/ipc'
 import type { AppState, LogPayload, Profile } from '@shared/types'
 import { dirs, instanceDir, modsDir, screenshotsDir } from './core/paths'
 import {
+  addAccount,
   createProfile,
+  deleteAccount,
   deleteProfile,
   getState,
+  renameAccount,
+  selectAccount,
   setAccountName,
   setState,
   updateProfile
@@ -46,6 +50,26 @@ export function registerIpc(): void {
   handle(IPC.getState, (): AppState => getState())
   handle(IPC.setState, (patch: Partial<AppState>) => setState(patch))
   handle(IPC.setAccount, (name: string) => setAccountName(name))
+  handle(IPC.addAccount, (name: string) => addAccount(name))
+  handle(IPC.selectAccount, (id: string) => selectAccount(id))
+  handle(IPC.renameAccount, (id: string, name: string) => renameAccount(id, name))
+  handle(IPC.deleteAccount, (id: string) => deleteAccount(id))
+  handle(IPC.confirmDeleteAccount, (id: string) => {
+    const state = getState()
+    const account = state.accounts.find((entry) => entry.id === id)
+    if (!account || state.accounts.length <= 1) return false
+    const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+    return dialog.showMessageBox(parent, {
+      type: 'warning',
+      title: msg('Удалить профиль «{name}»?', { name: account.name }),
+      message: msg('Профиль игрока будет удалён из лаунчера.'),
+      detail: msg('Сборки профиля останутся на диске, но станут недоступны из лаунчера.'),
+      buttons: [msg("Удалить"), msg("Отмена")],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true
+    }).then((result) => result.response === 0)
+  })
   handle(IPC.createProfile, (profile: Profile) => createProfile(profile))
   handle(IPC.updateProfile, (id: string, patch: Partial<Profile>) => updateProfile(id, patch))
 

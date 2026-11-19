@@ -7,7 +7,7 @@ import { Badge, Button, Select, Spinner } from './ui'
 import { Skin3DPreview } from './Skin3DPreview'
 import type { SkinInfo, SkinModel } from '@shared/types'
 
-export function SkinsPanel(): JSX.Element {
+export function SkinsPanel({ accountId }: { accountId: string }): JSX.Element {
   const { refresh, pushToast } = useLauncher()
   const [skins, setSkins] = useState<SkinInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,7 +23,10 @@ export function SkinsPanel(): JSX.Element {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    setLoading(true)
+    void load()
+  }, [accountId])
 
   const importSkin = async () => {
     setBusy(true)
@@ -66,6 +69,8 @@ export function SkinsPanel(): JSX.Element {
     await load()
   }
 
+  const preview = skins.find((skin) => skin.active) ?? skins[0]
+
   return (
     <div className="panel p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -82,21 +87,19 @@ export function SkinsPanel(): JSX.Element {
         {t('В офлайн-режиме скин виден только вам: другие игроки не получают подпись Mojang.')}
       </p>
 
-      {!loading && skins.length > 0 && (
-        <div className="mb-4 flex items-center gap-4 rounded-xl border border-white/[0.06] bg-ink-950/60 p-4">
-          <div className="h-40 w-32 shrink-0">
-            <Skin3DPreview
-              dataUrl={(skins.find((skin) => skin.active) ?? skins[0]).dataUrl}
-              model={(skins.find((skin) => skin.active) ?? skins[0]).model}
-              className="h-full w-full"
-            />
+      {!loading && preview && (
+        <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-white/[0.07] bg-ink-950/70 p-4 sm:flex-row sm:items-center">
+          <div className="mx-auto h-72 w-56 shrink-0 sm:mx-0">
+            <Skin3DPreview dataUrl={preview.dataUrl} model={preview.model} className="h-full w-full" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-white">{t('Предпросмотр скина')}</div>
-            <div className="mt-1 truncate text-[11px] text-slate-400">
-              {(skins.find((skin) => skin.active) ?? skins[0]).name}
+            <div className="mt-1 truncate text-sm font-semibold text-slate-200">{preview.name}</div>
+            <div className="mt-1 text-[11px] text-slate-500">{formatSize(preview.size)}</div>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 text-[10px] text-slate-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-mint-400" />
+              {t('3D-предпросмотр')} · {t('Перетащите, чтобы повернуть')}
             </div>
-            <div className="mt-2 text-[10px] text-slate-600">{t('Перетащите, чтобы повернуть')}</div>
           </div>
         </div>
       )}
@@ -104,16 +107,21 @@ export function SkinsPanel(): JSX.Element {
       {loading ? (
         <div className="flex items-center justify-center py-8"><Spinner size={20} /></div>
       ) : skins.length ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 xl:grid-cols-2">
           {skins.map((skin) => (
-            <div key={skin.id} className={`flex items-center gap-3 rounded-xl border p-3 transition ${skin.active ? 'border-mint-400/40 bg-mint-400/[0.06]' : 'border-white/[0.06] bg-white/[0.02]'}`}>
-              <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-b from-ink-900 to-ink-950">
+            <div
+              key={skin.id}
+              className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 transition ${
+                skin.active ? 'border-mint-400/40 bg-mint-400/[0.06]' : 'border-white/[0.06] bg-white/[0.02]'
+              }`}
+            >
+              <div className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-b from-ink-900 to-ink-950">
                 {skin.dataUrl
                   ? <Skin3DPreview dataUrl={skin.dataUrl} model={skin.model} className="h-full w-full" />
                   : <div className="flex h-full w-full items-center justify-center"><Upload size={20} className="text-slate-600" /></div>}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="truncate text-xs font-semibold text-slate-100">{skin.name}</span>
                   {skin.active && <Badge tone="mint"><Check size={10} /> {t('Активный')}</Badge>}
                 </div>

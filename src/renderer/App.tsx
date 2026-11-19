@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react'
 import { setLocale, t } from './lib/i18n'
 import { motion } from 'framer-motion'
-import { Loader2, UserRound } from 'lucide-react'
+import { Check, Loader2, Pencil, Plus, Trash2, UserRound, Users, X } from 'lucide-react'
 import { api } from './lib/api'
 import { findProfile, useLauncher } from './store'
 import { Titlebar } from './components/Titlebar'
 import { Sidebar } from './components/Sidebar'
 import { ToastHost } from './components/ToastHost'
-import { Button, Modal } from './components/ui'
+import { Badge, Button, Modal } from './components/ui'
 import { SkinsPanel } from './components/SkinsPanel'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
 import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
+import type { AccountRecord } from '@shared/types'
 
 export default function App(): JSX.Element {
-  const { state, page, openedProfileId, init, refresh } = useLauncher()
+  const {
+    state, page, openedProfileId, gameStatus,
+    init, refresh, setPage, backToInstances, pushToast
+  } = useLauncher()
   const [accountOpen, setAccountOpen] = useState(false)
-  const [playerName, setPlayerName] = useState('')
+  const [newAccountName, setNewAccountName] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const openedProfile = findProfile(state, openedProfileId)
 
   // Keep translations in sync before children render; all consumers re-render with state.
@@ -28,14 +34,53 @@ export default function App(): JSX.Element {
     void init()
   }, [init])
 
-  useEffect(() => {
-    if (state?.account.name) setPlayerName(state.account.name)
-  }, [state?.account.name])
+  const gameBusy = gameStatus === 'running' || gameStatus === 'starting'
 
-  const saveAccount = async () => {
-    await api.setAccount(playerName)
+  const switchAccount = async (id: string) => {
+    if (!state || id === state.activeAccountId) return
+    if (gameBusy) {
+      pushToast('error', t('Сначала выключите игру, чтобы переключить профиль.'))
+      return
+    }
+    setPage('home')
+    backToInstances()
+    setRenamingId(null)
+    await api.selectAccount(id)
     await refresh()
-    setAccountOpen(false)
+    pushToast('success', t('Профиль переключён'))
+  }
+
+  const addAccount = async () => {
+    const name = newAccountName.trim()
+    if (!name) return
+    setPage('home')
+    backToInstances()
+    await api.addAccount(name)
+    setNewAccountName('')
+    setRenamingId(null)
+    await refresh()
+    pushToast('success', t('Профиль добавлен'))
+  }
+
+  const saveRename = async (id: string) => {
+    const name = renameValue.trim()
+    if (!name) return
+    await api.renameAccount(id, name)
+    setRenamingId(null)
+    await refresh()
+    pushToast('success', t('Профиль переименован'))
+  }
+
+  const removeAccount = async (account: AccountRecord) => {
+    if (!state || state.accounts.length <= 1) return
+    const confirmed = await api.confirmDeleteAccount(account.id)
+    if (!confirmed) return
+    setPage('home')
+    backToInstances()
+    await api.deleteAccount(account.id)
+    if (renamingId === account.id) setRenamingId(null)
+    await refresh()
+    pushToast('success', t('Профиль удалён'))
   }
 
   return (
@@ -76,38 +121,140 @@ export default function App(): JSX.Element {
 
       <ToastHost />
 
-      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-2xl">
-        <div className="space-y-5">
-          <div className="flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
-              <UserRound size={22} />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">{state?.account.name}</div>
-              <div className="text-[11px] text-slate-500">{t("Офлайн-профиль · без лицензии")}</div>
-            </div>
-          </div>
-          <div>
-            <label className="label">{t("Имя игрока")}</label>
-            <input
-              className="input"
-              value={playerName}
-              maxLength={16}
-              onChange={(event) => setPlayerName(event.target.value)}
-              placeholder="Steve"
-            />
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-              {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
-            </p>
-          </div>
-          <div className="border-t border-white/[0.06] pt-5">
-            <SkinsPanel />
-          </div>
+      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-5xl">
+        {state && (
+          <div className="grid gap-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
+            <section className="min-w-0 space-y-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
+                  <UserRound size={22} />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-white">{state.account.name}</div>
+                  <div className="text-[11px] text-slate-500">{t("Офлайн-профиль · без лицензии")}</div>
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-5">
-            <Button onClick={() => setAccountOpen(false)}>{t("Отмена")}</Button>
-            <Button variant="primary" onClick={() => void saveAccount()} disabled={!playerName.trim()}>{t("Сохранить")}</Button>
+              <div>
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="label mb-0 flex items-center gap-2">
+                    <Users size={14} /> {t('Профили игроков')}
+                  </div>
+                  <span className="max-w-[180px] text-right text-[10px] leading-snug text-slate-600">
+                    {t('У каждого профиля свои сборки и скины.')}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {state.accounts.map((account) => {
+                    const active = account.id === state.activeAccountId
+                    const isRenaming = renamingId === account.id
+                    return (
+                      <div
+                        key={account.id}
+                        className={`flex items-center gap-2 rounded-xl border p-2.5 transition ${
+                          active ? 'border-mint-400/35 bg-mint-400/[0.07]' : 'border-white/[0.06] bg-white/[0.02]'
+                        }`}
+                      >
+                        {isRenaming ? (
+                          <>
+                            <input
+                              className="input min-w-0 flex-1"
+                              value={renameValue}
+                              maxLength={16}
+                              autoFocus
+                              onChange={(event) => setRenameValue(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') void saveRename(account.id)
+                                if (event.key === 'Escape') setRenamingId(null)
+                              }}
+                            />
+                            <button
+                              aria-label={t('Сохранить')}
+                              onClick={() => void saveRename(account.id)}
+                              className="rounded-lg p-1.5 text-mint-300 transition hover:bg-mint-400/10"
+                            >
+                              <Check size={15} />
+                            </button>
+                            <button
+                              aria-label={t('Отмена')}
+                              onClick={() => setRenamingId(null)}
+                              className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                            >
+                              <X size={15} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              disabled={gameBusy}
+                              onClick={() => void switchAccount(account.id)}
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-iris-500/50 to-amber-500/40 text-xs font-bold text-white">
+                                {account.name.slice(0, 1).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-xs font-semibold text-slate-100">{account.name}</span>
+                                  {active && <Badge tone="mint">{t('Активный')}</Badge>}
+                                </div>
+                                <div className="truncate text-[10px] text-slate-500">
+                                  {t('Сборок: {count}', { count: account.profiles.length })} · {t('Офлайн-аккаунт')}
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              aria-label={t('Переименовать')}
+                              onClick={() => { setRenamingId(account.id); setRenameValue(account.name) }}
+                              className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              aria-label={t('Удалить профиль игрока')}
+                              disabled={state.accounts.length <= 1 || gameBusy}
+                              onClick={() => void removeAccount(account)}
+                              className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-30"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    className="input min-w-0 flex-1"
+                    value={newAccountName}
+                    maxLength={16}
+                    placeholder="Steve"
+                    onChange={(event) => setNewAccountName(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') void addAccount() }}
+                  />
+                  <Button variant="primary" onClick={() => void addAccount()} disabled={!newAccountName.trim()}>
+                    <Plus size={15} /> {t('Добавить профиль')}
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
+              </p>
+            </section>
+
+            <section className="min-w-0 border-t border-white/[0.06] pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+              <SkinsPanel accountId={state.activeAccountId} />
+            </section>
           </div>
+        )}
+
+        <div className="mt-5 flex justify-end border-t border-white/[0.06] pt-5">
+          <Button onClick={() => setAccountOpen(false)}>{t("Отмена")}</Button>
         </div>
       </Modal>
     </div>
