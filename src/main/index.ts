@@ -10,6 +10,11 @@ import { checkUpdates, shouldCheckOnStartup } from './core/updates'
 
 const isDev = !app.isPackaged
 
+// Note: on Wayland desktops Electron must be told to use Ozone/Wayland before
+// the process starts (ELECTRON_OZONE_PLATFORM_HINT=wayland). scripts/run.js sets
+// this for dev/preview. app.commandLine.appendSwitch cannot change the already
+// selected Ozone platform, so it is deliberately not used here.
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1400,

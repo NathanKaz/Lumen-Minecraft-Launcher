@@ -42,30 +42,41 @@ function rebuildMenu(): void {
   if (!tray) return
   const playing = getStatus() === 'running' || getStatus() === 'starting'
   const profileId = selectedProfileId()
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Lumen Launcher', enabled: false },
-    { type: 'separator' },
-    { label: msg('Показать лаунчер'), click: showLauncherWindow },
-    {
-      label: playing ? msg('Остановить игру') : msg('Запустить игру'),
-      enabled: Boolean(profileId),
-      click: () => {
-        if (!profileId) return
-        if (playing) void stopGame()
-        else void launchGame(profileId).catch(() => undefined)
-      }
-    },
-    { type: 'separator' },
-    { label: msg('Выход'), click: () => { markQuitting(); app.quit() } }
-  ]))
+  try {
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Lumen Launcher', enabled: false },
+      { type: 'separator' },
+      { label: msg('Показать лаунчер'), click: showLauncherWindow },
+      {
+        label: playing ? msg('Остановить игру') : msg('Запустить игру'),
+        enabled: Boolean(profileId),
+        click: () => {
+          if (!profileId) return
+          if (playing) void stopGame()
+          else void launchGame(profileId).catch(() => undefined)
+        }
+      },
+      { type: 'separator' },
+      { label: msg('Выход'), click: () => { markQuitting(); app.quit() } }
+    ]))
+  } catch {
+    // Some Wayland desktops have no status-notifier implementation; the tray
+    // is optional and must never prevent the launcher window from opening.
+  }
 }
 
 export function initTray(): void {
   if (tray || process.platform === 'darwin') return
-  tray = new Tray(icon())
-  tray.setToolTip('Lumen Launcher')
-  rebuildMenu()
-  tray.on('double-click', showLauncherWindow)
+  try {
+    tray = new Tray(icon())
+    tray.setToolTip('Lumen Launcher')
+    rebuildMenu()
+    tray.on('double-click', showLauncherWindow)
+  } catch (error) {
+    tray = null
+    emitLog('warn', `${msg('Не удалось создать иконку в трее')}: ${String(error)}`)
+    return
+  }
   app.on('browser-window-focus', rebuildMenu)
   app.on('before-quit', () => {
     tray?.destroy()

@@ -61,14 +61,27 @@ function findModernNode() {
   return null
 }
 
+// Electron selects its Ozone platform before any app JavaScript runs, so the
+// choice has to come from the environment. On Wayland sessions X11 needs a
+// valid XAUTHORITY, and GNOME rotates that file on every login — a stale value
+// makes startup fail with "Authorization required, but no authorization
+// protocol specified". Use Wayland directly when the session offers it.
+function childEnv(node) {
+  const env = Object.assign({}, process.env)
+  env.PATH = `${path.dirname(node)}${path.delimiter}${env.PATH || ''}`
+  if (process.platform === 'linux' && process.env.WAYLAND_DISPLAY && !env.ELECTRON_OZONE_PLATFORM_HINT) {
+    env.ELECTRON_OZONE_PLATFORM_HINT = 'wayland'
+  }
+  return env
+}
+
 function run(node, entry, args) {
   const file = path.join(root, entries[entry])
   if (!fs.existsSync(file)) {
     console.error(`Не найден инструмент: ${entry} (${file}). Выполните npm install.`)
     process.exit(1)
   }
-  const env = Object.assign({}, process.env)
-  env.PATH = `${path.dirname(node)}${path.delimiter}${env.PATH || ''}`
+  const env = childEnv(node)
   const child = spawn(node, [file].concat(args), { cwd: root, stdio: 'inherit', env })
   child.on('error', (error) => {
     console.error(error.message)
@@ -84,8 +97,7 @@ function runSequence(node, commands) {
   const next = (index) => {
     if (index >= commands.length) return
     const [entry, args] = commands[index]
-    const env = Object.assign({}, process.env)
-    env.PATH = `${path.dirname(node)}${path.delimiter}${env.PATH || ''}`
+    const env = childEnv(node)
     const file = path.join(root, entries[entry])
     const child = spawn(node, [file].concat(args), { cwd: root, stdio: 'inherit', env })
     child.on('error', (error) => {

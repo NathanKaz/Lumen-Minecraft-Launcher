@@ -38,6 +38,14 @@ npm run dist -- --mac dmg
 
 Launcher data (versions, instances, mods) is stored in the app user data directory, e.g. `~/.config/Lumen Launcher/launcher` on Linux (exact path depends on platform/Electron userData location).
 
+On a Wayland desktop, Electron must be told to use Wayland before it starts; `scripts/run.js` sets `ELECTRON_OZONE_PLATFORM_HINT=wayland` automatically for `dev`/`preview`. Without it Electron falls back to X11 and can fail with `Authorization required, but no authorization protocol specified` when GNOME rotates its Xwayland `XAUTHORITY` file. If you launch a packaged build directly, start it with the same variable:
+
+```bash
+ELECTRON_OZONE_PLATFORM_HINT=wayland ./release/linux-unpacked/lumen-launcher
+```
+
+Build artifacts are not needed for development and can be removed to reclaim space: `node_modules/` (~570 MB, restore with `npm install`), `release/` (~1.2 GB, restore with `npm run dist`), `out/` and `dist/`. All of them are gitignored.
+
 ## Authentication strategy
 
 Currently uses an offline profile (player name, local UUID, token), suitable for single-player and servers without license verification. Microsoft sign-in (PKCE → Xbox Live → XSTS → Minecraft profile) is planned as a next step.

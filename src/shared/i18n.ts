@@ -556,7 +556,8 @@ const en: Record<string, string> = {
   'Запустить игру': 'Launch game',
   'Остановить игру': 'Stop game',
   'Выход': 'Quit',
-  'Окно лаунчера не найдено': 'Launcher window not found'
+  'Окно лаунчера не найдено': 'Launcher window not found',
+  'Не удалось создать иконку в трее': 'Could not create the tray icon'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {
