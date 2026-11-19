@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'fs-extra'
 import { dirs, instanceDir, versionDir } from './paths'
@@ -6,6 +7,7 @@ import { getState, updateProfile } from './store'
 import { emitGameStatus, emitLog, emitProgress } from './events'
 import { findJava, inspectJava, requiredJavaMajor } from './java'
 import { argValues, classpathLibraries, extractNatives, resolveVersion, type VersionJson } from './install'
+import { applySkinResourcePack } from './skins'
 import type { GameStatus, JavaInfo } from '@shared/types'
 
 let child: ChildProcess | null = null
@@ -18,7 +20,7 @@ export function getStatus(): GameStatus {
 
 export function stopGame(): void {
   if (child && !child.killed) {
-    emitLog('info', 'Остановка игры...')
+    emitLog('info', msg("Остановка игры..."))
     child.kill('SIGTERM')
     const handle = setTimeout(() => child?.kill('SIGKILL'), 4000)
     handle.unref()
@@ -31,10 +33,10 @@ function status(value: GameStatus): void {
 }
 
 export async function launchGame(profileId: string): Promise<void> {
-  if (child && !child.killed) throw new Error('Игра уже запущена')
+  if (child && !child.killed) throw new Error(msg("Игра уже запущена"))
   const state = getState()
   const profile = state.profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Сборка не найдена')
+  if (!profile) throw new Error(msg("Сборка не найдена"))
 
   const versionId = profile.loaderVersionId ?? profile.versionId
   const version = await resolveVersion(versionId)
@@ -44,16 +46,16 @@ export async function launchGame(profileId: string): Promise<void> {
   if (configuredJava) {
     const inspected = await inspectJava(configuredJava)
     if (!inspected) {
-      throw new Error(`Java не найдена по пути: ${configuredJava}. Укажите корректный путь в настройках.`)
+      throw new Error(msg('Java не найдена по пути: {path}. Укажите корректный путь в настройках.', { path: configuredJava }))
     }
     if (inspected.major < required) {
-      throw new Error(`Нужна Java ${required}+, но выбрана Java ${inspected.version} (${configuredJava}).`)
+      throw new Error(msg('Нужна Java {required}+, но выбрана Java {found} ({path}).', { required, found: inspected.version, path: configuredJava }))
     }
     selectedJava = inspected
   } else {
     const java = await findJava(required)
     if (!java.valid) {
-      throw new Error(`Нужна Java ${required}+, найдена: ${java.version}. Укажите путь в настройках.`)
+      throw new Error(msg('Нужна Java {required}+, найдена: {found}. Укажите путь в настройках.', { required, found: java.version }))
     }
     selectedJava = java
   }
@@ -61,13 +63,13 @@ export async function launchGame(profileId: string): Promise<void> {
 
   const clientJar = path.join(versionDir(profile.versionId), `${profile.versionId}.jar`)
   if (!(await fs.pathExists(clientJar))) {
-    throw new Error(`Клиент Minecraft ${profile.versionId} не установлен. Нажмите «Установить» или «Проверить файлы».`)
+    throw new Error(msg('Клиент Minecraft {version} не установлен. Нажмите «Установить» или «Проверить файлы».', { version: profile.versionId }))
   }
 
   status('starting')
   emitProgress({
     phase: 'launch',
-    message: 'Запуск Minecraft',
+    message: msg("Запуск Minecraft"),
     percent: 50,
     current: 0,
     total: 1,
@@ -79,6 +81,10 @@ export async function launchGame(profileId: string): Promise<void> {
   const directory = instanceDir(profile.id)
   await fs.ensureDir(directory)
   await fs.ensureDir(path.join(directory, 'mods'))
+
+  // Regenerate the offline skin pack before every launch so changes made in the
+  // skin library are immediately reflected in-game.
+  await applySkinResourcePack(profile.id)
 
   extractNatives({ ...version, id: version.id })
 
@@ -140,7 +146,11 @@ export async function launchGame(profileId: string): Promise<void> {
 
   const args = [...jvmArgs, version.mainClass ?? 'net.minecraft.client.main.Main', ...gameArgs]
   emitLog('info', `Java ${selectedJava.version}: ${javaPath}`)
-  emitLog('info', `Версия: ${version.id} · Память: ${memory} МБ (${profile.memory === undefined ? 'глобально' : 'своя'})`)
+  emitLog('info', msg('Версия: {version} · Память: {memory} МБ ({scope})', {
+    version: version.id,
+    memory,
+    scope: profile.memory === undefined ? msg("глобально") : msg("своя")
+  }))
 
   child = spawn(javaPath, args, {
     cwd: directory,
@@ -151,7 +161,7 @@ export async function launchGame(profileId: string): Promise<void> {
   status('running')
   emitProgress({
     phase: 'launch',
-    message: 'Игра запущена',
+    message: msg("Игра запущена"),
     percent: 100,
     current: 1,
     total: 1,
@@ -173,7 +183,7 @@ export async function launchGame(profileId: string): Promise<void> {
   child.on('close', (code) => {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000))
     updateProfile(profile.id, { lastPlayed: Date.now(), playtimeMinutes: profile.playtimeMinutes + minutes })
-    emitLog('info', `Игра завершилась с кодом ${code ?? 0}`)
+    emitLog('info', msg('Игра завершилась с кодом {code}', { code: code ?? 0 }))
     status(code === 0 ? 'stopped' : 'crashed')
     child = null
   })

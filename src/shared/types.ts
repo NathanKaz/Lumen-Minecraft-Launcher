@@ -37,6 +37,8 @@ export interface Settings {
   closeBehavior: 'exit' | 'tray'
   checkUpdates: boolean
   instancesView: 'grid' | 'list'
+  /** Id of the skin from the library applied to every offline instance. */
+  activeSkinId?: string
 }
 
 export interface Account {
@@ -180,6 +182,59 @@ export interface JavaInfo {
   valid: boolean
 }
 
+export type SkinModel = 'wide' | 'slim'
+
+export interface SkinInfo {
+  id: string
+  name: string
+  model: SkinModel
+  /** Inline PNG data URL for the preview. */
+  dataUrl: string
+  size: number
+  addedAt: number
+  active: boolean
+}
+
+export interface UpdateInfo {
+  currentVersion: string
+  latestVersion: string
+  url: string
+  updateAvailable: boolean
+}
+
+export interface VerifyReport {
+  profileId: string
+  checked: number
+  missing: string[]
+  invalid: string[]
+  ok: boolean
+}
+
+export interface BackupInfo {
+  fileName: string
+  name: string
+  size: number
+  createdAt: number
+}
+
+export type PackKind = 'resource' | 'shader'
+
+export interface PackInfo {
+  fileName: string
+  name: string
+  kind: PackKind
+  enabled: boolean
+  size: number
+}
+
+export interface ModUpdateInfo {
+  fileName: string
+  name: string
+  currentVersion: string
+  latestVersion: string
+  projectId: string
+}
+
 export interface LauncherAPI {
   getState(): Promise<AppState>
   setState(patch: Partial<AppState>): Promise<AppState>
@@ -218,5 +273,28 @@ export interface LauncherAPI {
   onLog(cb: (payload: LogPayload) => void): () => void
   onGameStatus(cb: (status: GameStatus) => void): () => void
   onToast(cb: (payload: ToastPayload) => void): () => void
+
+  listSkins(): Promise<SkinInfo[]>
+  importSkin(): Promise<SkinInfo | null>
+  deleteSkin(id: string): Promise<void>
+  selectSkin(id: string | null): Promise<void>
+  setSkinModel(id: string, model: SkinModel): Promise<void>
+
+  checkUpdates(): Promise<UpdateInfo>
+  verifyProfile(id: string, repair?: boolean): Promise<VerifyReport>
+
+  listBackups(profileId: string): Promise<BackupInfo[]>
+  createBackup(profileId: string): Promise<BackupInfo>
+  restoreBackup(profileId: string, fileName: string): Promise<void>
+  deleteBackup(profileId: string, fileName: string): Promise<void>
+
+  listPacks(profileId: string, kind: PackKind): Promise<PackInfo[]>
+  installPack(profileId: string, kind: PackKind): Promise<void>
+  togglePack(profileId: string, kind: PackKind, fileName: string, enabled: boolean): Promise<void>
+  deletePack(profileId: string, kind: PackKind, fileName: string): Promise<void>
+
+  checkModUpdates(profileId: string): Promise<ModUpdateInfo[]>
+  updateMod(profileId: string, fileName: string, versionId: string): Promise<void>
+
   isMock: boolean
 }

@@ -1,4 +1,5 @@
 import { Minus, Square, X } from 'lucide-react'
+import { t } from '../lib/i18n'
 import { api, isMock } from '../lib/api'
 
 export function Titlebar(): JSX.Element {
@@ -13,21 +14,21 @@ export function Titlebar(): JSX.Element {
         <button
           onClick={() => void api.windowAction('minimize')}
           className="flex h-7 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/10 hover:text-white"
-          aria-label="Свернуть"
+          aria-label={t("Свернуть")}
         >
           <Minus size={15} />
         </button>
         <button
           onClick={() => void api.windowAction('maximize')}
           className="flex h-7 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/10 hover:text-white"
-          aria-label="Развернуть"
+          aria-label={t("Развернуть")}
         >
           <Square size={12} />
         </button>
         <button
           onClick={() => void api.windowAction('close')}
           className="flex h-7 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-rose-500/20 hover:text-rose-300"
-          aria-label="Закрыть"
+          aria-label={t("Закрыть")}
         >
           <X size={15} />
         </button>

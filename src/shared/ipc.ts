@@ -30,7 +30,35 @@ export const IPC = {
   detectJava: 'java:detect',
   openFolder: 'app:openFolder',
   getLogs: 'logs:get',
-  clearLogs: 'logs:clear'
+  clearLogs: 'logs:clear',
+
+  // Skins
+  listSkins: 'skins:list',
+  importSkin: 'skins:import',
+  deleteSkin: 'skins:delete',
+  selectSkin: 'skins:select',
+  setSkinModel: 'skins:setModel',
+
+  // Updates & verification
+  checkUpdates: 'app:checkUpdates',
+  verifyProfile: 'profile:verify',
+  repairProfile: 'profile:repair',
+
+  // Backups
+  listBackups: 'backups:list',
+  createBackup: 'backups:create',
+  restoreBackup: 'backups:restore',
+  deleteBackup: 'backups:delete',
+
+  // Resource/shader packs
+  listPacks: 'packs:list',
+  installPack: 'packs:install',
+  togglePack: 'packs:toggle',
+  deletePack: 'packs:delete',
+
+  // Mod updates
+  checkModUpdates: 'mods:checkUpdates',
+  updateMod: 'mods:update'
 } as const
 
 export const EVENTS = {

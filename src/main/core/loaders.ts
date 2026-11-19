@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import { spawn } from 'node:child_process'
 import fs from 'fs-extra'
 import { dirs, versionDir } from './paths'
@@ -31,28 +32,28 @@ async function saveVersionJson(json: VersionJson): Promise<string> {
 }
 
 async function installFabric(gameVersion: string, requestedVersion?: string): Promise<string> {
-  emitLoader('Получение данных Fabric', 12)
+  emitLoader(msg("Получение данных Fabric"), 12)
   const loaders = await fetchJson<
     Array<{ loader: { version: string; stable?: boolean }; intermediary?: { version: string } }>
   >(`https://meta.fabricmc.net/v2/versions/loader/${gameVersion}`)
-  if (!loaders.length) throw new Error(`Fabric недоступен для Minecraft ${gameVersion}`)
+  if (!loaders.length) throw new Error(msg('Fabric недоступен для Minecraft {version}', { version: gameVersion }))
 
   const selected = requestedVersion
     ? loaders.find((entry) => entry.loader?.version === requestedVersion)
     : (loaders.find((entry) => entry.loader?.stable) ?? loaders[0])
   const loaderVersion = selected?.loader?.version
-  if (!loaderVersion) throw new Error(`Версия Fabric ${requestedVersion ?? ''} не найдена`.trim())
+  if (!loaderVersion) throw new Error(msg('Версия Fabric {version} не найдена', { version: requestedVersion ?? '' }).trim())
 
-  emitLoader('Сборка загрузчика Fabric', 35)
+  emitLoader(msg("Сборка загрузчика Fabric"), 35)
   const profile = await fetchJson<VersionJson>(
     `https://meta.fabricmc.net/v2/versions/loader/${gameVersion}/${loaderVersion}/profile/json`
   )
   profile.inheritsFrom = profile.inheritsFrom ?? gameVersion
   const id = await saveVersionJson(profile)
-  emitLoader('Установка библиотек Fabric', 60)
-  await installLibraries(profile, 'библиотеки Fabric')
+  emitLoader(msg("Установка библиотек Fabric"), 60)
+  await installLibraries(profile, msg("библиотеки Fabric"))
   extractNatives(profile)
-  emitLoader('Fabric установлен', 100)
+  emitLoader(msg("Fabric установлен"), 100)
   return id
 }
 
@@ -60,7 +61,7 @@ function runInstaller(jarPath: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     void findJava().then((java) => {
       if (!java.valid) {
-        reject(new Error('Java не найдена — не удалось установить загрузчик'))
+        reject(new Error(msg("Java не найдена — не удалось установить загрузчик")))
         return
       }
       const child = spawn(java.path, ['-jar', jarPath, ...args], {
@@ -78,7 +79,7 @@ function runInstaller(jarPath: string, args: string[]): Promise<void> {
       child.on('error', reject)
       child.on('close', (code) => {
         if (code === 0) resolve()
-        else reject(new Error(`Установщик завершился с кодом ${code}: ${output.slice(-500)}`))
+        else reject(new Error(msg('Установщик завершился с кодом {code}: {output}', { code: code ?? 0, output: output.slice(-500) })))
       })
     })
   })
@@ -91,7 +92,7 @@ async function findInstalledVersion(pattern: RegExp): Promise<string | null> {
 }
 
 async function installForge(gameVersion: string, requestedVersion?: string): Promise<string> {
-  emitLoader('Поиск версии Forge', 10)
+  emitLoader(msg("Поиск версии Forge"), 10)
   const promotions = await fetchJson<{ promos: Record<string, string> }>(
     'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json'
   )
@@ -101,32 +102,32 @@ async function installForge(gameVersion: string, requestedVersion?: string): Pro
     const versions = [...maven.matchAll(/<version>([^<]+)<\/version>/g)].map((match) => match[1])
     forgeVersion = versions.filter((version) => version.startsWith(`${gameVersion}-`)).map((version) => version.slice(gameVersion.length + 1)).at(-1)
   }
-  if (!forgeVersion) throw new Error(`Не удалось найти Forge для Minecraft ${gameVersion}`)
+  if (!forgeVersion) throw new Error(msg('Не удалось найти Forge для Minecraft {version}', { version: gameVersion }))
 
   const fullVersion = `${gameVersion}-${forgeVersion}`
   const jarPath = path.join(dirs.installers, `forge-${fullVersion}-installer.jar`)
-  emitLoader('Скачивание установщика Forge', 25)
+  emitLoader(msg("Скачивание установщика Forge"), 25)
   await downloadToFile(
     `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/forge-${fullVersion}-installer.jar`,
     jarPath,
     'loader',
-    'установщик Forge'
+    msg("установщик Forge")
   )
-  emitLoader('Установка Forge (это может занять минуту)', 50)
+  emitLoader(msg("Установка Forge (это может занять минуту)"), 50)
   await runInstaller(jarPath, ['--installClient', dirs.root])
   const id = (await findInstalledVersion(new RegExp(`${gameVersion}-forge-${forgeVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))) ?? `${gameVersion}-forge-${forgeVersion}`
   const json = await readVersionJson(id)
   if (json) {
-    emitLoader('Установка библиотек Forge', 75)
-    await installLibraries(json, 'библиотеки Forge')
+    emitLoader(msg("Установка библиотек Forge"), 75)
+    await installLibraries(json, msg("библиотеки Forge"))
     extractNatives(json)
   }
-  emitLoader('Forge установлен', 100)
+  emitLoader(msg("Forge установлен"), 100)
   return id
 }
 
 async function installNeoForge(gameVersion: string, requestedVersion?: string): Promise<string> {
-  emitLoader('Поиск версии NeoForge', 10)
+  emitLoader(msg("Поиск версии NeoForge"), 10)
   const metadata = await fetchText('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml')
   const versions = [...metadata.matchAll(/<version>([^<]+)<\/version>/g)].map((match) => match[1])
   const [, major, minor] = gameVersion.split('.')
@@ -137,27 +138,27 @@ async function installNeoForge(gameVersion: string, requestedVersion?: string): 
     const release = metadata.match(/<release>([^<]+)<\/release>/)?.[1]
     neoVersion = release
   }
-  if (!neoVersion) throw new Error(`Не удалось найти NeoForge для Minecraft ${gameVersion}`)
+  if (!neoVersion) throw new Error(msg('Не удалось найти NeoForge для Minecraft {version}', { version: gameVersion }))
 
   const jarPath = path.join(dirs.installers, `neoforge-${neoVersion}-installer.jar`)
-  emitLoader('Скачивание установщика NeoForge', 25)
+  emitLoader(msg("Скачивание установщика NeoForge"), 25)
   await downloadToFile(
     `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoVersion}/neoforge-${neoVersion}-installer.jar`,
     jarPath,
     'loader',
-    'установщик NeoForge'
+    msg("установщик NeoForge")
   )
-  emitLoader('Установка NeoForge', 50)
+  emitLoader(msg("Установка NeoForge"), 50)
   await runInstaller(jarPath, ['--installClient', dirs.root])
   const escaped = neoVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const id = (await findInstalledVersion(new RegExp(`${gameVersion}-neoforge-${escaped}`))) ?? `${gameVersion}-neoforge-${neoVersion}`
   const json = await readVersionJson(id)
   if (json) {
-    emitLoader('Установка библиотек NeoForge', 75)
-    await installLibraries(json, 'библиотеки NeoForge')
+    emitLoader(msg("Установка библиотек NeoForge"), 75)
+    await installLibraries(json, msg("библиотеки NeoForge"))
     extractNatives(json)
   }
-  emitLoader('NeoForge установлен', 100)
+  emitLoader(msg("NeoForge установлен"), 100)
   return id
 }
 

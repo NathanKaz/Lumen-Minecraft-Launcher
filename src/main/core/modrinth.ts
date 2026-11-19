@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import fs from 'fs-extra'
 import { dirs, modsDir } from './paths'
 import { downloadMany, type DownloadTask } from './downloader'
@@ -116,7 +117,7 @@ async function resolveVersion(projectId: string, gameVersion: string, loader: st
   // A mod may support the loader but not this exact patch version. Fall back to any
   // version for this loader (or, for vanilla, to the newest available release).
   const all = await projectVersions(projectId)
-  if (!all.length) throw new Error(`Для проекта ${projectId} нет доступных версий`)
+  if (!all.length) throw new Error(msg('Для проекта {id} нет доступных версий', { id: projectId }))
   const loaderMatches = loader !== 'vanilla' ? all.filter((version) => version.loaders.includes(loader)) : all
   if (loaderMatches.length) return preferredVersion(loaderMatches)
   return preferredVersion(all)
@@ -129,7 +130,7 @@ export async function installModrinthProject(
   visited = new Set<string>()
 ): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Сборка не найдена')
+  if (!profile) throw new Error(msg("Сборка не найдена"))
   if (visited.has(`${projectId}:${versionId ?? ''}`)) return
   visited.add(`${projectId}:${versionId ?? ''}`)
 
@@ -149,7 +150,7 @@ export async function installModrinthProject(
 
   emitProgress({
     phase: 'mod',
-    message: `Установка ${version.name}`,
+    message: msg('Установка {name}', { name: version.name }),
     percent: 0,
     current: 0,
     total: tasks.length,
@@ -157,7 +158,7 @@ export async function installModrinthProject(
     totalBytes: 0,
     speed: 0
   })
-  await downloadMany(tasks, 'mod', `Мод ${version.name}`, 2)
+  await downloadMany(tasks, 'mod', msg('Мод {name}', { name: version.name }), 2)
 
   for (const dependency of version.dependencies) {
     if (dependency.dependency_type !== 'required') continue
@@ -173,7 +174,7 @@ export async function installModrinthProject(
 
 export async function installMod(profileId: string, projectId: string): Promise<void> {
   await installModrinthProject(profileId, projectId)
-  emitToast('success', 'Мод установлен в выбранную сборку')
+  emitToast('success', msg("Мод установлен в выбранную сборку"))
 }
 
 export async function getModVersionsForMrpack(projectId: string) {

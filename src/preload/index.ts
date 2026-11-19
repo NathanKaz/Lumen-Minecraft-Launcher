@@ -47,7 +47,29 @@ const api: LauncherAPI = {
   onProgress: (cb) => subscribe(EVENTS.progress, cb),
   onLog: (cb) => subscribe(EVENTS.log, cb),
   onGameStatus: (cb) => subscribe(EVENTS.gameStatus, cb),
-  onToast: (cb) => subscribe(EVENTS.toast, cb)
+  onToast: (cb) => subscribe(EVENTS.toast, cb),
+
+  listSkins: () => invoke(IPC.listSkins),
+  importSkin: () => invoke(IPC.importSkin),
+  deleteSkin: (id) => invoke(IPC.deleteSkin, id),
+  selectSkin: (id) => invoke(IPC.selectSkin, id),
+  setSkinModel: (id, model) => invoke(IPC.setSkinModel, id, model),
+
+  checkUpdates: () => invoke(IPC.checkUpdates),
+  verifyProfile: (id, repair) => invoke(IPC.verifyProfile, id, repair),
+
+  listBackups: (profileId) => invoke(IPC.listBackups, profileId),
+  createBackup: (profileId) => invoke(IPC.createBackup, profileId),
+  restoreBackup: (profileId, fileName) => invoke(IPC.restoreBackup, profileId, fileName),
+  deleteBackup: (profileId, fileName) => invoke(IPC.deleteBackup, profileId, fileName),
+
+  listPacks: (profileId, kind) => invoke(IPC.listPacks, profileId, kind),
+  installPack: (profileId, kind) => invoke(IPC.installPack, profileId, kind),
+  togglePack: (profileId, kind, fileName, enabled) => invoke(IPC.togglePack, profileId, kind, fileName, enabled),
+  deletePack: (profileId, kind, fileName) => invoke(IPC.deletePack, profileId, kind, fileName),
+
+  checkModUpdates: (profileId) => invoke(IPC.checkModUpdates, profileId),
+  updateMod: (profileId, fileName, versionId) => invoke(IPC.updateMod, profileId, fileName, versionId)
 }
 
 contextBridge.exposeInMainWorld('launcher', api)

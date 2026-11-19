@@ -1,4 +1,5 @@
 import http, { type IncomingMessage } from 'node:http'
+import { msg } from './i18n'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { emitLog } from './events'
@@ -48,7 +49,7 @@ export function request(
         if (status >= 300 && status < 400 && response.headers.location) {
           response.resume()
           if (redirectsLeft <= 0) {
-            reject(new Error(`Слишком много перенаправлений: ${url}`))
+            reject(new Error(msg('Слишком много перенаправлений: {url}', { url })))
             return
           }
           const next = new URL(response.headers.location, target).toString()
@@ -58,7 +59,7 @@ export function request(
 
         if (status < 200 || status >= 300) {
           response.resume()
-          reject(new Error(`HTTP ${status} при запросе ${target.toString()}`))
+          reject(new Error(msg('HTTP {status} при запросе {url}', { status, url: target.toString() })))
           return
         }
 
@@ -67,7 +68,7 @@ export function request(
     )
 
     req.setTimeout(timeout, () => {
-      req.destroy(new Error(`Таймаут подключения ${Math.round(timeout / 1000)} с`))
+      req.destroy(new Error(msg('Таймаут подключения {seconds} с', { seconds: Math.round(timeout / 1000) })))
     })
     req.on('error', (error) => reject(new Error(describeError(error, target.toString()))))
   })
@@ -80,17 +81,19 @@ export async function withRetry<T>(label: string, fn: () => Promise<T>, attempts
       return await fn()
     } catch (error) {
       lastError = error as Error
-      emitLog('warn', `${label} · попытка ${attempt}/${attempts} не удалась: ${lastError.message}`)
+      emitLog('warn', msg('{label} · попытка {attempt}/{attempts} не удалась: {error}', {
+        label, attempt, attempts, error: lastError.message
+      }))
       if (attempt < attempts) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
       }
     }
   }
-  throw new Error(`${label}: ${lastError?.message ?? 'неизвестная ошибка'}`)
+  throw new Error(msg('{label}: {error}', { label, error: lastError?.message ?? msg("неизвестная ошибка") }))
 }
 
 export async function requestText(url: string, timeout = 30000): Promise<string> {
-  return withRetry(`Запрос ${url}`, async () => {
+  return withRetry(msg('Запрос {url}', { url }), async () => {
     const { response } = await request(url, timeout, { Accept: 'application/json' })
     const chunks: Buffer[] = []
     for await (const chunk of response) chunks.push(Buffer.from(chunk))

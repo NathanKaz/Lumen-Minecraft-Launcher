@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { t } from './lib/i18n'
 import { api } from './lib/api'
 import type {
   AppState,
@@ -71,7 +72,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
       await api.setState({ selectedProfileId: id })
       await get().refresh()
     } catch {
-      get().pushToast('error', 'Не удалось сделать сборку активной')
+      get().pushToast('error', t("Не удалось сделать сборку активной"))
     }
   },
   backToInstances: () => set({ openedProfileId: null }),
@@ -81,7 +82,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
     await api.deleteProfile(id)
     if (get().openedProfileId === id) set({ openedProfileId: null })
     await get().refresh()
-    get().pushToast('info', 'Сборка и её файлы удалены')
+    get().pushToast('info', t("Сборка и её файлы удалены"))
     return true
   },
   setBusy: (busy) => set({ busy }),

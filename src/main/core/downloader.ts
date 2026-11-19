@@ -4,6 +4,7 @@ import fs from 'fs-extra'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { emitProgress } from './events'
+import { msg } from './i18n'
 import { request, withRetry } from './net'
 import type { ProgressPhase } from '@shared/types'
 
@@ -50,14 +51,14 @@ async function downloadOne(task: DownloadTask, onChunk: (bytes: number, total: n
   const label = task.label ?? path.basename(task.dest)
   const part = `${task.dest}.part`
 
-  return withRetry(`Не удалось скачать ${label}`, async () => {
+  return withRetry(msg('Не удалось скачать {label}', { label }), async () => {
     await fs.ensureDir(path.dirname(task.dest))
     await fs.remove(part)
 
     const { response } = await request(task.url, READ_TIMEOUT)
     // Защита от «зависшего» соединения после получения заголовков.
     response.setTimeout(READ_TIMEOUT, () => {
-      response.destroy(new Error(`Таймаут чтения ${Math.round(READ_TIMEOUT / 1000)} с`))
+      response.destroy(new Error(msg('Таймаут чтения {seconds} с', { seconds: Math.round(READ_TIMEOUT / 1000) })))
     })
 
     const headerSize = Number(response.headers['content-length'] ?? 0)
@@ -84,7 +85,7 @@ async function downloadOne(task: DownloadTask, onChunk: (bytes: number, total: n
       if (task.sha1) {
         const actual = await hashFile(part, 'sha1')
         if (actual !== task.sha1.toLowerCase()) {
-          throw new Error(`Контрольная сумма не совпала: ${label}`)
+          throw new Error(msg('Контрольная сумма не совпала: {label}', { label }))
         }
       }
 
@@ -128,7 +129,7 @@ export async function downloadMany(
     const totalBytes = expectedSizes.reduce((sum, value) => sum + value, 0)
     emitProgress({
       phase,
-      message: `${label} · ${completed}/${tasks.length}`,
+      message: msg('{label} · {current}/{total}', { label, current: completed, total: tasks.length }),
       percent: totalBytes > 0 ? Math.min(100, ((downloaded + activeBytes) / totalBytes) * 100) : 0,
       current: completed,
       total: tasks.length,

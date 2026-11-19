@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { setLocale, t } from './lib/i18n'
 import { motion } from 'framer-motion'
 import { Loader2, UserRound } from 'lucide-react'
 import { api } from './lib/api'
@@ -18,6 +19,9 @@ export default function App(): JSX.Element {
   const [accountOpen, setAccountOpen] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const openedProfile = findProfile(state, openedProfileId)
+
+  // Keep translations in sync before children render; all consumers re-render with state.
+  setLocale(state?.settings.language ?? 'ru')
 
   useEffect(() => {
     void init()
@@ -44,7 +48,7 @@ export default function App(): JSX.Element {
             {!state ? (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-slate-500">
                 <Loader2 size={30} className="animate-spin text-mint-400" />
-                <p className="text-sm">Загрузка лаунчера...</p>
+                <p className="text-sm">{t("Загрузка лаунчера...")}</p>
               </div>
             ) : (
               <motion.div
@@ -71,7 +75,7 @@ export default function App(): JSX.Element {
 
       <ToastHost />
 
-      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title="Аккаунт">
+      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")}>
         <div className="space-y-5">
           <div className="flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
@@ -79,11 +83,11 @@ export default function App(): JSX.Element {
             </div>
             <div>
               <div className="text-sm font-bold text-white">{state?.account.name}</div>
-              <div className="text-[11px] text-slate-500">Офлайн-профиль · без лицензии</div>
+              <div className="text-[11px] text-slate-500">{t("Офлайн-профиль · без лицензии")}</div>
             </div>
           </div>
           <div>
-            <label className="label">Имя игрока</label>
+            <label className="label">{t("Имя игрока")}</label>
             <input
               className="input"
               value={playerName}
@@ -92,12 +96,12 @@ export default function App(): JSX.Element {
               placeholder="Steve"
             />
             <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-              Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.
+              {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
             </p>
           </div>
           <div className="flex justify-end gap-2">
-            <Button onClick={() => setAccountOpen(false)}>Отмена</Button>
-            <Button variant="primary" onClick={() => void saveAccount()} disabled={!playerName.trim()}>Сохранить</Button>
+            <Button onClick={() => setAccountOpen(false)}>{t("Отмена")}</Button>
+            <Button variant="primary" onClick={() => void saveAccount()} disabled={!playerName.trim()}>{t("Сохранить")}</Button>
           </div>
         </div>
       </Modal>

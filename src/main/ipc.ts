@@ -1,4 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { msg } from './core/i18n'
 import fs from 'fs-extra'
 import { IPC } from '@shared/ipc'
 import type { AppState, LogPayload, Profile } from '@shared/types'
@@ -19,6 +20,12 @@ import { getProjectDetails, installMod, searchMods, searchModpacks } from './cor
 import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
 import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
+import { deleteSkin, importSkin, listSkins, selectSkin, setSkinModel } from './core/skins'
+import { checkUpdates } from './core/updates'
+import { repairProfile, verifyProfile } from './core/verify'
+import { createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
+import { deletePack, installPack, listPacks, togglePack } from './core/packs'
+import { checkModUpdates, updateMod } from './core/modUpdates'
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
   ipcMain.handle(channel, async (_event, ...args: unknown[]) => {
@@ -44,24 +51,24 @@ export function registerIpc(): void {
   handle(IPC.confirmDeleteProfile, async (id: string): Promise<boolean> => {
     const summary = await deletionSummary(id)
     const detail = [
-      'Безвозвратно удалятся:',
-      '• миры (saves)',
-      '• моды (mods)',
-      '• скриншоты (screenshots)',
-      '• конфиги, ресурс- и шейдерпаки, options.txt',
-      '• журналы и отчёты об ошибках',
-      '• запись о сборке в лаунчере',
+      msg("Безвозвратно удалятся:"),
+      msg("• миры (saves)"),
+      msg("• моды (mods)"),
+      msg("• скриншоты (screenshots)"),
+      msg("• конфиги, ресурс- и шейдерпаки, options.txt"),
+      msg("• журналы и отчёты об ошибках"),
+      msg("• запись о сборке в лаунчере"),
       '',
-      `Папка сборки: ${summary.path}`,
-      summary.directories.length ? `Обнаружено на диске: ${summary.directories.join(', ')}` : ''
+      msg('Папка сборки: {path}', { path: summary.path }),
+      summary.directories.length ? msg('Обнаружено на диске: {paths}', { paths: summary.directories.join(', ') }) : ''
     ].filter(Boolean).join('\n')
     const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
     const result = await dialog.showMessageBox(parent, {
       type: 'warning',
-      title: `Удалить сборку «${summary.name}»?`,
-      message: `Сборка «${summary.name}» будет удалена из лаунчера вместе со всей папкой игры.`,
+      title: msg('Удалить сборку «{name}»?', { name: summary.name }),
+      message: msg('Сборка «{name}» будет удалена из лаунчера вместе со всей папкой игры.', { name: summary.name }),
       detail,
-      buttons: ['Удалить', 'Отмена'],
+      buttons: [msg("Удалить"), msg("Отмена")],
       defaultId: 1,
       cancelId: 1,
       noLink: true
@@ -74,8 +81,8 @@ export function registerIpc(): void {
     const result = deleteProfile(id)
     if (profile) {
       await fs.remove(instanceDir(id))
-      emitLog('info', `Удалена сборка «${profile.name}»: ${instanceDir(id)}`)
-      emitToast('info', `Сборка «${profile.name}» и её файлы удалены`)
+      emitLog('info', msg('Удалена сборка «{name}»: {path}', { name: profile.name, path: instanceDir(id) }))
+      emitToast('info', msg('Сборка «{name}» и её файлы удалены', { name: profile.name }))
     }
     return result
   })
@@ -105,18 +112,50 @@ export function registerIpc(): void {
   handle(IPC.getLogs, (): LogPayload[] => getLogs())
   handle(IPC.clearLogs, () => clearLogs())
 
+  // Skins
+  handle(IPC.listSkins, () => listSkins())
+  handle(IPC.importSkin, () => importSkin())
+  handle(IPC.deleteSkin, (id: string) => deleteSkin(id))
+  handle(IPC.selectSkin, (id: string | null) => selectSkin(id))
+  handle(IPC.setSkinModel, (id: string, model: 'wide' | 'slim') => setSkinModel(id, model))
+
+  // Updates & verification
+  handle(IPC.checkUpdates, () => checkUpdates())
+  handle(IPC.verifyProfile, (id: string, repair?: boolean) => verifyProfile(id, repair))
+  handle(IPC.repairProfile, (id: string) => repairProfile(id))
+
+  // Backups
+  handle(IPC.listBackups, (profileId: string) => listBackups(profileId))
+  handle(IPC.createBackup, (profileId: string) => createBackup(profileId))
+  handle(IPC.restoreBackup, (profileId: string, fileName: string) => restoreBackup(profileId, fileName))
+  handle(IPC.deleteBackup, (profileId: string, fileName: string) => deleteBackup(profileId, fileName))
+
+  // Resource/shader packs
+  handle(IPC.listPacks, (profileId: string, kind: 'resource' | 'shader') => listPacks(profileId, kind))
+  handle(IPC.installPack, (profileId: string, kind: 'resource' | 'shader') => installPack(profileId, kind))
+  handle(IPC.togglePack, (profileId: string, kind: 'resource' | 'shader', fileName: string, enabled: boolean) =>
+    togglePack(profileId, kind, fileName, enabled)
+  )
+  handle(IPC.deletePack, (profileId: string, kind: 'resource' | 'shader', fileName: string) =>
+    deletePack(profileId, kind, fileName)
+  )
+
+  // Mod updates
+  handle(IPC.checkModUpdates, (profileId: string) => checkModUpdates(profileId))
+  handle(IPC.updateMod, (profileId: string, fileName: string, versionId: string) => updateMod(profileId, fileName, versionId))
+
   ipcMain.handle(IPC.installLocalMod, async (_event, profileId: string) => {
     const result = await dialog.showOpenDialog({
-      title: 'Выберите файлы модов',
+      title: msg("Выберите файлы модов"),
       filters: [
-        { name: 'Моды', extensions: ['jar', 'zip'] },
-        { name: 'Все файлы', extensions: ['*'] }
+        { name: msg("Моды"), extensions: ['jar', 'zip'] },
+        { name: msg("Все файлы"), extensions: ['*'] }
       ],
       properties: ['openFile', 'multiSelections']
     })
     if (result.canceled) return
     for (const file of result.filePaths) await copyModFile(profileId, file)
-    emitToast('success', `Установлено модов: ${result.filePaths.length}`)
+    emitToast('success', msg('Установлено модов: {count}', { count: result.filePaths.length }))
   })
 
   ipcMain.handle(IPC.openFolder, async (_event, kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs') => {

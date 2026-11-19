@@ -1,16 +1,24 @@
+import { t } from './i18n'
 import type {
   AppState,
+  BackupInfo,
   GameStatus,
   JavaInfo,
   LauncherAPI,
   LogPayload,
   ModInfo,
+  ModUpdateInfo,
   ModrinthProject,
   ModrinthProjectDetails,
+  PackInfo,
+  PackKind,
   ProgressPayload,
   Profile,
   ScreenshotInfo,
+  SkinInfo,
   ToastPayload,
+  UpdateInfo,
+  VerifyReport,
   VersionManifest
 } from '@shared/types'
 
@@ -86,6 +94,16 @@ const mockScreenshots: ScreenshotInfo[] = [
   { fileName: '2026-11-15_21.40.12.png', profileId: 'adventuria', profileName: 'Adventuria', name: '2026-11-15_21.40.12', size: 1_560_000, createdAt: Date.now() - 259_200_000, dataUrl: screenshotImage('Башня магов', '#4c1d95') }
 ]
 
+function skinPreview(primary: string, accent: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect width="16" height="16" fill="${primary}"/><rect x="4" y="2" width="8" height="6" fill="#f1c27d"/><rect x="4" y="2" width="8" height="2" fill="${accent}"/><rect x="5" y="4" width="2" height="2" fill="#fff"/><rect x="9" y="4" width="2" height="2" fill="#fff"/><rect x="5" y="5" width="1" height="1" fill="#3b2b22"/><rect x="10" y="5" width="1" height="1" fill="#3b2b22"/><rect x="4" y="8" width="8" height="6" fill="${accent}"/><rect x="2" y="8" width="2" height="6" fill="#f1c27d"/><rect x="12" y="8" width="2" height="6" fill="#f1c27d"/><rect x="5" y="14" width="2" height="2" fill="#3b4a63"/><rect x="9" y="14" width="2" height="2" fill="#3b4a63"/></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
+const mockSkins: SkinInfo[] = [
+  { id: 'skin-steve', name: 'Steve', model: 'wide', dataUrl: skinPreview('#3b82f6', '#6b4f2a'), size: 4213, addedAt: Date.now() - 86_400_000, active: false },
+  { id: 'skin-alex', name: 'Alex', model: 'slim', dataUrl: skinPreview('#ec4899', '#1d4ed8'), size: 3980, addedAt: Date.now() - 172_800_000, active: false }
+]
+
 function mockState(): AppState {
   const now = Date.now()
   return {
@@ -148,6 +166,14 @@ function createMock(): LauncherAPI {
   let status: GameStatus = 'idle'
   let logs: LogPayload[] = []
   let screenshots = [...mockScreenshots]
+  let skins: SkinInfo[] = mockSkins.map((skin) => ({ ...skin, active: skin.id === state.settings.activeSkinId }))
+  const backupsByProfile: Record<string, BackupInfo[]> = {}
+  const packsByProfile: Record<string, PackInfo[]> = {
+    default: [
+      { fileName: 'faithful-32x.zip', name: 'Faithful 32x', kind: 'resource', enabled: true, size: 8_400_000 },
+      { fileName: 'complementary.zip', name: 'Complementary Shaders', kind: 'shader', enabled: false, size: 2_100_000 }
+    ]
+  }
   const modsByProfile: Record<string, ModInfo[]> = {
     default: [...mockMods],
     adventuria: [mockMods[1], mockMods[2]]
@@ -186,20 +212,28 @@ function createMock(): LauncherAPI {
       const profile = state.profiles.find((entry) => entry.id === id)
       if (!profile) return false
       const shots = screenshots.filter((shot) => shot.profileId === id).length
-      return window.confirm(
-        `Удалить сборку «${profile.name}»?\n\n` +
-        'Безвозвратно удалятся:\n' +
-        '• миры (saves)\n• моды (mods)\n• скриншоты (screenshots)\n' +
-        '• конфиги, ресурс- и шейдерпаки, options.txt\n' +
-        '• журналы и отчёты об ошибках\n• запись о сборке в лаунчере\n\n' +
-        `Скриншотов в сборке: ${shots}\nПуть: <launcher>/instances/${id}\n\nОтменить это действие нельзя.`
-      )
+      return window.confirm([
+        t('Удалить сборку «{name}»?', { name: profile.name }),
+        '',
+        t('Безвозвратно удалятся:'),
+        t('• миры (saves)'),
+        t('• моды (mods)'),
+        t('• скриншоты (screenshots)'),
+        t('• конфиги, ресурс- и шейдерпаки, options.txt'),
+        t('• журналы и отчёты об ошибках'),
+        t('• запись о сборке в лаунчере'),
+        '',
+        t('Скриншотов в сборке: {count}', { count: shots }),
+        t('Путь: {path}', { path: `<launcher>/instances/${id}` }),
+        '',
+        t('Отменить это действие нельзя.')
+      ].join('\n'))
     },
     getVersions: async () => mockVersions,
     installProfile: async (id) => {
-      await mockProgress('Подготовка клиента', 'version')
-      await mockProgress('Библиотеки', 'libraries')
-      await mockProgress('Ассеты', 'assets')
+      await mockProgress(t('Подготовка клиента'), 'version')
+      await mockProgress(t('Библиотеки'), 'libraries')
+      await mockProgress(t('Ассеты'), 'assets')
       const profile = state.profiles.find((entry) => entry.id === id)
       const loaderVersionId = profile && profile.loader !== 'vanilla'
         ? `${profile.loader}-loader-0.15.11-${profile.versionId}`
@@ -212,7 +246,7 @@ function createMock(): LauncherAPI {
         installedVersions: [...installed],
         profiles: state.profiles.map((entry) => (entry.id === id ? { ...entry, loaderVersionId } : entry))
       }
-      emit('toast', { id: String(Date.now()), type: 'success', message: 'Версия установлена (демо-режим)' })
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Версия установлена (демо-режим)') })
     },
     launch: async () => {
       status = 'starting'
@@ -220,8 +254,8 @@ function createMock(): LauncherAPI {
       await wait(800)
       status = 'running'
       emit('gameStatus', status)
-      emit('log', { level: 'game', message: '[info] Демо-режим: игра не запускается по-настоящему', time: Date.now() })
-      emit('log', { level: 'game', message: '[info] Переключитесь на Electron-приложение для реального запуска', time: Date.now() })
+      emit('log', { level: 'game', message: t('[info] Демо-режим: игра не запускается по-настоящему'), time: Date.now() })
+      emit('log', { level: 'game', message: t('[info] Переключитесь на Electron-приложение для реального запуска'), time: Date.now() })
     },
     stopGame: async () => {
       status = 'stopped'
@@ -230,10 +264,10 @@ function createMock(): LauncherAPI {
     getGameStatus: async () => status,
     listMods: async (profileId) => [...modsFor(profileId)],
     installLocalMod: async (profileId) => {
-      await mockProgress('Установка мода', 'mod')
+      await mockProgress(t('Установка мода'), 'mod')
       modsByProfile[profileId] = [
         ...modsFor(profileId),
-        { fileName: `local-mod-${Date.now()}.jar`, name: 'Новый мод', version: '1.0.0', loader: 'fabric', enabled: true, size: 1_200_000 }
+        { fileName: `local-mod-${Date.now()}.jar`, name: t('Новый мод'), version: '1.0.0', loader: 'fabric', enabled: true, size: 1_200_000 }
       ]
     },
     installModFile: async () => undefined,
@@ -258,12 +292,12 @@ function createMock(): LauncherAPI {
     },
     installMod: async (id, projectId) => {
       const project = mockProjects.find((entry) => entry.project_id === projectId)
-      await mockProgress(`Установка ${project?.title ?? 'мода'}`, 'mod')
+      await mockProgress(t('Установка {name}', { name: project?.title ?? t('мод') }), 'mod')
       modsByProfile[id] = [
         ...modsFor(id),
         { fileName: `${projectId}-1.0.0-${Date.now()}.jar`, name: project?.title ?? projectId, version: '1.0.0', loader: 'fabric', enabled: true, size: 2_000_000 }
       ]
-      emit('toast', { id: String(Date.now()), type: 'success', message: `${project?.title ?? 'Мод'} установлен` })
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('{name} установлен', { name: project?.title ?? t('Мод') }) })
     },
     searchModpacks: async (query) => {
       await wait(220)
@@ -284,14 +318,26 @@ function createMock(): LauncherAPI {
         { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
       ].find((item) => item.project_id === projectId) : null
       const project = base ?? pack
-      if (!project) throw new Error('Проект не найден')
+      if (!project) throw new Error(t('Проект не найден'))
       return {
         ...project,
-        body: `## О проекте\n\n${project.description}\n\n### Возможности\n- Подробное описание и скриншоты прямо в лаунчере\n- Быстрая установка в выбранную сборку\n- Совместимость и версии отображаются в панели деталей\n\n### Примечание\nЭто демонстрационные данные, показанные в режиме предпросмотра.`,
+        body: [
+          '## ' + t('О проекте'),
+          '',
+          t(project.description),
+          '',
+          '### ' + t('Возможности'),
+          '- ' + t('Подробное описание и скриншоты прямо в лаунчере'),
+          '- ' + t('Быстрая установка в выбранную сборку'),
+          '- ' + t('Совместимость и версии отображаются в панели деталей'),
+          '',
+          '### ' + t('Примечание'),
+          t('Это демонстрационные данные, показанные в режиме предпросмотра.')
+        ].join('\n'),
         gallery: [
-          { url: screenshotImage(project.title, '#1e3a8a'), featured: true, title: 'Главный экран', description: project.description, ordering: 0 },
-          { url: screenshotImage(`${project.title} · Мир`, '#312e81'), featured: false, title: 'Игровой процесс', description: 'Пример скриншота проекта', ordering: 1 },
-          { url: screenshotImage(`${project.title} · Детали`, '#065f46'), featured: false, title: 'Интерфейс', description: 'Дополнительный вид', ordering: 2 }
+          { url: screenshotImage(project.title, '#1e3a8a'), featured: true, title: t('Главный экран'), description: t(project.description), ordering: 0 },
+          { url: screenshotImage(t('{name} · Мир', { name: project.title }), '#312e81'), featured: false, title: t('Игровой процесс'), description: t('Пример скриншота проекта'), ordering: 1 },
+          { url: screenshotImage(t('{name} · Детали', { name: project.title }), '#065f46'), featured: false, title: t('Интерфейс'), description: t('Дополнительный вид'), ordering: 2 }
         ],
         game_versions: project.versions ?? ['1.21.4', '1.20.1', '1.19.4'],
         loaders: project.categories.filter((category) => ['fabric', 'forge', 'neoforge', 'quilt'].includes(category)),
@@ -301,15 +347,15 @@ function createMock(): LauncherAPI {
       }
     },
     installModpack: async () => {
-      await mockProgress('Установка модпака', 'modpack')
+      await mockProgress(t('Установка модпака'), 'modpack')
     },
     installModpackFilePath: async () => {
-      await mockProgress('Установка модпака', 'modpack')
+      await mockProgress(t('Установка модпака'), 'modpack')
     },
     installModpackFromModrinth: async (profileId, projectId) => {
-      await mockProgress('Скачивание модпака', 'modpack')
-      await mockProgress('Установка модов', 'mod',)
-      emit('toast', { id: String(Date.now()), type: 'success', message: 'Модпак установлен (демо-режим)' })
+      await mockProgress(t('Скачивание модпака'), 'modpack')
+      await mockProgress(t('Установка модов'), 'mod')
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Модпак установлен (демо-режим)') })
     },
     listScreenshots: async (profileId) => {
       const result = profileId ? screenshots.filter((shot) => shot.profileId === profileId) : screenshots
@@ -349,6 +395,108 @@ function createMock(): LauncherAPI {
       return () => {
         bus.toast = bus.toast.filter((handler) => handler !== cb)
       }
+    },
+
+    listSkins: async () => [...skins],
+    importSkin: async () => {
+      const id = `skin-${Date.now()}`
+      const skin: SkinInfo = {
+        id,
+        name: t('Новый скин'),
+        model: 'wide',
+        dataUrl: skinPreview('#14b8a6', '#7c3aed'),
+        size: 4096 + Math.floor(Math.random() * 2000),
+        addedAt: Date.now(),
+        active: false
+      }
+      skins = [skin, ...skins]
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Скин загружен') })
+      return skin
+    },
+    deleteSkin: async (id) => {
+      skins = skins.filter((skin) => skin.id !== id)
+    },
+    selectSkin: async (id) => {
+      skins = skins.map((skin) => ({ ...skin, active: skin.id === id }))
+      state = { ...state, settings: { ...state.settings, activeSkinId: id ?? undefined } }
+    },
+    setSkinModel: async (id, model) => {
+      skins = skins.map((skin) => (skin.id === id ? { ...skin, model } : skin))
+    },
+
+    checkUpdates: async (): Promise<UpdateInfo> => ({
+      currentVersion: '1.0.0',
+      latestVersion: '1.0.0',
+      url: 'https://github.com/NathanKaz/Minecraft-launcher/releases/latest',
+      updateAvailable: false
+    }),
+    verifyProfile: async (id, repair): Promise<VerifyReport> => {
+      await mockProgress(t(repair ? 'Восстановление файлов' : 'Проверка файлов'), 'version')
+      return { profileId: id, checked: 128, missing: [], invalid: [], ok: true }
+    },
+
+    listBackups: async (profileId) => [...(backupsByProfile[profileId] ?? [])],
+    createBackup: async (profileId) => {
+      const backup: BackupInfo = {
+        fileName: `worlds-${Date.now()}.zip`,
+        name: t('Миры') + ` ${new Date().toLocaleString()}`,
+        size: 12_400_000,
+        createdAt: Date.now()
+      }
+      backupsByProfile[profileId] = [backup, ...(backupsByProfile[profileId] ?? [])]
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Резервная копия создана') })
+      return backup
+    },
+    restoreBackup: async () => {
+      await wait(300)
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Миры восстановлены') })
+    },
+    deleteBackup: async (profileId, fileName) => {
+      backupsByProfile[profileId] = (backupsByProfile[profileId] ?? []).filter((backup) => backup.fileName !== fileName)
+    },
+
+    listPacks: async (profileId, kind) => {
+      const packs = packsByProfile[profileId] ?? []
+      return packs.filter((pack) => pack.kind === kind).map((pack) => ({ ...pack }))
+    },
+    installPack: async (profileId, kind) => {
+      const pack: PackInfo = {
+        fileName: `new-${kind}-${Date.now()}.zip`,
+        name: t(kind === 'resource' ? 'Новый набор ресурсов' : 'Новый набор шейдеров'),
+        kind,
+        enabled: false,
+        size: 3_200_000
+      }
+      packsByProfile[profileId] = [...(packsByProfile[profileId] ?? []), pack]
+      emit('toast', { id: String(Date.now()), type: 'success', message: t(kind === 'resource' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен') })
+    },
+    togglePack: async (profileId, kind, fileName, enabled) => {
+      packsByProfile[profileId] = (packsByProfile[profileId] ?? []).map((pack) =>
+        pack.fileName === fileName && pack.kind === kind ? { ...pack, enabled } : pack
+      )
+    },
+    deletePack: async (profileId, kind, fileName) => {
+      packsByProfile[profileId] = (packsByProfile[profileId] ?? []).filter(
+        (pack) => !(pack.fileName === fileName && pack.kind === kind)
+      )
+    },
+
+    checkModUpdates: async (profileId): Promise<ModUpdateInfo[]> => {
+      await wait(300)
+      return modsFor(profileId).slice(0, 1).map((mod) => ({
+        fileName: mod.fileName,
+        name: mod.name,
+        currentVersion: mod.version,
+        latestVersion: `${mod.version.split('.')[0]}.${Number.parseInt(mod.version.split('.')[1] ?? '0', 10) + 1}.0`,
+        projectId: mod.fileName.split('-')[0]
+      }))
+    },
+    updateMod: async (profileId, fileName, versionId) => {
+      await mockProgress(t('Обновление мода'), 'mod')
+      modsByProfile[profileId] = modsFor(profileId).map((mod) =>
+        mod.fileName === fileName ? { ...mod, version: versionId, fileName: `${mod.name.replace(/\s+/g, '-').toLowerCase()}-${versionId}.jar` } : mod
+      )
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мод обновлён') })
     }
   }
   return api

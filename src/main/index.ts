@@ -1,9 +1,12 @@
 import path from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 import { ensureDirs, dirs } from './core/paths'
-import { initStore } from './core/store'
 import { registerIpc } from './ipc'
-import { emitLog } from './core/events'
+import { emitLog, emitToast } from './core/events'
+import { msg } from './core/i18n'
+import { initStore, getState } from './core/store'
+import { initTray, isQuitting, markQuitting } from './core/tray'
+import { checkUpdates, shouldCheckOnStartup } from './core/updates'
 
 const isDev = !app.isPackaged
 
@@ -29,6 +32,13 @@ function createWindow(): BrowserWindow {
   window.on('ready-to-show', () => {
     window.show()
     if (isDev) window.webContents.openDevTools({ mode: 'detach' })
+  })
+
+  window.on('close', (event) => {
+    if (!isQuitting() && getState()?.settings.closeBehavior === 'tray') {
+      event.preventDefault()
+      window.hide()
+    }
   })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -69,15 +79,28 @@ async function bootstrap(): Promise<void> {
   initStore()
   registerIpc()
   emitLog('info', `Lumen Launcher started · ${process.platform} · ${process.arch}`)
-  emitLog('info', `Каталог данных: ${dirs.root}`)
+  emitLog('info', msg('Каталог данных: {path}', { path: dirs.root }))
   createWindow()
+  initTray()
+
+  if (shouldCheckOnStartup()) {
+    void checkUpdates().then((info) => {
+      if (info.updateAvailable) {
+        emitToast('info', msg('Доступна новая версия лаунчера: {version}', { version: info.latestVersion }))
+      }
+    }).catch(() => undefined)
+  }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    const window = BrowserWindow.getAllWindows()[0]
+    if (window) window.show()
+    else createWindow()
   })
 }
 
 void bootstrap()
+
+app.on('before-quit', markQuitting)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

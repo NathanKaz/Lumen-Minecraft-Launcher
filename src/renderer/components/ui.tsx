@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { t } from '../lib/i18n'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
@@ -36,7 +37,7 @@ export function Select({
   onChange,
   options,
   className = '',
-  placeholder = 'Выберите...',
+  placeholder = t("Выберите..."),
   disabled = false
 }: {
   value: string

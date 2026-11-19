@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
 import { dirs, versionDir } from './paths'
@@ -149,7 +150,7 @@ async function loadManifest(): Promise<VersionManifest> {
     return manifest
   } catch {
     if (await fs.pathExists(cachePath)) return fs.readJson(cachePath)
-    throw new Error('Не удалось получить список версий Minecraft')
+    throw new Error(msg("Не удалось получить список версий Minecraft"))
   }
 }
 
@@ -176,7 +177,7 @@ export async function fetchVersionJson(versionId: string): Promise<VersionJson> 
   const local = await readVersionJson(versionId)
   if (local) return local
   const summary = await findVersionSummary(versionId)
-  if (!summary) throw new Error(`Версия ${versionId} не найдена в манифесте Mojang`)
+  if (!summary) throw new Error(msg('Версия {version} не найдена в манифесте Mojang', { version: versionId }))
   const json = await fetchJson<VersionJson>(summary.url)
   await fs.ensureDir(versionDir(versionId))
   await fs.writeJson(path.join(versionDir(versionId), `${versionId}.json`), json, { spaces: 2 })
@@ -208,7 +209,7 @@ function mergeVersions(parent: VersionJson, child: VersionJson): VersionJson {
 }
 
 export async function resolveVersion(versionId: string, seen = new Set<string>()): Promise<VersionJson> {
-  if (seen.has(versionId)) throw new Error(`Циклическая зависимость версий: ${versionId}`)
+  if (seen.has(versionId)) throw new Error(msg('Циклическая зависимость версий: {version}', { version: versionId }))
   seen.add(versionId)
   const json = await fetchVersionJson(versionId)
   if (!json.inheritsFrom) return json
@@ -277,7 +278,7 @@ export async function installClientVersion(versionId: string, version: VersionJs
   const tasks: DownloadTask[] = []
   const client = version.downloads?.client ?? version.client
   if (!client) {
-    throw new Error(`Не удалось определить файл клиента для ${version.id}`)
+    throw new Error(msg('Не удалось определить файл клиента для {version}', { version: version.id }))
   }
   tasks.push({
     url: client.url,
@@ -294,12 +295,12 @@ export async function installClientVersion(versionId: string, version: VersionJs
       dest: indexPath,
       sha1: version.assetIndex.sha1,
       size: version.assetIndex.size,
-      label: 'индекс ассетов'
+      label: msg("индекс ассетов")
     })
-    await downloadMany(tasks, 'version', 'Загрузка клиента', 4)
+    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4)
     await installAssets(version.assetIndex.id)
   } else {
-    await downloadMany(tasks, 'version', 'Загрузка клиента', 4)
+    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4)
   }
 
   const loggingFile = version.logging?.client?.file
@@ -310,10 +311,10 @@ export async function installClientVersion(versionId: string, version: VersionJs
         dest: path.join(dir, loggingFile.id),
         sha1: loggingFile.sha1,
         size: loggingFile.size,
-        label: 'конфигурация логирования'
+        label: msg("конфигурация логирования")
       }],
       'version',
-      'Загрузка конфигурации',
+      msg("Загрузка конфигурации"),
       1
     )
   }
@@ -327,9 +328,9 @@ async function installAssets(indexId: string): Promise<void> {
     dest: path.join(dirs.assets, 'objects', object.hash.slice(0, 2), object.hash),
     sha1: object.hash,
     size: object.size,
-    label: 'ассеты'
+    label: msg("ассеты")
   }))
-  await downloadMany(tasks, 'assets', 'Загрузка ассетов', 3)
+  await downloadMany(tasks, 'assets', msg("Загрузка ассетов"), 3)
 
   if (indexId === 'legacy') {
     for (const [relative, object] of Object.entries(index.objects)) {

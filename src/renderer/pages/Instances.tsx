@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import { getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
   ArrowRight, Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
@@ -17,7 +18,7 @@ const DRAG_TYPE = 'application/x-lumen-profile'
 
 const emptyProfile = (version: string): Profile => ({
   id: crypto.randomUUID(),
-  name: 'Новая сборка',
+  name: t("Новая сборка"),
   versionId: version,
   loader: 'fabric',
   createdAt: Date.now(),
@@ -122,7 +123,7 @@ export function Instances(): JSX.Element {
     })),
     {
       id: 'ungrouped',
-      label: 'Без группы',
+      label: t("Без группы"),
       groupId: undefined,
       items: visibleProfiles.filter((profile) => !profile.groupId || !groupsById.has(profile.groupId))
     }
@@ -144,7 +145,7 @@ export function Instances(): JSX.Element {
       if (creating) await api.createProfile(editing)
       else await api.updateProfile(editing.id, editing)
       await refresh()
-      pushToast('success', creating ? 'Сборка создана' : 'Сборка сохранена')
+      pushToast('success', creating ? t("Сборка создана") : t("Сборка сохранена"))
       setEditing(null)
       setCreating(false)
     } finally {
@@ -157,7 +158,7 @@ export function Instances(): JSX.Element {
     if (!name || name === profile.name) return
     await api.updateProfile(profile.id, { name })
     await refresh()
-    pushToast('success', 'Сборка переименована')
+    pushToast('success', t("Сборка переименована"))
   }
 
   const install = async (profile: Profile) => {
@@ -166,7 +167,7 @@ export function Instances(): JSX.Element {
     try {
       await api.installProfile(profile.id)
       await refresh()
-      pushToast('success', `${profile.name}: установка завершена`)
+      pushToast('success', t('{name}: установка завершена', { name: profile.name }))
     } finally {
       setInstalling(null)
       setBusy(false)
@@ -219,11 +220,11 @@ export function Instances(): JSX.Element {
     if (!group || !name || name === group.name) return
     await api.setState({ groups: state.groups.map((item) => (item.id === group.id ? { ...item, name } : item)) })
     await refresh()
-    pushToast('success', 'Группа переименована')
+    pushToast('success', t("Группа переименована"))
   }
 
   const deleteGroup = async (group: BuildGroup) => {
-    if (!confirm(`Удалить группу «${group.name}»? Сборки останутся без группы.`)) return
+    if (!confirm(t('Удалить группу «{name}»? Сборки останутся без группы.', { name: group.name }))) return
     await api.setState({
       groups: state.groups.filter((item) => item.id !== group.id),
       profiles: state.profiles.map((profile) =>
@@ -241,10 +242,10 @@ export function Instances(): JSX.Element {
       x: event.clientX,
       y: event.clientY,
       items: [
-        { label: 'Открыть сборку', icon: <ChevronRight size={14} />, onClick: () => void openProfile(profile.id) },
-        { label: 'Переименовать', icon: <Pencil size={14} />, onClick: () => setRenaming({ id: profile.id, value: profile.name }) },
-        { label: 'Изменить', icon: <Settings size={14} />, onClick: () => { setEditing({ ...profile }); setCreating(false) } },
-        { label: 'Удалить сборку', icon: <Trash2 size={14} />, tone: 'danger', onClick: () => void removeProfile(profile.id) }
+        { label: t("Открыть сборку"), icon: <ChevronRight size={14} />, onClick: () => void openProfile(profile.id) },
+        { label: t("Переименовать"), icon: <Pencil size={14} />, onClick: () => setRenaming({ id: profile.id, value: profile.name }) },
+        { label: t("Изменить"), icon: <Settings size={14} />, onClick: () => { setEditing({ ...profile }); setCreating(false) } },
+        { label: t("Удалить сборку"), icon: <Trash2 size={14} />, tone: 'danger', onClick: () => void removeProfile(profile.id) }
       ]
     })
   }
@@ -254,7 +255,7 @@ export function Instances(): JSX.Element {
     if (!profile || (profile.groupId ?? '') === (groupId ?? '')) return
     await api.updateProfile(profileId, { groupId })
     await refresh()
-    const label = groupId ? groupsById.get(groupId)?.name ?? 'группа' : 'Без группы'
+    const label = groupId ? groupsById.get(groupId)?.name ?? t("группа") : t("Без группы")
     pushToast('success', `«${profile.name}» → ${label}`)
   }
 
@@ -311,7 +312,7 @@ export function Instances(): JSX.Element {
         <div className={`flex min-w-0 items-start gap-3 ${view === 'list' ? 'flex-1' : ''}`}>
           <div
             onClick={(event) => event.stopPropagation()}
-            title="Перетащите, чтобы изменить группу"
+            title={t("Перетащите, чтобы изменить группу")}
             className="-ml-1 mt-1 cursor-grab text-slate-600 transition hover:text-slate-300 active:cursor-grabbing"
           >
             <GripVertical size={16} />
@@ -331,17 +332,17 @@ export function Instances(): JSX.Element {
                 <span
                   className="truncate font-bold text-white"
                   onDoubleClick={(event) => { event.stopPropagation(); setRenaming({ id: profile.id, value: profile.name }) }}
-                  title="Двойной клик — переименовать"
+                  title={t("Двойной клик — переименовать")}
                 >
                   {profile.name}
                 </span>
               )}
-              {active && <Badge tone="mint"><Check size={11} /> Активная</Badge>}
+              {active && <Badge tone="mint"><Check size={11} /> {t("Активная")}</Badge>}
             </div>
             <div className="mt-0.5 text-[11px] text-slate-500">Minecraft {profile.versionId}</div>
             <div className="mt-2 flex flex-wrap gap-2">
               <Badge tone="iris">{profile.loader.toUpperCase()}</Badge>
-              <Badge tone={installed ? 'mint' : 'slate'}>{installed ? 'Установлен' : 'Не установлен'}</Badge>
+              <Badge tone={installed ? 'mint' : 'slate'}>{installed ? t("Установлен") : t("Не установлен")}</Badge>
               {group && <Badge tone={groupTone(group.color)}>{group.name}</Badge>}
               {profile.modpack && <Badge tone="amber">{profile.modpack.name}</Badge>}
             </div>
@@ -351,8 +352,8 @@ export function Instances(): JSX.Element {
         <div className={`flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-slate-500 ${
           view === 'grid' ? 'mt-4 border-t border-white/[0.06] pt-4' : 'w-52 shrink-0'
         }`}>
-          <span>{profile.playtimeMinutes} мин в игре</span>
-          <span>{memory} МБ RAM {profile.memory === undefined && <span className="text-slate-600">(глобально)</span>}</span>
+          <span>{t('{count} мин в игре', { count: profile.playtimeMinutes })}</span>
+          <span>{t('{memory} МБ RAM', { memory })} {profile.memory === undefined && <span className="text-slate-600">{t("(глобально)")}</span>}</span>
         </div>
 
         <div className={`flex flex-wrap gap-2 ${view === 'grid' ? 'mt-4' : 'shrink-0'}`}>
@@ -363,12 +364,12 @@ export function Instances(): JSX.Element {
             className="flex-1"
           >
             {installing === profile.id ? <Spinner size={14} /> : isPlaying ? <Square size={14} fill="currentColor" /> : <Play size={14} />}
-            {installing === profile.id ? 'Установка...' : isPlaying ? 'Остановить' : installed ? 'Играть' : 'Установить'}
+            {installing === profile.id ? t("Установка...") : isPlaying ? t("Остановить") : installed ? t("Играть") : t("Установить")}
           </Button>
           <button
             onClick={(event) => { event.stopPropagation(); void openProfile(profile.id) }}
             className="rounded-xl border border-white/[0.08] p-2.5 text-slate-400 transition hover:bg-mint-400/10 hover:text-mint-300"
-            title="Открыть сборку"
+            title={t("Открыть сборку")}
           >
             <ChevronRight size={15} />
           </button>
@@ -380,18 +381,18 @@ export function Instances(): JSX.Element {
   return (
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
-        title="Мои сборки"
-        subtitle="Нажмите на сборку, чтобы открыть её. Перетаскивайте карточку между группами, правый клик открывает меню."
-        action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
+        title={t("Мои сборки")}
+        subtitle={t("Нажмите на сборку, чтобы открыть её. Перетаскивайте карточку между группами, правый клик открывает меню.")}
+        action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> {t("Создать сборку")}</Button>}
       />
 
       {state.profiles.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { id: 'all', label: 'Все' },
+              { id: 'all', label: t("Все") },
               ...state.groups.map((group) => ({ id: group.id, label: group.name })),
-              { id: 'ungrouped', label: 'Без группы' }
+              { id: 'ungrouped', label: t("Без группы") }
             ].map((item) => (
               <button
                 key={item.id}
@@ -408,9 +409,9 @@ export function Instances(): JSX.Element {
             <button
               onClick={() => setGroupsOpen(true)}
               className="flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-white/20 hover:text-slate-200"
-              title="Управление группами"
+              title={t("Управление группами")}
             >
-              <Users size={14} /> Группы
+              <Users size={14} /> {t("Группы")}
             </button>
           </div>
 
@@ -418,7 +419,7 @@ export function Instances(): JSX.Element {
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               className="input py-2 pl-10 text-xs"
-              placeholder="Поиск сборки"
+              placeholder={t("Поиск сборки")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -428,14 +429,14 @@ export function Instances(): JSX.Element {
             <button
               onClick={() => void setViewMode('grid')}
               className={`rounded-lg p-2 transition ${view === 'grid' ? 'bg-mint-400/10 text-mint-300' : 'text-slate-500 hover:text-slate-200'}`}
-              title="Сетка"
+              title={t("Сетка")}
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => void setViewMode('list')}
               className={`rounded-lg p-2 transition ${view === 'list' ? 'bg-mint-400/10 text-mint-300' : 'text-slate-500 hover:text-slate-200'}`}
-              title="Список"
+              title={t("Список")}
             >
               <List size={16} />
             </button>
@@ -449,14 +450,14 @@ export function Instances(): JSX.Element {
         <div className="mt-4">
           <EmptyState
             icon={<Boxes size={22} />}
-            title="Пока нет сборок"
-            description="Создайте первую сборку, чтобы установить Minecraft и моды."
-            action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> Создать сборку</Button>}
+            title={t("Пока нет сборок")}
+            description={t("Создайте первую сборку, чтобы установить Minecraft и моды.")}
+            action={<Button variant="primary" onClick={openCreate}><Plus size={16} /> {t("Создать сборку")}</Button>}
           />
         </div>
       ) : visibleProfiles.length === 0 && groupFilter === 'all' && !query ? (
         <div className="mt-4">
-          <EmptyState icon={<Boxes size={22} />} title="Сборок пока нет" description="Создайте сборку или переместите сюда существующую." />
+          <EmptyState icon={<Boxes size={22} />} title={t("Сборок пока нет")} description={t("Создайте сборку или переместите сюда существующую.")} />
         </div>
       ) : (
         <div className="mt-4 space-y-6">
@@ -490,7 +491,7 @@ export function Instances(): JSX.Element {
                 </div>
               ) : (
                 <div className="flex items-center justify-center rounded-xl border border-dashed border-white/[0.08] px-4 py-7 text-[11px] text-slate-600">
-                  Пусто · перетащите сюда сборку
+                  {t("Пусто · перетащите сюда сборку")}
                 </div>
               )}
             </div>
@@ -500,13 +501,13 @@ export function Instances(): JSX.Element {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="panel p-5">
-          <h3 className="mb-4 text-sm font-bold text-white">Быстрые действия</h3>
+          <h3 className="mb-4 text-sm font-bold text-white">{t("Быстрые действия")}</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              { icon: ArrowRight, label: 'Открыть активную сборку', action: () => activeProfile && void openProfile(activeProfile.id) },
-              { icon: FolderOpen, label: 'Папка сборок', action: () => void api.openFolder('instances') },
-              { icon: Download, label: 'Найти модпак', action: () => setPage('modpacks') },
-              { icon: Settings, label: 'Настройки лаунчера', action: () => setPage('settings') }
+              { icon: ArrowRight, label: t("Открыть активную сборку"), action: () => activeProfile && void openProfile(activeProfile.id) },
+              { icon: FolderOpen, label: t("Папка сборок"), action: () => void api.openFolder('instances') },
+              { icon: Download, label: t("Найти модпак"), action: () => setPage('modpacks') },
+              { icon: Settings, label: t("Настройки лаунчера"), action: () => setPage('settings') }
             ].map((action) => (
               <button
                 key={action.label}
@@ -521,22 +522,22 @@ export function Instances(): JSX.Element {
 
         <div className="panel p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white">Последние события</h3>
-            <button onClick={() => setPage('settings')} className="text-[11px] text-slate-500 transition hover:text-mint-400">Все логи →</button>
+            <h3 className="text-sm font-bold text-white">{t("Последние события")}</h3>
+            <button onClick={() => setPage('settings')} className="text-[11px] text-slate-500 transition hover:text-mint-400">{t("Все логи →")}</button>
           </div>
           <div className="space-y-2">
             {logs.slice(-4).reverse().map((log, index) => (
               <div key={`${log.time}-${index}`} className="flex gap-2 rounded-lg bg-white/[0.02] px-3 py-2">
-                <span className="shrink-0 font-mono text-[10px] text-slate-600">{new Date(log.time).toLocaleTimeString('ru-RU')}</span>
+                <span className="shrink-0 font-mono text-[10px] text-slate-600">{new Date(log.time).toLocaleTimeString(getLocale() === 'ru' ? 'ru-RU' : 'en-US')}</span>
                 <span className={`truncate text-[11px] ${log.level === 'error' ? 'text-rose-400' : 'text-slate-400'}`}>{log.message}</span>
               </div>
             ))}
-            {!logs.length && <p className="py-6 text-center text-xs text-slate-600">Событий пока нет</p>}
+            {!logs.length && <p className="py-6 text-center text-xs text-slate-600">{t("Событий пока нет")}</p>}
           </div>
         </div>
       </div>
 
-      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={creating ? 'Новая сборка' : 'Редактирование сборки'}>
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={creating ? t("Новая сборка") : t("Редактирование сборки")}>
         {editing && (
           <div className="space-y-5">
             <ProfileFields
@@ -547,9 +548,9 @@ export function Instances(): JSX.Element {
               settingsMemory={state.settings.memory}
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button onClick={() => setEditing(null)}>Отмена</Button>
+              <Button onClick={() => setEditing(null)}>{t("Отмена")}</Button>
               <Button variant="primary" onClick={() => void save()} disabled={busy || !editing.name.trim()}>
-                {busy ? <Spinner size={14} /> : null} Сохранить
+                {busy ? <Spinner size={14} /> : null} {t('Сохранить')}
               </Button>
             </div>
           </div>
@@ -563,7 +564,7 @@ export function Instances(): JSX.Element {
           setRenamingGroupId(null)
           setRenamingGroupName('')
         }}
-        title="Группы сборок"
+        title={t("Группы сборок")}
       >
         <div className="space-y-4">
           <div className="space-y-2">
@@ -591,31 +592,31 @@ export function Instances(): JSX.Element {
                 <button
                   onClick={() => startRenameGroup(group)}
                   className="rounded-lg border border-white/[0.08] p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                  title="Переименовать"
+                  title={t("Переименовать")}
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => void deleteGroup(group)}
                   className="rounded-lg border border-white/[0.08] p-2 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-400"
-                  title="Удалить"
+                  title={t("Удалить")}
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
             ))}
-            {!state.groups.length && <p className="py-6 text-center text-xs text-slate-600">Групп пока нет. Создайте первую ниже.</p>}
+            {!state.groups.length && <p className="py-6 text-center text-xs text-slate-600">{t("Групп пока нет. Создайте первую ниже.")}</p>}
           </div>
           <div className="flex gap-2 border-t border-white/[0.06] pt-4">
             <input
               className="input"
-              placeholder="Название новой группы"
+              placeholder={t("Название новой группы")}
               value={newGroupName}
               onChange={(event) => setNewGroupName(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') void addGroup() }}
             />
             <Button variant="primary" onClick={() => void addGroup()} disabled={!newGroupName.trim()}>
-              <Plus size={15} /> Добавить
+              <Plus size={15} /> {t("Добавить")}
             </Button>
           </div>
         </div>
@@ -624,8 +625,8 @@ export function Instances(): JSX.Element {
       <ContextMenu menu={menu} onClose={() => setMenu(null)} />
 
       <div className="mt-5 flex items-center justify-between text-[11px] text-slate-600">
-        <span className="flex items-center gap-1.5"><Wrench size={12} /> Моды хранятся внутри каждой сборки · правый клик по карточке — меню</span>
-        <span>{state.profiles.length} сборок · {state.groups.length} групп</span>
+        <span className="flex items-center gap-1.5"><Wrench size={12} /> {t("Моды хранятся внутри каждой сборки · правый клик по карточке — меню")}</span>
+        <span>{t('{profiles} сборок · {groups} групп', { profiles: state.profiles.length, groups: state.groups.length })}</span>
       </div>
     </div>
   )

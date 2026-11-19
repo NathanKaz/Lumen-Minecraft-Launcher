@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatSize, getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import { Camera, Download, FolderOpen, Image as ImageIcon, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
@@ -6,13 +7,8 @@ import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Modal, SectionHeader, Select } from '../components/ui'
 import type { ScreenshotInfo } from '@shared/types'
 
-function formatSize(bytes: number): string {
-  if (bytes > 1e6) return `${(bytes / 1e6).toFixed(1)} МБ`
-  return `${Math.max(1, Math.round(bytes / 1000))} КБ`
-}
-
 function formatDate(value: number): string {
-  return new Date(value).toLocaleString('ru-RU', {
+  return new Date(value).toLocaleString(getLocale() === 'ru' ? 'ru-RU' : 'en-US', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
 }
@@ -44,24 +40,24 @@ export function Screenshots(): JSX.Element {
     await api.deleteScreenshot(shot.profileId, shot.fileName)
     if (selected?.profileId === shot.profileId && selected.fileName === shot.fileName) setSelected(null)
     await load()
-    pushToast('info', 'Скриншот удалён')
+    pushToast('info', t("Скриншот удалён"))
   }
 
   const filterOptions = [
-    { value: 'all', label: 'Все сборки' },
+    { value: 'all', label: t("Все сборки") },
     ...(state?.profiles ?? []).map((profile) => ({ value: profile.id, label: profile.name }))
   ]
 
   return (
     <div className="mx-auto max-w-[1180px]">
       <SectionHeader
-        title="Скриншоты"
-        subtitle="Снимки из папки screenshots каждой сборки. Фильтруйте по сборке и открывайте лучшие моменты."
+        title={t("Скриншоты")}
+        subtitle={t("Снимки из папки screenshots каждой сборки. Фильтруйте по сборке и открывайте лучшие моменты.")}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Select value={filter} onChange={setFilter} options={filterOptions} className="w-52" />
             <Button onClick={() => void api.openFolder('screenshots')}>
-              <FolderOpen size={15} /> Папка
+              <FolderOpen size={15} /> {t("Папка")}
             </Button>
           </div>
         }
@@ -76,8 +72,8 @@ export function Screenshots(): JSX.Element {
       ) : shots.length ? (
         <>
           <div className="mb-4 flex items-center justify-between text-[11px] text-slate-600">
-            <span>{shots.length} снимков</span>
-            <span>Нажмите на снимок, чтобы открыть его</span>
+            <span>{t('{count} снимков', { count: shots.length })}</span>
+            <span>{t("Нажмите на снимок, чтобы открыть его")}</span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {shots.map((shot, index) => (
@@ -99,7 +95,7 @@ export function Screenshots(): JSX.Element {
                 <div className="flex items-center justify-between gap-2 px-3 py-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <Camera size={13} className="shrink-0 text-slate-600" />
-                    <span className="truncate text-[11px] text-slate-400">{shot.profileName}</span>
+                    <span className="truncate text-[11px] text-slate-400">{t(shot.profileName)}</span>
                   </div>
                   <Badge>{formatSize(shot.size)}</Badge>
                 </div>
@@ -110,9 +106,9 @@ export function Screenshots(): JSX.Element {
       ) : (
         <EmptyState
           icon={<ImageIcon size={22} />}
-          title="Скриншотов нет"
-          description="Сделайте снимок в игре (клавиша F2) — он появится здесь автоматически."
-          action={<Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={15} /> Открыть папку сборки</Button>}
+          title={t("Скриншотов нет")}
+          description={t("Сделайте снимок в игре (клавиша F2) — он появится здесь автоматически.")}
+          action={<Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={15} /> {t("Открыть папку сборки")}</Button>}
         />
       )}
 
@@ -132,12 +128,12 @@ export function Screenshots(): JSX.Element {
                   download={selected.fileName}
                   className="btn-ghost inline-flex items-center gap-2"
                 >
-                  <Download size={15} /> Скачать
+                  <Download size={15} /> {t("Скачать")}
                 </a>
                 <Button variant="danger" onClick={() => void remove(selected)}>
-                  <Trash2 size={15} /> Удалить
+                  <Trash2 size={15} /> {t("Удалить")}
                 </Button>
-                <Button onClick={() => setSelected(null)}><X size={15} /> Закрыть</Button>
+                <Button onClick={() => setSelected(null)}><X size={15} /> {t("Закрыть")}</Button>
               </div>
             </div>
           </div>

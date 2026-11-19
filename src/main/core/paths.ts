@@ -12,6 +12,8 @@ export const dirs = {
   instances: path.join(root, 'instances'),
   cache: path.join(root, 'cache'),
   logs: path.join(root, 'logs'),
+  skins: path.join(root, 'skins'),
+  backups: path.join(root, 'backups'),
   installers: path.join(root, 'cache', 'installers')
 }
 
@@ -33,4 +35,12 @@ export function screenshotsDir(profileId: string): string {
 
 export function versionDir(versionId: string): string {
   return path.join(dirs.versions, versionId)
+}
+
+export function backupDir(profileId: string): string {
+  return path.join(dirs.backups, profileId)
+}
+
+export function packsDir(profileId: string, kind: 'resource' | 'shader'): string {
+  return path.join(instanceDir(profileId), kind === 'resource' ? 'resourcepacks' : 'shaderpacks')
 }

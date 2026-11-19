@@ -10,6 +10,13 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Mods** — per-instance mod management: Modrinth catalog search with "Load more" pagination, optional version/loader filters, dependency installation, local `.jar`/`.zip` import, enable/disable, and removal. Clicking a mod in the catalog opens a separate detail panel on the right with screenshots/gallery, description, compatibility info, and links.
 - **Modpacks** — install `.mrpack` files via dialog or drag & drop, or install modpacks from Modrinth. Clicking a modpack in the catalog opens a detail panel with screenshots, description, and metadata.
 - **Screenshots** — dedicated screenshots page with per-instance filtering and an in-instance screenshots tab in the instance detail view; open, download, and delete screenshots from `<instance>/screenshots`.
+- **Skins** — offline skin library with PNG import (64×64 / 64×32), preview, active skin selection, and wide/slim model switching. The chosen skin is applied to every offline instance through a generated resource pack on launch. Skins are visible only to you: offline mode does not provide a Mojang signature, so other players will not see them.
+- **File verification** — compare an instance's client, libraries, and assets against Mojang checksums and optionally repair missing/corrupted files.
+- **World backups** — create, list, restore, and delete ZIP backups of an instance's `saves` folder, with a confirmation before restoring.
+- **Resource & shader packs** — install `.zip` packs per instance, toggle them on/off, and delete them. Packs are enabled through the instance's `options.txt`; the generated offline-skin pack is managed automatically.
+- **Mod updates** — check installed mods against Modrinth by SHA-1 and update them to the latest compatible version for the instance's Minecraft version and loader.
+- **Launcher updates & tray** — check for new launcher releases on startup or on demand, minimize to the system tray on close, and launch/stop the game from the tray menu.
+- **Localization** — full Russian and English interface, including dialogs, toasts, progress messages, and tray menu; switching the language updates the UI immediately.
 - **Instance deletion** — native confirmation dialog listing data to be removed (saves, mods, screenshots, configs, resource/shader packs, options, logs) and the full instance folder path.
 - **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
 

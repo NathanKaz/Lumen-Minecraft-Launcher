@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
+import { formatSize, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, FolderPlus, Loader2, Power, Search, SlidersHorizontal, Trash2, Wrench } from 'lucide-react'
+import { ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
-import type { ModInfo, ModrinthProject } from '@shared/types'
+import type { ModInfo, ModUpdateInfo, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 24
 
@@ -30,6 +31,9 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const [offset, setOffset] = useState(0)
   const [installing, setInstalling] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [modUpdates, setModUpdates] = useState<ModUpdateInfo[]>([])
+  const [checkingUpdates, setCheckingUpdates] = useState(false)
+  const [showUpdates, setShowUpdates] = useState(false)
 
   const versionFilter = matchVersion ? profile?.versionId : undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
@@ -85,7 +89,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     try {
       await api.installMod(profileId, projectId)
       await loadMods()
-      pushToast('success', 'Мод добавлен в сборку')
+      pushToast('success', t("Мод добавлен в сборку"))
     } finally {
       setInstalling(null)
       setBusy(false)
@@ -97,7 +101,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     try {
       await api.installLocalMod(profileId)
       await loadMods()
-      pushToast('success', 'Моды добавлены в сборку')
+      pushToast('success', t("Моды добавлены в сборку"))
     } finally {
       setBusy(false)
     }
@@ -113,6 +117,32 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     await loadMods()
   }
 
+  const checkForUpdates = async () => {
+    setCheckingUpdates(true)
+    setShowUpdates(true)
+    try {
+      const updates = await api.checkModUpdates(profileId)
+      setModUpdates(updates)
+      pushToast(updates.length ? 'info' : 'success', updates.length
+        ? t('Доступно обновлений модов: {count}', { count: updates.length })
+        : t('Все моды актуальны'))
+    } finally {
+      setCheckingUpdates(false)
+    }
+  }
+
+  const applyUpdate = async (update: ModUpdateInfo) => {
+    setBusy(true)
+    try {
+      await api.updateMod(profileId, update.fileName, update.projectId)
+      await loadMods()
+      setModUpdates((current) => current.filter((entry) => entry.fileName !== update.fileName))
+      pushToast('success', t('Мод обновлён'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -124,18 +154,21 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
               className={`relative rounded-lg px-4 py-2 text-xs font-semibold transition ${tab === item ? 'text-mint-300' : 'text-slate-500 hover:text-slate-300'}`}
             >
               {tab === item && <motion.span layoutId="instance-mods-tab" className="absolute inset-0 rounded-lg bg-mint-400/10" />}
-              <span className="relative">{item === 'catalog' ? 'Каталог' : `Установленные (${mods.length})`}</span>
+              <span className="relative">{item === 'catalog' ? t("Каталог") : t('Установленные ({count})', { count: mods.length })}</span>
             </button>
           ))}
         </div>
-        <Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> Из файла</Button>
+        <Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> {t("Из файла")}</Button>
+        <Button onClick={() => void checkForUpdates()} disabled={checkingUpdates || busy}>
+          {checkingUpdates ? <Spinner size={15} /> : <RefreshCw size={15} />} {t('Проверить обновления')}
+        </Button>
         {tab === 'catalog' && (
           <>
             <div className="relative min-w-[220px] flex-1">
               <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 className="input pl-10"
-                placeholder="Поиск модов (Sodium, JEI, шейдеры...)"
+                placeholder={t("Поиск модов (Sodium, JEI, шейдеры...)")}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -147,16 +180,16 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                 className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
                   matchVersion ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
                 }`}
-                title={`Показывать только моды для Minecraft ${profile?.versionId ?? '—'}`}
+                title={t('Показывать только моды для Minecraft {version}', { version: profile?.versionId ?? '—' })}
               >
-                Версия {profile?.versionId ?? ''}
+                {t('Версия {version}', { version: profile?.versionId ?? '' })}
               </button>
               <button
                 onClick={() => setMatchLoader((value) => !value)}
                 className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
                   matchLoader ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
                 }`}
-                title={`Показывать только моды для ${profile?.loader ?? '—'}`}
+                title={t('Показывать только моды для {loader}', { loader: profile?.loader ?? '—' })}
               >
                 {(profile?.loader ?? 'vanilla').toUpperCase()}
               </button>
@@ -200,10 +233,10 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-bold text-white">{project.title}</div>
-                      <div className="text-[10px] text-slate-500">{formatDownloads(project.downloads)} загрузок</div>
+                      <div className="text-[10px] text-slate-500">{t('{count} загрузок', { count: formatDownloads(project.downloads) })}</div>
                     </div>
                   </div>
-                  <p className="mt-3 line-clamp-2 min-h-[36px] text-[11px] leading-relaxed text-slate-400">{project.description}</p>
+                  <p className="mt-3 line-clamp-2 min-h-[36px] text-[11px] leading-relaxed text-slate-400">{t(project.description)}</p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {project.categories.slice(0, 3).map((category) => <Badge key={category}>{category}</Badge>)}
                     {project.versions?.slice(0, 2).map((version) => <Badge key={version} tone="amber">{version}</Badge>)}
@@ -218,7 +251,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                     }}
                   >
                     {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                    {installing === project.project_id ? 'Установка...' : 'Установить'}
+                    {installing === project.project_id ? t("Установка...") : t("Установить")}
                   </Button>
                 </motion.div>
               ))}
@@ -226,21 +259,48 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
             <div className="mt-5 flex flex-col items-center gap-2">
               {loadingMore && <Spinner size={18} />}
               {hasMore && !loadingMore && (
-                <Button onClick={() => void loadMore()}><ChevronDown size={15} /> Показать ещё</Button>
+                <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
               )}
               <span className="text-[10px] text-slate-600">
-                Показано {projects.length} · фильтры версии и загрузчика выключены по умолчанию
+                {t('Показано {count} · фильтры версии и загрузчика выключены по умолчанию', { count: projects.length })}
               </span>
             </div>
           </>
         ) : (
           <EmptyState
             icon={<Search size={22} />}
-            title="Ничего не найдено"
-            description="Попробуйте другой запрос или отключите фильтры версии и загрузчика."
+            title={t("Ничего не найдено")}
+            description={t("Попробуйте другой запрос или отключите фильтры версии и загрузчика.")}
           />
         )
       ) : mods.length ? (
+        <>
+        {showUpdates && (
+          <div className="panel mb-4 p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+              <RefreshCw size={15} className="text-iris-400" /> {t('Обновления модов')}
+            </div>
+            {checkingUpdates ? (
+              <div className="flex items-center justify-center py-4"><Spinner size={18} /></div>
+            ) : modUpdates.length ? (
+              <div className="space-y-2">
+                {modUpdates.map((update) => (
+                  <div key={update.fileName} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-semibold text-slate-100">{update.name}</div>
+                      <div className="mt-0.5 text-[10px] text-slate-500">v{update.currentVersion} → v{update.latestVersion}</div>
+                    </div>
+                    <Button onClick={() => void applyUpdate(update)} disabled={busy}>
+                      <Download size={14} /> {t('Обновить')}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-2 text-[11px] text-slate-500">{t('Все моды актуальны')}</div>
+            )}
+          </div>
+        )}
         <div className="panel divide-y divide-white/[0.05] overflow-hidden">
           {mods.map((mod) => (
             <div key={mod.fileName} className="flex items-center gap-4 px-5 py-4 transition hover:bg-white/[0.02]">
@@ -253,22 +313,23 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                   {mod.version && <Badge>v{mod.version}</Badge>}
                   <Badge tone="iris">{mod.loader}</Badge>
                 </div>
-                <div className="mt-1 truncate text-[11px] text-slate-500">{mod.description ?? mod.fileName}</div>
+                <div className="mt-1 truncate text-[11px] text-slate-500">{mod.description ? t(mod.description) : mod.fileName}</div>
               </div>
-              <span className="hidden text-[10px] text-slate-600 sm:block">{(mod.size / 1e6).toFixed(1)} МБ</span>
+              <span className="hidden text-[10px] text-slate-600 sm:block">{formatSize(mod.size)}</span>
               <Toggle checked={mod.enabled} onChange={() => void toggle(mod.fileName)} />
-              <button onClick={() => void remove(mod.fileName)} className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-400" title="Удалить">
+              <button onClick={() => void remove(mod.fileName)} className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-400" title={t("Удалить")}>
                 <Trash2 size={15} />
               </button>
             </div>
           ))}
         </div>
+        </>
       ) : (
         <EmptyState
           icon={<Power size={22} />}
-          title="Моды пока не установлены"
-          description="Найдите моды в каталоге или добавьте .jar файл вручную."
-          action={<Button variant="primary" onClick={() => setTab('catalog')}>Открыть каталог</Button>}
+          title={t("Моды пока не установлены")}
+          description={t("Найдите моды в каталоге или добавьте .jar файл вручную.")}
+          action={<Button variant="primary" onClick={() => setTab('catalog')}>{t("Открыть каталог")}</Button>}
         />
       )}
 
@@ -277,7 +338,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
         kind="mod"
         onClose={() => setSelectedProjectId(null)}
         action={selectedProjectId ? {
-          label: 'Установить в сборку',
+          label: t("Установить в сборку"),
           onClick: () => void install(selectedProjectId),
           disabled: busy,
           loading: installing === selectedProjectId

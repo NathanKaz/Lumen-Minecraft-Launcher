@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import { dialog } from 'electron'
 import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
@@ -32,11 +33,11 @@ function detectLoader(dependencies: Record<string, string>): { loader: LoaderTyp
 
 async function installMrpack(profileId: string, file: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Сборка не найдена')
+  if (!profile) throw new Error(msg("Сборка не найдена"))
 
   const zip = new AdmZip(file)
   const indexEntry = zip.getEntry('modrinth.index.json')
-  if (!indexEntry) throw new Error('Файл не является модпаком Modrinth (.mrpack)')
+  if (!indexEntry) throw new Error(msg("Файл не является модпаком Modrinth (.mrpack)"))
   const index = JSON.parse(indexEntry.getData().toString('utf8')) as MrpackIndex
 
   const gameVersion = index.dependencies.minecraft ?? profile.versionId
@@ -53,7 +54,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
 
   emitProgress({
     phase: 'modpack',
-    message: `Установка модпака ${index.name}`,
+    message: msg('Установка модпака {name}', { name: index.name }),
     percent: 5,
     current: 0,
     total: index.files.length,
@@ -74,7 +75,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
       size: entry.fileSize,
       label: path.basename(entry.path)
     }))
-  await downloadMany(tasks, 'modpack', `Модпак ${index.name}`, 3)
+  await downloadMany(tasks, 'modpack', msg('Модпак {name}', { name: index.name }), 3)
 
   const temp = path.join(dirs.cache, `mrpack-${uid()}`)
   await fs.ensureDir(temp)
@@ -87,15 +88,15 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
   } finally {
     await fs.remove(temp)
   }
-  emitToast('success', `Модпак «${index.name}» установлен`)
+  emitToast('success', msg('Модпак «{name}» установлен', { name: index.name }))
 }
 
 export async function installModpackFromFile(profileId: string): Promise<void> {
   const result = await dialog.showOpenDialog({
-    title: 'Выберите файл модпака',
+    title: msg("Выберите файл модпака"),
     filters: [
-      { name: 'Modrinth модпак', extensions: ['mrpack', 'zip'] },
-      { name: 'Все файлы', extensions: ['*'] }
+      { name: msg("Modrinth модпак"), extensions: ['mrpack', 'zip'] },
+      { name: msg("Все файлы"), extensions: ['*'] }
     ],
     properties: ['openFile']
   })
@@ -111,13 +112,13 @@ export async function installModpackFromModrinth(profileId: string, projectId: s
   const versions = await getModVersionsForMrpack(projectId)
   const version = versions[0]
   const file = version?.files.find((entry) => entry.filename.endsWith('.mrpack')) ?? version?.files[0]
-  if (!file) throw new Error('У модпака нет файла для установки')
+  if (!file) throw new Error(msg("У модпака нет файла для установки"))
 
   const temp = path.join(dirs.cache, `mrpack-download-${uid()}.mrpack`)
   await downloadMany(
     [{ url: file.url, dest: temp, sha1: file.hashes.sha1, size: file.size, label: file.filename }],
     'modpack',
-    'Скачивание модпака',
+    msg("Скачивание модпака"),
     1
   )
   await installMrpack(profileId, temp)

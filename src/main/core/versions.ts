@@ -1,4 +1,5 @@
 import { getState, updateProfile } from './store'
+import { msg } from './i18n'
 import { emitProgress, emitToast } from './events'
 import {
   extractNatives,
@@ -14,11 +15,11 @@ import { installLoader } from './loaders'
 
 export async function installProfile(profileId: string, loaderVersion?: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Сборка не найдена')
+  if (!profile) throw new Error(msg("Сборка не найдена"))
 
   emitProgress({
     phase: 'version',
-    message: `Подготовка Minecraft ${profile.versionId}`,
+    message: msg('Подготовка Minecraft {version}', { version: profile.versionId }),
     percent: 0,
     current: 0,
     total: 1,
@@ -29,7 +30,7 @@ export async function installProfile(profileId: string, loaderVersion?: string):
 
   const baseVersion = await fetchVersionJson(profile.versionId)
   await installClientVersion(profile.versionId, baseVersion)
-  await installLibraries(baseVersion, 'Загрузка библиотек Minecraft')
+  await installLibraries(baseVersion, msg("Загрузка библиотек Minecraft"))
   extractNatives({ ...baseVersion, id: profile.versionId })
   markVersionInstalled(profile.versionId)
 
@@ -40,5 +41,5 @@ export async function installProfile(profileId: string, loaderVersion?: string):
   markVersionInstalled(launchId)
 
   updateProfile(profileId, { loaderVersionId, versionId: profile.versionId })
-  emitToast('success', `Minecraft ${profile.versionId} готов к запуску`)
+  emitToast('success', msg('Minecraft {version} готов к запуску', { version: profile.versionId }))
 }

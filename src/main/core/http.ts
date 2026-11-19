@@ -1,3 +1,4 @@
+import { msg } from './i18n'
 import { requestText } from './net'
 
 export { USER_AGENT } from './net'
@@ -7,7 +8,7 @@ export async function fetchJson<T>(url: string, timeout = 30000): Promise<T> {
   try {
     return JSON.parse(text) as T
   } catch (error) {
-    throw new Error(`Неверный JSON в ответе ${url}: ${(error as Error).message}`)
+    throw new Error(msg('Неверный JSON в ответе {url}: {error}', { url, error: (error as Error).message }))
   }
 }
 

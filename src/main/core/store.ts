@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { dirs, root } from './paths'
@@ -31,7 +32,7 @@ function defaultState(): AppState {
   const playerName = 'Steve'
   const profile: Profile = {
     id: 'default',
-    name: 'Мой Minecraft',
+    name: msg("Мой Minecraft"),
     versionId: '1.20.1',
     loader: 'fabric',
     createdAt: Date.now(),

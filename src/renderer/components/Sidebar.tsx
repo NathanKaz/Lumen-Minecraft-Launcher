@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion'
+import { t } from '../lib/i18n'
 import { Gamepad2, Image as ImageIcon, LayoutDashboard, Package, Settings, ChevronRight } from 'lucide-react'
 import { selectedProfile, useLauncher, type Page } from '../store'
 
-const items: Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> = [
-  { id: 'home', label: 'Главная', icon: LayoutDashboard },
-  { id: 'screenshots', label: 'Скриншоты', icon: ImageIcon },
-  { id: 'modpacks', label: 'Модпаки', icon: Package },
-  { id: 'settings', label: 'Настройки', icon: Settings }
+// Labels are computed on every render so switching the interface language
+// updates the navigation immediately.
+const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> => [
+  { id: 'home', label: t("Главная"), icon: LayoutDashboard },
+  { id: 'screenshots', label: t("Скриншоты"), icon: ImageIcon },
+  { id: 'modpacks', label: t("Модпаки"), icon: Package },
+  { id: 'settings', label: t("Настройки"), icon: Settings }
 ]
 
 export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
@@ -16,9 +19,9 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
   return (
     <aside className="flex w-[236px] shrink-0 flex-col border-r border-white/[0.05] bg-ink-900/60 backdrop-blur-xl">
       <div className="px-3 pb-2 pt-5">
-        <p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Навигация</p>
+        <p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">{t("Навигация")}</p>
         <nav className="space-y-1">
-          {items.map((item) => {
+          {items().map((item) => {
             const Icon = item.icon
             const active = page === item.id
             return (
@@ -46,7 +49,7 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
       </div>
 
       <div className="mt-auto px-3 pb-3">
-        <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Активная сборка</div>
+        <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">{t("Активная сборка")}</div>
         <button
           onClick={() => profile && void openProfile(profile.id)}
           disabled={!profile}
@@ -56,7 +59,7 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
             <Gamepad2 size={17} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold text-slate-200">{profile?.name ?? 'Нет сборки'}</div>
+            <div className="truncate text-xs font-semibold text-slate-200">{profile?.name ?? t("Нет сборки")}</div>
             <div className="truncate text-[10px] text-slate-500">{profile?.versionId} · {profile?.loader}</div>
           </div>
           {profile && <ChevronRight size={13} className="text-slate-600" />}
@@ -70,8 +73,8 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
             {state?.account.name.slice(0, 1).toUpperCase() ?? 'S'}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold text-slate-200">{state?.account.name ?? 'Игрок'}</div>
-            <div className="text-[10px] text-slate-500">{state?.account.type === 'offline' ? 'Офлайн-аккаунт' : 'Microsoft'}</div>
+            <div className="truncate text-xs font-semibold text-slate-200">{state?.account.name ?? t("Игрок")}</div>
+            <div className="text-[10px] text-slate-500">{state?.account.type === 'offline' ? t("Офлайн-аккаунт") : 'Microsoft'}</div>
           </div>
           <ChevronRight size={14} className="text-slate-600" />
         </button>

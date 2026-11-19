@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import fs from 'fs-extra'
@@ -91,7 +92,7 @@ export async function findJava(requiredMajor = 8): Promise<JavaInfo> {
   }
   return {
     path: '',
-    version: 'не найдена',
+    version: msg("не найдена"),
     major: 0,
     valid: false
   }

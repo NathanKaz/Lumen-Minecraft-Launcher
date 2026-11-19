@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { msg } from './i18n'
 import fs from 'fs-extra'
 import { instanceDir, screenshotsDir } from './paths'
 import { getState } from './store'
@@ -51,16 +52,16 @@ export async function listScreenshots(profileId?: string): Promise<ScreenshotInf
 
 export async function deleteScreenshot(profileId: string, fileName: string): Promise<void> {
   const safeName = path.basename(fileName)
-  if (safeName !== fileName) throw new Error('Недопустимое имя файла')
+  if (safeName !== fileName) throw new Error(msg("Недопустимое имя файла"))
   const target = path.join(screenshotsDir(profileId), safeName)
-  if (!(await fs.pathExists(target))) throw new Error('Скриншот не найден')
+  if (!(await fs.pathExists(target))) throw new Error(msg("Скриншот не найден"))
   await fs.remove(target)
 }
 
 /** Data used in the native deletion warning so the message matches what is actually removed. */
 export async function deletionSummary(profileId: string): Promise<{ name: string; path: string; directories: string[] }> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error('Сборка не найдена')
+  if (!profile) throw new Error(msg("Сборка не найдена"))
   const directory = instanceDir(profileId)
   const known = ['saves', 'mods', 'screenshots', 'config', 'resourcepacks', 'shaderpacks', 'options.txt', 'options.profiles.json', 'logs', 'crash-reports']
   const present: string[] = []

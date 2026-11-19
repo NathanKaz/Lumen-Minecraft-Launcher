@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { formatSize, getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Box, Camera, Check, Download, FolderOpen, Gamepad2, Image as ImageIcon, Layers3, Pencil, Play,
-  Settings, Square, Trash2, Wrench, X
+  Settings, ShieldCheck, Square, Trash2, Wrench, X
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
@@ -11,17 +12,13 @@ import { Badge, Button, EmptyState, Modal, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { InstanceMods } from '../components/InstanceMods'
 import { ProfileFields } from '../components/ProfileFields'
+import { InstanceTools } from '../components/InstanceTools'
 import type { Profile, ScreenshotInfo } from '@shared/types'
 
-type Tab = 'mods' | 'screenshots' | 'settings'
-
-function formatSize(bytes: number): string {
-  if (bytes > 1e6) return `${(bytes / 1e6).toFixed(1)} МБ`
-  return `${Math.max(1, Math.round(bytes / 1000))} КБ`
-}
+type Tab = 'mods' | 'screenshots' | 'tools' | 'settings'
 
 function formatDate(value: number): string {
-  return new Date(value).toLocaleString('ru-RU', {
+  return new Date(value).toLocaleString(getLocale() === 'ru' ? 'ru-RU' : 'en-US', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
 }
@@ -80,7 +77,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
     try {
       await api.installProfile(current.id)
       await refresh()
-      pushToast('success', `${current.name}: установка завершена`)
+      pushToast('success', t('{name}: установка завершена', { name: current.name }))
     } finally {
       setInstalling(false)
       setBusy(false)
@@ -110,7 +107,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
     try {
       await api.updateProfile(current.id, draft)
       await refresh()
-      pushToast('success', 'Настройки сборки сохранены')
+      pushToast('success', t("Настройки сборки сохранены"))
     } finally {
       setBusy(false)
     }
@@ -122,7 +119,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
     if (!name || name === current.name) return
     await api.updateProfile(current.id, { name })
     await refresh()
-    pushToast('success', 'Сборка переименована')
+    pushToast('success', t("Сборка переименована"))
   }
 
   const remove = async () => {
@@ -134,7 +131,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
     await api.deleteScreenshot(shot.profileId, shot.fileName)
     if (selectedShot?.profileId === shot.profileId && selectedShot.fileName === shot.fileName) setSelectedShot(null)
     setShots((currentShots) => currentShots.filter((item) => !(item.profileId === shot.profileId && item.fileName === shot.fileName)))
-    pushToast('info', 'Скриншот удалён')
+    pushToast('info', t("Скриншот удалён"))
   }
 
   return (
@@ -143,7 +140,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         onClick={backToInstances}
         className="flex items-center gap-2 text-xs font-semibold text-slate-500 transition hover:text-mint-300"
       >
-        <ArrowLeft size={15} /> Все сборки
+        <ArrowLeft size={15} /> {t("Все сборки")}
       </button>
 
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="panel relative overflow-hidden">
@@ -152,8 +149,8 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         <div className="relative flex flex-col gap-7 p-7 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="mint"><Gamepad2 size={12} /> Сборка</Badge>
-              {current.id === state.selectedProfileId && <Badge tone="iris"><Check size={12} /> Активная</Badge>}
+              <Badge tone="mint"><Gamepad2 size={12} /> {t("Сборка")}</Badge>
+              {current.id === state.selectedProfileId && <Badge tone="iris"><Check size={12} /> {t("Активная")}</Badge>}
               <Badge>Minecraft {current.versionId}</Badge>
               <Badge tone="iris">{current.loader.toUpperCase()}</Badge>
               {current.modpack && <Badge tone="amber"><Layers3 size={12} /> {current.modpack.name}</Badge>}
@@ -177,7 +174,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
               <button
                 onClick={() => setEditingName(true)}
                 className="group mt-4 flex max-w-full items-center gap-3 text-left"
-                title="Нажмите, чтобы переименовать"
+                title={t("Нажмите, чтобы переименовать")}
               >
                 <h1 className="truncate text-4xl font-black tracking-tight text-white">{current.name}</h1>
                 <Pencil size={16} className="shrink-0 text-slate-600 transition group-hover:text-mint-400" />
@@ -185,8 +182,8 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
             )}
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
               {installed
-                ? 'Сборка готова. Управляйте модами и настройками или запускайте игру.'
-                : 'Клиент ещё не установлен. Лаунчер скачает версию, библиотеки и ассеты автоматически.'}
+                ? t("Сборка готова. Управляйте модами и настройками или запускайте игру.")
+                : t("Клиент ещё не установлен. Лаунчер скачает версию, библиотеки и ассеты автоматически.")}
             </p>
           </div>
 
@@ -197,15 +194,15 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
               className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-mint-400 to-mint-300 px-7 text-base font-extrabold text-ink-950 shadow-glow transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy || installing || gameStatus === 'starting' ? <Spinner size={20} /> : isPlaying ? <Square size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-              {busy || installing ? 'Загрузка...' : gameStatus === 'starting' ? 'Запуск...' : isPlaying ? 'Остановить' : installed ? 'Играть' : 'Установить и играть'}
+              {busy || installing ? t("Загрузка...") : gameStatus === 'starting' ? t("Запуск...") : isPlaying ? t("Остановить") : installed ? t("Играть") : t("Установить и играть")}
             </button>
             {!installed && (
               <Button onClick={() => void install()} disabled={busy || installing}>
-                <Download size={16} /> Только установить
+                <Download size={16} /> {t("Только установить")}
               </Button>
             )}
             <Button onClick={() => void api.openFolder('mods')}>
-              <FolderOpen size={16} /> Папка модов
+              <FolderOpen size={16} /> {t("Папка модов")}
             </Button>
           </div>
         </div>
@@ -215,10 +212,10 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { icon: Gamepad2, label: 'Время в игре', value: `${Math.floor(current.playtimeMinutes / 60)} ч ${current.playtimeMinutes % 60} мин`, tone: 'text-iris-400' },
-          { icon: Wrench, label: 'Память', value: `${memory} МБ ${current.memory === undefined ? '(глобально)' : '(своя)'}`, tone: 'text-mint-400' },
-          { icon: Box, label: 'Статус', value: installed ? 'Установлен' : 'Не установлен', tone: installed ? 'text-mint-400' : 'text-amber-400' },
-          { icon: Layers3, label: 'Последний запуск', value: current.lastPlayed ? new Date(current.lastPlayed).toLocaleDateString('ru-RU') : 'Ещё не запускали', tone: 'text-amber-400' }
+          { icon: Gamepad2, label: t("Время в игре"), value: t('{hours} ч {minutes} мин', { hours: Math.floor(current.playtimeMinutes / 60), minutes: current.playtimeMinutes % 60 }), tone: 'text-iris-400' },
+          { icon: Wrench, label: t("Память"), value: t('{memory} МБ ({scope})', { memory, scope: t(current.memory === undefined ? 'глобально' : 'своя') }), tone: 'text-mint-400' },
+          { icon: Box, label: t("Статус"), value: installed ? t("Установлен") : t("Не установлен"), tone: installed ? 'text-mint-400' : 'text-amber-400' },
+          { icon: Layers3, label: t("Последний запуск"), value: current.lastPlayed ? new Date(current.lastPlayed).toLocaleDateString(getLocale() === 'ru' ? 'ru-RU' : 'en-US') : t("Ещё не запускали"), tone: 'text-amber-400' }
         ].map((stat) => (
           <div key={stat.label} className="panel flex items-center gap-4 p-5">
             <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] ${stat.tone}`}>
@@ -235,9 +232,10 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
-            { id: 'mods', label: 'Моды', icon: Wrench },
-            { id: 'screenshots', label: `Скриншоты${shots.length ? ` (${shots.length})` : ''}`, icon: Camera },
-            { id: 'settings', label: 'Настройки', icon: Settings }
+            { id: 'mods', label: t("Моды"), icon: Wrench },
+            { id: 'screenshots', label: shots.length ? t('Скриншоты ({count})', { count: shots.length }) : t('Скриншоты'), icon: Camera },
+            { id: 'tools', label: t('Инструменты'), icon: ShieldCheck },
+            { id: 'settings', label: t("Настройки"), icon: Settings }
           ] as const).map((item) => (
             <button
               key={item.id}
@@ -250,19 +248,20 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
             </button>
           ))}
         </div>
-        <span className="text-[11px] text-slate-600">Изменения сохраняются только для этой сборки</span>
+        <span className="text-[11px] text-slate-600">{t("Изменения сохраняются только для этой сборки")}</span>
       </div>
 
       <div className="panel p-5">
         {tab === 'mods' && <InstanceMods profileId={current.id} />}
+        {tab === 'tools' && <InstanceTools profile={current} />}
         {tab === 'screenshots' && (
           shotsLoading ? (
             <div className="flex items-center justify-center py-12"><Spinner size={22} /></div>
           ) : shots.length ? (
             <>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                <span>{shots.length} снимков · папка <span className="font-mono text-slate-400">&lt;сборка&gt;/screenshots</span></span>
-                <Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={14} /> Открыть папку</Button>
+                <span>{t('{count} снимков · папка', { count: shots.length })} <span className="font-mono text-slate-400">&lt;instance&gt;/screenshots</span></span>
+                <Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={14} /> {t("Открыть папку")}</Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {shots.map((shot, index) => (
@@ -283,7 +282,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
                     </div>
                     <div className="flex items-center justify-between gap-2 px-3 py-2.5 text-[11px] text-slate-500">
                       <span className="inline-flex items-center gap-1.5"><Camera size={12} /> {formatSize(shot.size)}</span>
-                      <span>Открыть</span>
+                      <span>{t("Открыть")}</span>
                     </div>
                   </motion.button>
                 ))}
@@ -292,9 +291,9 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
           ) : (
             <EmptyState
               icon={<ImageIcon size={22} />}
-              title="Скриншотов пока нет"
-              description="Сделайте снимок в игре клавишей F2 — он появится здесь автоматически."
-              action={<Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={15} /> Открыть папку</Button>}
+              title={t("Скриншотов пока нет")}
+              description={t("Сделайте снимок в игре клавишей F2 — он появится здесь автоматически.")}
+              action={<Button onClick={() => void api.openFolder('screenshots')}><FolderOpen size={15} /> {t("Открыть папку")}</Button>}
             />
           )
         )}
@@ -309,9 +308,9 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
               showMemory
             />
             <div className="flex flex-wrap justify-between gap-2 border-t border-white/[0.06] pt-4">
-              <Button variant="danger" onClick={() => void remove()}><Trash2 size={15} /> Удалить сборку</Button>
+              <Button variant="danger" onClick={() => void remove()}><Trash2 size={15} /> {t("Удалить сборку")}</Button>
               <Button variant="primary" onClick={() => void saveSettings()} disabled={busy || !draft.name.trim()}>
-                {busy ? <Spinner size={14} /> : null} Сохранить настройки
+                {busy ? <Spinner size={14} /> : null} {t('Сохранить настройки')}
               </Button>
             </div>
           </div>
@@ -334,12 +333,12 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
                   download={selectedShot.fileName}
                   className="btn-ghost inline-flex items-center gap-2"
                 >
-                  <Download size={15} /> Скачать
+                  <Download size={15} /> {t("Скачать")}
                 </a>
                 <Button variant="danger" onClick={() => void removeShot(selectedShot)}>
-                  <Trash2 size={15} /> Удалить
+                  <Trash2 size={15} /> {t("Удалить")}
                 </Button>
-                <Button onClick={() => setSelectedShot(null)}><X size={15} /> Закрыть</Button>
+                <Button onClick={() => setSelectedShot(null)}><X size={15} /> {t("Закрыть")}</Button>
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Download, ExternalLink, Globe, Heart, Image as ImageIcon, Loader2, Package, Tag, X
@@ -48,7 +49,7 @@ export function ProjectDetailPanel({
     void api.getProjectDetails(projectId).then((result) => {
       if (!cancelled) setDetails(result)
     }).catch((err) => {
-      if (!cancelled) setError(err instanceof Error ? err.message : 'Не удалось загрузить информацию')
+      if (!cancelled) setError(err instanceof Error ? err.message : t("Не удалось загрузить информацию"))
     }).finally(() => {
       if (!cancelled) setLoading(false)
     })
@@ -70,9 +71,9 @@ export function ProjectDetailPanel({
   const body = (details?.body ?? '').trim()
 
   const links = details ? [
-    details.source_url ? { label: 'Исходники', url: details.source_url } : null,
-    details.issues_url ? { label: 'Проблемы', url: details.issues_url } : null,
-    details.wiki_url ? { label: 'Вики', url: details.wiki_url } : null,
+    details.source_url ? { label: t("Исходники"), url: details.source_url } : null,
+    details.issues_url ? { label: t("Проблемы"), url: details.issues_url } : null,
+    details.wiki_url ? { label: t("Вики"), url: details.wiki_url } : null,
     details.discord_url ? { label: 'Discord', url: details.discord_url } : null
   ].filter(Boolean) as Array<{ label: string; url: string }> : []
 
@@ -99,7 +100,7 @@ export function ProjectDetailPanel({
             <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
               <div className="flex items-center gap-2 text-sm font-bold text-white">
                 <Package size={16} className="text-mint-400" />
-                {kind === 'mod' ? 'О моде' : 'О модпаке'}
+                {kind === 'mod' ? t("О моде") : t("О модпаке")}
               </div>
               <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white">
                 <X size={18} />
@@ -113,12 +114,12 @@ export function ProjectDetailPanel({
               {loading && (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
                   <Spinner size={24} />
-                  <span className="text-sm">Загрузка информации...</span>
+                  <span className="text-sm">{t("Загрузка информации...")}</span>
                 </div>
               )}
 
               {!loading && error && (
-                <EmptyState icon={<Package size={22} />} title="Не удалось загрузить" description={error} />
+                <EmptyState icon={<Package size={22} />} title={t("Не удалось загрузить")} description={error} />
               )}
 
               {!loading && !error && details && (
@@ -131,10 +132,10 @@ export function ProjectDetailPanel({
                     )}
                     <div className="min-w-0 flex-1">
                       <h3 className="text-xl font-extrabold leading-tight text-white">{details.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-400">{details.description}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-400">{t(details.description)}</p>
                       <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
-                        <span className="inline-flex items-center gap-1.5"><Download size={13} className="text-mint-400" /> {formatDownloads(details.downloads)} загрузок</span>
-                        <span className="inline-flex items-center gap-1.5"><Heart size={13} className="text-rose-400" /> {formatDownloads(followersOf(details))} подписчиков</span>
+                        <span className="inline-flex items-center gap-1.5"><Download size={13} className="text-mint-400" /> {t('{count} загрузок', { count: formatDownloads(details.downloads) })}</span>
+                        <span className="inline-flex items-center gap-1.5"><Heart size={13} className="text-rose-400" /> {t('{count} подписчиков', { count: formatDownloads(followersOf(details)) })}</span>
                       </div>
                     </div>
                   </div>
@@ -147,14 +148,14 @@ export function ProjectDetailPanel({
                       onClick={action.onClick}
                     >
                       {action.loading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                      {action.loading ? 'Установка...' : action.label}
+                      {action.loading ? t("Установка...") : action.label}
                     </Button>
                   )}
 
                   {gallery.length > 0 ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                        <ImageIcon size={14} /> Скриншоты
+                        <ImageIcon size={14} /> {t("Скриншоты")}
                       </div>
                       <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-ink-950">
                         <img
@@ -186,31 +187,31 @@ export function ProjectDetailPanel({
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-white/[0.08] px-4 py-6 text-center text-xs text-slate-600">
-                      Скриншотов у проекта нет
+                      {t("Скриншотов у проекта нет")}
                     </div>
                   )}
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <Tag size={14} /> Категории и совместимость
+                      <Tag size={14} /> {t("Категории и совместимость")}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {details.categories.map((category) => <Badge key={category}>{category}</Badge>)}
-                      {!details.categories.length && <span className="text-xs text-slate-600">Нет категорий</span>}
+                      {!details.categories.length && <span className="text-xs text-slate-600">{t("Нет категорий")}</span>}
                     </div>
                     {(loaders.length > 0 || versions.length > 0) && (
                       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-400">
                         {loaders.length > 0 && (
                           <div className="mb-2">
-                            <span className="text-slate-500">Загрузчики: </span>
+                            <span className="text-slate-500">{t("Загрузчики:")} </span>
                             <span className="font-medium text-slate-200">{loaders.map((item) => item.toUpperCase()).join(', ')}</span>
                           </div>
                         )}
                         {versions.length > 0 && (
                           <div>
-                            <span className="text-slate-500">Версии игры: </span>
+                            <span className="text-slate-500">{t("Версии игры:")} </span>
                             <span className="font-medium text-slate-200">
-                              {versions.slice(0, 12).join(', ')}{versions.length > 12 ? ` и ещё ${versions.length - 12}` : ''}
+                              {versions.slice(0, 12).join(', ')}{versions.length > 12 ? t(' и ещё {count}', { count: versions.length - 12 }) : ''}
                             </span>
                           </div>
                         )}
@@ -221,7 +222,7 @@ export function ProjectDetailPanel({
                   {body && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                        <Globe size={14} /> Описание
+                        <Globe size={14} /> {t("Описание")}
                       </div>
                       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                         <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-300">{body}</pre>
@@ -231,7 +232,7 @@ export function ProjectDetailPanel({
 
                   {links.length > 0 && (
                     <div className="space-y-2 pb-2">
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Ссылки</div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("Ссылки")}</div>
                       <div className="flex flex-wrap gap-2">
                         {links.map((link) => (
                           <a

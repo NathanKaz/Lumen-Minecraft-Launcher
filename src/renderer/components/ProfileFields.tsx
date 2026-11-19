@@ -1,11 +1,12 @@
 import { Select, Toggle } from './ui'
+import { t } from '../lib/i18n'
 import type { BuildGroup, LoaderType, Profile, VersionManifest } from '@shared/types'
 
-export const loaders: Array<{ id: LoaderType; label: string; hint: string }> = [
-  { id: 'vanilla', label: 'Vanilla', hint: 'Оригинальная игра' },
-  { id: 'fabric', label: 'Fabric', hint: 'Лёгкие моды, высокая производительность' },
-  { id: 'forge', label: 'Forge', hint: 'Классические крупные модпаки' },
-  { id: 'neoforge', label: 'NeoForge', hint: 'Современный преемник Forge' }
+export const loaders: Array<{ id: LoaderType; label: string; hintKey: string }> = [
+  { id: 'vanilla', label: 'Vanilla', hintKey: 'Оригинальная игра' },
+  { id: 'fabric', label: 'Fabric', hintKey: 'Лёгкие моды, высокая производительность' },
+  { id: 'forge', label: 'Forge', hintKey: 'Классические крупные модпаки' },
+  { id: 'neoforge', label: 'NeoForge', hintKey: 'Современный преемник Forge' }
 ]
 
 export function ProfileFields({
@@ -31,11 +32,11 @@ export function ProfileFields({
   return (
     <div className="space-y-5">
       <div>
-        <label className="label">Название</label>
+        <label className="label">{t("Название")}</label>
         <input className="input" value={profile.name} onChange={(event) => onChange({ ...profile, name: event.target.value })} />
       </div>
       <div>
-        <label className="label">Версия Minecraft</label>
+        <label className="label">{t("Версия Minecraft")}</label>
         <Select
           value={profile.versionId}
           onChange={(versionId) => onChange({ ...profile, versionId, loaderVersionId: undefined })}
@@ -43,7 +44,7 @@ export function ProfileFields({
         />
       </div>
       <div>
-        <label className="label">Загрузчик модов</label>
+        <label className="label">{t("Загрузчик модов")}</label>
         <div className="grid grid-cols-2 gap-2">
           {loaders.map((loader) => (
             <button
@@ -57,18 +58,18 @@ export function ProfileFields({
               }`}
             >
               <div className="text-xs font-bold text-white">{loader.label}</div>
-              <div className="mt-0.5 text-[10px] leading-tight text-slate-500">{loader.hint}</div>
+              <div className="mt-0.5 text-[10px] leading-tight text-slate-500">{t(loader.hintKey)}</div>
             </button>
           ))}
         </div>
       </div>
       <div>
-        <label className="label">Группа</label>
+        <label className="label">{t("Группа")}</label>
         <Select
           value={profile.groupId ?? ''}
           onChange={(groupId) => onChange({ ...profile, groupId: groupId || undefined })}
           options={[
-            { value: '', label: 'Без группы' },
+            { value: '', label: t("Без группы") },
             ...groups.map((group) => ({ value: group.id, label: group.name }))
           ]}
         />
@@ -77,9 +78,9 @@ export function ProfileFields({
         <div>
           <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
             <div>
-              <div className="text-xs font-semibold text-slate-200">Использовать глобальную память</div>
+              <div className="text-xs font-semibold text-slate-200">{t("Использовать глобальную память")}</div>
               <div className="mt-0.5 text-[10px] text-slate-500">
-                Сейчас по умолчанию: {settingsMemory} МБ. Снимите переключатель, чтобы задать своё значение.
+                {t('Сейчас по умолчанию: {memory} МБ. Снимите переключатель, чтобы задать своё значение.', { memory: settingsMemory })}
               </div>
             </div>
             <Toggle
@@ -89,7 +90,7 @@ export function ProfileFields({
           </div>
           {profile.memory !== undefined && (
             <div className="mt-3">
-              <label className="label">Память сборки: {profile.memory} МБ</label>
+              <label className="label">{t('Память сборки: {memory} МБ', { memory: profile.memory })}</label>
               <input
                 type="range"
                 min={1024}
@@ -100,7 +101,7 @@ export function ProfileFields({
                 onChange={(event) => onChange({ ...profile, memory: Number(event.target.value) })}
                 className="w-full"
               />
-              <div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>1 ГБ</span><span>16 ГБ</span></div>
+              <div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>{t("1 ГБ")}</span><span>{t("16 ГБ")}</span></div>
             </div>
           )}
         </div>
