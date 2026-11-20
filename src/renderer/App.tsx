@@ -12,7 +12,6 @@ import { SkinsPanel } from './components/SkinsPanel'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
-import { Worlds } from './pages/Worlds'
 import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
 import type { AccountRecord } from '@shared/types'
@@ -112,7 +111,6 @@ export default function App(): JSX.Element {
                     {page === 'screenshots' && <Screenshots />}
                     {page === 'skins' && <SkinsPanel accountId={state.activeAccountId} />}
                     {page === 'modpacks' && <Modpacks />}
-                    {page === 'worlds' && <Worlds />}
                     {page === 'settings' && <Settings />}
                   </>
                 )}

@@ -10,7 +10,7 @@ import type {
   VersionManifest
 } from '@shared/types'
 
-export type Page = 'home' | 'screenshots' | 'skins' | 'modpacks' | 'worlds' | 'settings'
+export type Page = 'home' | 'screenshots' | 'skins' | 'modpacks' | 'settings'
 
 interface LauncherStore {
   state: AppState | null

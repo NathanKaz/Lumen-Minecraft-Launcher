@@ -551,9 +551,7 @@ const en: Record<string, string> = {
   'Резервных копий пока нет.': 'No backups yet.',
 
   // Modrinth worlds catalog
-  'Каталог миров': 'World catalog',
-  'Карты и миры Modrinth устанавливаются в папку saves активной сборки «{name}».':
-    'Modrinth maps and worlds are installed into the active instance’s saves folder (“{name}”).',
+  'Установка в папку saves сборки «{name}»': 'Installs into the saves folder of “{name}”',
   'Популярные миры': 'Popular worlds',
   'Поиск миров': 'Search worlds',
   'Мир': 'World',

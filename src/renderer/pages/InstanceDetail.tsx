@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatSize, getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Box, Camera, Check, Download, FolderOpen, Gamepad2, Image as ImageIcon, Layers3, Pencil, Play,
+  ArrowLeft, Box, Camera, Check, Download, FolderOpen, Gamepad2, Globe2, Image as ImageIcon, Layers3, Pencil, Play,
   Settings, ShieldCheck, Square, Trash2, Wrench, X
 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -13,9 +13,10 @@ import { InstallProgress } from '../components/InstallProgress'
 import { InstanceMods } from '../components/InstanceMods'
 import { ProfileFields } from '../components/ProfileFields'
 import { InstanceTools } from '../components/InstanceTools'
+import { Worlds } from './Worlds'
 import type { Profile, ScreenshotInfo } from '@shared/types'
 
-type Tab = 'mods' | 'screenshots' | 'tools' | 'settings'
+type Tab = 'mods' | 'worlds' | 'screenshots' | 'tools' | 'settings'
 
 function formatDate(value: number): string {
   return new Date(value).toLocaleString(getLocale() === 'ru' ? 'ru-RU' : 'en-US', {
@@ -233,6 +234,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
             { id: 'mods', label: t("Моды"), icon: Wrench },
+            { id: 'worlds', label: t("Миры"), icon: Globe2 },
             { id: 'screenshots', label: shots.length ? t('Скриншоты ({count})', { count: shots.length }) : t('Скриншоты'), icon: Camera },
             { id: 'tools', label: t('Инструменты'), icon: ShieldCheck },
             { id: 'settings', label: t("Настройки"), icon: Settings }
@@ -253,6 +255,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
 
       <div className="panel p-5">
         {tab === 'mods' && <InstanceMods profileId={current.id} />}
+        {tab === 'worlds' && <Worlds profileId={current.id} />}
         {tab === 'tools' && <InstanceTools profile={current} />}
         {tab === 'screenshots' && (
           shotsLoading ? (

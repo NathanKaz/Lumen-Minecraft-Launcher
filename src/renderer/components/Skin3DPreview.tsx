@@ -188,10 +188,15 @@ function boxFaces(box: Box): Face[] {
   return [
     { corners: [[x0, y1, z1], [x1, y1, z1], [x0, y0, z1], [x1, y0, z1]], uv: uv.front, normal: [0, 0, 1] },
     { corners: [[x1, y1, z0], [x0, y1, z0], [x1, y0, z0], [x0, y0, z0]], uv: uv.back, normal: [0, 0, -1] },
-    { corners: [[x1, y1, z1], [x1, y1, z0], [x1, y0, z1], [x1, y0, z0]], uv: uv.right, normal: [1, 0, 0] },
-    { corners: [[x0, y1, z0], [x0, y1, z1], [x0, y0, z0], [x0, y0, z1]], uv: uv.left, normal: [-1, 0, 0] },
+    // The spec's "Right" region belongs to the character's right side (-x) and
+    // "Left" to the left side (+x); each region's front content sits on the
+    // edge shared with the front face.
+    { corners: [[x1, y1, z1], [x1, y1, z0], [x1, y0, z1], [x1, y0, z0]], uv: uv.left, normal: [1, 0, 0] },
+    { corners: [[x0, y1, z0], [x0, y1, z1], [x0, y0, z0], [x0, y0, z1]], uv: uv.right, normal: [-1, 0, 0] },
     { corners: [[x0, y1, z0], [x1, y1, z0], [x0, y1, z1], [x1, y1, z1]], uv: uv.top, normal: [0, 1, 0] },
-    { corners: [[x0, y0, z1], [x1, y0, z1], [x0, y0, z0], [x1, y0, z0]], uv: uv.bottom, normal: [0, -1, 0] }
+    // Bottom face: v = 0 (hair) at the back edge, v = max (jaw/chin) at the
+    // front edge so it continues the front face's bottom row.
+    { corners: [[x1, y0, z0], [x0, y0, z0], [x1, y0, z1], [x0, y0, z1]], uv: uv.bottom, normal: [0, -1, 0] }
   ]
 }
 

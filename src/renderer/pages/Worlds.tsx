@@ -3,14 +3,15 @@ import { t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import { Download, Globe2, Loader2, Search } from 'lucide-react'
 import { api } from '../lib/api'
-import { selectedProfile, useLauncher } from '../store'
-import { Badge, Button, EmptyState, SectionHeader } from '../components/ui'
+import { useLauncher } from '../store'
+import { Badge, Button, EmptyState } from '../components/ui'
 import { ProjectDetailPanel } from '../components/ProjectDetailPanel'
 import type { ModrinthProject } from '@shared/types'
 
-export function Worlds(): JSX.Element {
+/** Modrinth world catalog, embedded as a tab of a single instance. */
+export function Worlds({ profileId }: { profileId: string }): JSX.Element {
   const { state, busy, setBusy, refresh, pushToast } = useLauncher()
-  const target = selectedProfile(state)
+  const target = state?.profiles.find((item) => item.id === profileId)
   const [worlds, setWorlds] = useState<ModrinthProject[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,11 +37,10 @@ export function Worlds(): JSX.Element {
   }, [query])
 
   const install = async (projectId: string, title: string) => {
-    if (!target) return
     setInstalling(projectId)
     setBusy(true)
     try {
-      await api.installWorld(target.id, projectId)
+      await api.installWorld(profileId, projectId)
       await refresh()
       pushToast('success', t('Мир «{name}» установлен', { name: title }))
     } finally {
@@ -50,14 +50,10 @@ export function Worlds(): JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-[1180px]">
-      <SectionHeader
-        title={t("Каталог миров")}
-        subtitle={t('Карты и миры Modrinth устанавливаются в папку saves активной сборки «{name}».', { name: target?.name ?? '—' })}
-      />
-
-      <div className="mb-4 flex items-center gap-3">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("Популярные миры")}</h3>
+        <span className="text-[10px] text-slate-600">{t('Установка в папку saves сборки «{name}»', { name: target?.name ?? '—' })}</span>
         <div className="relative ml-auto w-full max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input className="input py-2 pl-9 text-xs" placeholder={t("Поиск миров")} value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -65,11 +61,11 @@ export function Worlds(): JSX.Element {
       </div>
 
       {loading && !worlds.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => <div key={index} className="panel shimmer h-52 animate-shimmer" />)}
         </div>
       ) : worlds.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {worlds.map((world, index) => (
             <motion.div
               key={world.project_id}
