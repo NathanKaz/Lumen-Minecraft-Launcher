@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getLocale, t } from '../lib/i18n'
 import { CheckCircle2, Clock, Coffee, Copy, Download, FolderOpen, HelpCircle, RefreshCw, Search, Terminal, Trash2, XCircle } from 'lucide-react'
 import { api, isMock } from '../lib/api'
+import { APP_VERSION } from '@shared/version'
 import { useLauncher } from '../store'
 import { Badge, Button, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
 import { Tooltip } from '../components/Tooltip'
@@ -164,7 +165,7 @@ export function Settings(): JSX.Element {
       setUpdateInfo(info)
       pushToast(info.updateAvailable ? 'info' : 'success', info.updateAvailable
         ? t('Доступна новая версия лаунчера: {version}', { version: info.latestVersion })
-        : t('У вас последняя версия лаунчера'))
+        : t('Обновлений не найдено'))
     } finally {
       setCheckingUpdates(false)
     }
@@ -387,8 +388,10 @@ export function Settings(): JSX.Element {
                 <div className="text-xs font-semibold text-slate-200">{t('Обновления лаунчера')}</div>
                 <div className="text-[10px] text-slate-500">
                   {updateInfo
-                    ? t('Текущая версия: {current} · последняя: {latest}', { current: updateInfo.currentVersion, latest: updateInfo.latestVersion })
-                    : t('Проверьте, доступна ли новая версия')}
+                    ? updateInfo.updateAvailable
+                      ? t('Версия {current} · доступна {latest}', { current: updateInfo.currentVersion, latest: updateInfo.latestVersion })
+                      : t('Версия {current} · обновлений нет', { current: updateInfo.currentVersion })
+                    : t('Версия лаунчера: {version}', { version: APP_VERSION })}
                 </div>
               </div>
               <Button onClick={() => void checkForUpdates()} disabled={checkingUpdates}>

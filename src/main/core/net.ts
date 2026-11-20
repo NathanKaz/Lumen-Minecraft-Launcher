@@ -3,8 +3,9 @@ import { msg } from './i18n'
 import https from 'node:https'
 import { URL } from 'node:url'
 import { emitLog } from './events'
+import { APP_VERSION } from '@shared/version'
 
-export const USER_AGENT = 'LumenLauncher/1.0.0 (+https://github.com/NathanKaz/Minecraft-launcher)'
+export const USER_AGENT = `LumenLauncher/${APP_VERSION} (+https://github.com/NathanKaz/Lumen-Minecraft-Launcher)`
 
 // Общий агент с ограничением сокетов: Mojang CDN чувствителен к большим
 // скачкам, поэтому параллельные запросы не должны открывать десятки соединений.

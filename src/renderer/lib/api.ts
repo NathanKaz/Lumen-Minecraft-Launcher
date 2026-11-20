@@ -1,4 +1,5 @@
 import { t } from './i18n'
+import { APP_VERSION } from '@shared/version'
 import type {
   Account,
   AccountRecord,
@@ -623,8 +624,8 @@ function createMock(): LauncherAPI {
     },
 
     checkUpdates: async (): Promise<UpdateInfo> => ({
-      currentVersion: '1.0.0',
-      latestVersion: '1.0.0',
+      currentVersion: APP_VERSION,
+      latestVersion: APP_VERSION,
       url: 'https://github.com/NathanKaz/Minecraft-launcher/releases/latest',
       updateAvailable: false
     }),

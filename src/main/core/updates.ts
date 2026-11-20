@@ -1,11 +1,12 @@
 import { shell } from 'electron'
 import { fetchJson } from './http'
 import { getState } from './store'
+import { APP_VERSION } from '@shared/version'
 import type { UpdateInfo } from '@shared/types'
 
-const CURRENT_VERSION = '1.0.0'
-const RELEASES_API = 'https://api.github.com/repos/NathanKaz/Minecraft-launcher/releases/latest'
-const RELEASES_PAGE = 'https://github.com/NathanKaz/Minecraft-launcher/releases/latest'
+const CURRENT_VERSION = APP_VERSION
+const RELEASES_API = 'https://api.github.com/repos/NathanKaz/Lumen-Minecraft-Launcher/releases/latest'
+const RELEASES_PAGE = 'https://github.com/NathanKaz/Lumen-Minecraft-Launcher/releases/latest'
 
 interface GithubRelease {
   tag_name: string

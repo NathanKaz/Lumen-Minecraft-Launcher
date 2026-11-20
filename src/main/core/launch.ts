@@ -9,6 +9,7 @@ import { findJava, inspectJava, requiredJavaMajor } from './java'
 import { ensureJava } from './javaInstall'
 import { argValues, classpathLibraries, extractNatives, resolveVersion, type VersionJson } from './install'
 import { applySkinResourcePack } from './skins'
+import { APP_VERSION } from '@shared/version'
 import type { GameStatus, JavaInfo } from '@shared/types'
 
 let child: ChildProcess | null = null
@@ -145,7 +146,7 @@ export async function launchGame(profileId: string): Promise<void> {
     assets_index_name: version.assetIndex?.id ?? 'legacy',
     natives_directory: path.join(versionDir(version.id), 'natives'),
     launcher_name: 'LumenLauncher',
-    launcher_version: '1.0.0',
+    launcher_version: APP_VERSION,
     classpath_separator: path.delimiter,
     library_directory: dirs.libraries,
     resolution_width: String(state.settings.width),

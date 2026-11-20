@@ -515,7 +515,10 @@ const en: Record<string, string> = {
   // Updates & verification
   'Обновления лаунчера': 'Launcher updates',
   'Проверьте, доступна ли новая версия': 'Check whether a newer version is available',
-  'Текущая версия: {current} · последняя: {latest}': 'Current version: {current} · latest: {latest}',
+  'Версия лаунчера: {version}': 'Launcher version: {version}',
+  'Версия {current} · доступна {latest}': 'Version {current} · {latest} available',
+  'Версия {current} · обновлений нет': 'Version {current} · up to date',
+  'Обновлений не найдено': 'No updates found',
   'Проверить': 'Check',
   'У вас последняя версия лаунчера': 'You are running the latest launcher version',
   'Доступна новая версия лаунчера: {version}': 'A new launcher version is available: {version}',
