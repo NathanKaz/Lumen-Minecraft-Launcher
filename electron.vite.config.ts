@@ -12,7 +12,11 @@ export default defineConfig({
     build: {
       outDir: resolve(__dirname, 'dist/main'),
       rollupOptions: {
-        external: ['electron', 'fs-extra', 'adm-zip']
+        // protodef (used by prismarine-nbt) builds its parsers with eval() and
+        // relies on a `const native = this.native` local. Bundling/minifying
+        // drops that local as unused, leaving `native` undefined at runtime.
+        // Keep the package external so Node loads its original source.
+        external: ['electron', 'fs-extra', 'adm-zip', 'prismarine-nbt']
       }
     }
   },
