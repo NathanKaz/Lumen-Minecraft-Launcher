@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Archive, Copy, Download, FolderOpen, Globe2, Info, Pencil, Search, Trash2, Upload, X
+  Archive, Copy, Download, FolderOpen, Globe2, Info, Layers, Pencil, Search, Trash2, Upload, X
 } from 'lucide-react'
 import { formatSize, t } from '../lib/i18n'
 import { api } from '../lib/api'
@@ -59,7 +59,7 @@ export function Worlds({ profileId }: { profileId: string }): JSX.Element {
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
             { id: 'local', label: t('Мои миры'), icon: Globe2 },
-            { id: 'catalog', label: t('Каталог'), icon: Search }
+            { id: 'catalog', label: t('Генерация мира'), icon: Layers }
           ] as const).map((item) => (
             <button
               key={item.id}
@@ -96,13 +96,13 @@ export function Worlds({ profileId }: { profileId: string }): JSX.Element {
         <div>
           <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] leading-snug text-slate-500">
             <Info size={15} className="mt-0.5 shrink-0 text-iris-400" />
-            <span>{t('Modrinth не выделяет миры в отдельный тип. Здесь собраны наборы данных, которые меняют генерацию мира, — без модпаков.')}</span>
+            <span>{t('Это не готовые миры: Modrinth не выделяет миры в отдельный тип. Здесь собраны наборы данных, которые меняют генерацию мира.')}</span>
           </div>
           <CatalogPanel
             kind="datapack"
             profileId={profileId}
             category="worldgen"
-            title={t('Миры и генерация')}
+            title={t('Наборы данных для генерации')}
           />
         </div>
       ) : loading && !worlds.length ? (

@@ -999,9 +999,14 @@ const en: Record<string, string> = {
     'The loader determines which mods work with the instance. If unsure, keep Vanilla — the launcher will pick a loader version.',
   'Объём оперативной памяти для сборки в мегабайтах. Безопасное значение — 2048–4096 МБ; не выделяйте больше половины установленной ОЗУ.':
     'RAM for the instance in megabytes. A safe value is 2048–4096 MB; do not allocate more than half of your installed RAM.',
-  'Modrinth не выделяет миры в отдельный тип. Здесь собраны наборы данных, которые меняют генерацию мира, — без модпаков.':
-    'Modrinth has no separate world project type. This catalog lists datapacks that change world generation — no modpacks.',
-  'Миры и генерация': 'Worlds & generation'
+  'Это не готовые миры: Modrinth не выделяет миры в отдельный тип. Здесь собраны наборы данных, которые меняют генерацию мира.':
+    'These are not ready-made worlds: Modrinth has no separate world project type. This catalog lists datapacks that change world generation.',
+  'Наборы данных для генерации': 'World generation datapacks',
+  'Обзор': 'Overview',
+  'Генерация мира': 'World generation',
+  'Бэкапы и диагностика': 'Backups and diagnostics',
+  '{count} модов': '{count} mods',
+  '{count} миров': '{count} worlds'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {

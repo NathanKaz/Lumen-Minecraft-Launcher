@@ -12,6 +12,9 @@ import type {
 
 export type Page = 'home' | 'screenshots' | 'skins' | 'modpacks' | 'settings'
 
+/** Sections of the dedicated instance page shown in its own sidebar. */
+export type ProfileSection = 'overview' | 'mods' | 'worlds' | 'screenshots' | 'tools' | 'settings'
+
 export interface NotificationRecord extends ToastPayload {
   time: number
   read: boolean
@@ -49,6 +52,7 @@ interface LauncherStore {
   versions: VersionManifest | null
   page: Page
   openedProfileId: string | null
+  profileSection: ProfileSection
   progress: ProgressPayload | null
   logs: LogPayload[]
   gameStatus: GameStatus
@@ -62,6 +66,7 @@ interface LauncherStore {
   setPage: (page: Page) => void
   openProfile: (id: string) => Promise<void>
   backToInstances: () => void
+  setProfileSection: (section: ProfileSection) => void
   /** Shows the native confirmation dialog, then removes the build and all of its files. */
   removeProfile: (id: string) => Promise<boolean>
   setBusy: (busy: boolean) => void
@@ -80,6 +85,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
   versions: null,
   page: 'home',
   openedProfileId: null,
+  profileSection: 'overview',
   progress: null,
   logs: [],
   gameStatus: 'idle',
@@ -115,7 +121,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
 
   setPage: (page) => set({ page, openedProfileId: null }),
   openProfile: async (id) => {
-    set({ openedProfileId: id })
+    set({ openedProfileId: id, profileSection: 'overview' })
     try {
       await api.setState({ selectedProfileId: id })
       await get().refresh()
@@ -123,7 +129,8 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
       get().pushToast('error', t("Не удалось сделать сборку активной"))
     }
   },
-  backToInstances: () => set({ openedProfileId: null }),
+  backToInstances: () => set({ openedProfileId: null, profileSection: 'overview' }),
+  setProfileSection: (section) => set({ profileSection: section }),
   removeProfile: async (id) => {
     const confirmed = await api.confirmDeleteProfile(id)
     if (!confirmed) return false

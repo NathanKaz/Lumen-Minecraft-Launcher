@@ -26,10 +26,10 @@ import {
 import type { ModInfo, Profile, WorldInfo } from '@shared/types'
 import { api } from '../lib/api'
 import { t } from '../lib/i18n'
-import { useLauncher, type Page } from '../store'
+import { findProfile, useLauncher, type Page, type ProfileSection } from '../store'
 import { EmptyState, Spinner } from './ui'
 
-type GroupKey = 'instances' | 'mods' | 'worlds' | 'settings' | 'navigation' | 'actions'
+type GroupKey = 'instances' | 'instance' | 'mods' | 'worlds' | 'settings' | 'navigation' | 'actions'
 
 interface SearchItem {
   id: string
@@ -56,6 +56,7 @@ const NO_PROFILES: Profile[] = []
 // Labels are functions so a language switch updates the open palette immediately.
 const GROUP_LABEL: Record<GroupKey, () => string> = {
   instances: () => t('Мои сборки'),
+  instance: () => t('Сборка'),
   mods: () => t('Моды'),
   worlds: () => t('Миры'),
   settings: () => t('Настройки'),
@@ -64,7 +65,10 @@ const GROUP_LABEL: Record<GroupKey, () => string> = {
 }
 
 export function GlobalSearch(): JSX.Element {
-  const { state, globalSearchOpen, setGlobalSearchOpen, setPage, openProfile, pushToast } = useLauncher()
+  const {
+    state, globalSearchOpen, setGlobalSearchOpen, setPage, openProfile, pushToast,
+    openedProfileId, setProfileSection
+  } = useLauncher()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const [hits, setHits] = useState<{ mods: ModHit[]; worlds: WorldHit[] }>({ mods: [], worlds: [] })
@@ -159,6 +163,28 @@ export function GlobalSearch(): JSX.Element {
           void openProfile(profile.id)
         }
       })
+    }
+
+    const openedProfile = findProfile(state, openedProfileId)
+    if (openedProfile) {
+      const sections: Array<{ id: ProfileSection; label: string; keywords: string; icon: LucideIcon }> = [
+        { id: 'overview', label: t('Обзор'), keywords: 'overview dashboard', icon: LayoutDashboard },
+        { id: 'mods', label: t('Моды'), keywords: 'mods jars', icon: Puzzle },
+        { id: 'worlds', label: t('Миры'), keywords: 'worlds saves', icon: Map },
+        { id: 'screenshots', label: t('Скриншоты'), keywords: 'screenshots f2', icon: ImageIcon },
+        { id: 'tools', label: t('Инструменты'), keywords: 'tools backups diagnostics', icon: Wrench },
+        { id: 'settings', label: t('Настройки'), keywords: 'settings profile', icon: SettingsIcon }
+      ]
+      for (const section of sections) {
+        if (!matches(section.label, section.keywords)) continue
+        items.push({
+          id: `profile-section:${section.id}`,
+          group: 'instance',
+          label: `${openedProfile.name} · ${section.label}`,
+          icon: section.icon,
+          run: () => setProfileSection(section.id)
+        })
+      }
     }
 
     const openInstance = (profileId: string) => {
@@ -260,7 +286,7 @@ export function GlobalSearch(): JSX.Element {
     }
 
     return items
-  }, [profiles, normalized, hits, setPage, openProfile, pushToast])
+  }, [profiles, normalized, hits, setPage, openProfile, pushToast, state, openedProfileId, setProfileSection])
 
   // Keep the highlighted row valid when the query or loaded results change.
   useEffect(() => {
