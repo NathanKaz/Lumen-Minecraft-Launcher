@@ -101,6 +101,8 @@ const api: LauncherAPI = {
   getLogFiles: (profileId) => invoke(IPC.getLogFiles, profileId),
   readLogFile: (profileId, name) => invoke(IPC.readLogFile, profileId, name),
   listCrashReports: (profileId) => invoke(IPC.listCrashReports, profileId),
+  analyzeCrash: (profileId) => invoke(IPC.analyzeCrash, profileId),
+  importDroppedFile: (profileId, filePath) => invoke(IPC.importDroppedFile, profileId, filePath),
 
   detectImportSources: () => invoke(IPC.detectImportSources),
   importLauncherProfile: (candidate) => invoke(IPC.importLauncherProfile, candidate)

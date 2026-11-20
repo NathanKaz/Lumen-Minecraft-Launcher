@@ -152,7 +152,11 @@ export async function importWorldFile(profileId: string): Promise<void> {
   const chosen = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options)
   if (chosen.canceled || !chosen.filePaths[0]) return
 
-  const archivePath = chosen.filePaths[0]
+  await importWorldFilePath(profileId, chosen.filePaths[0])
+}
+
+/** Imports an already selected .zip/.mcworld archive into the saves folder. */
+export async function importWorldFilePath(profileId: string, archivePath: string): Promise<void> {
   const temp = path.join(dirs.cache, `world-import-${uid()}`)
   await fs.ensureDir(temp)
   try {

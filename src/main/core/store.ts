@@ -79,7 +79,8 @@ const defaultSettings: Settings = {
   checkUpdates: true,
   instancesView: 'grid',
   autoBackupBeforeUpdates: true,
-  autoInstallJava: true
+  autoInstallJava: true,
+  onboardingCompleted: false
 }
 
 const defaultGroups: BuildGroup[] = []

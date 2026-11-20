@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { AlertTriangle, ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
+import { Badge, Button, EmptyState, Modal, Spinner, Toggle } from './ui'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
 import type { ModInfo, ModIssue, ModIssueType, ModUpdateInfo, ModrinthProject } from '@shared/types'
 
@@ -16,8 +16,12 @@ function formatDownloads(value: number): string {
   return String(value)
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export function InstanceMods({ profileId }: { profileId: string }): JSX.Element {
-  const { state, busy, setBusy, pushToast } = useLauncher()
+  const { state, busy, setBusy, refresh, pushToast } = useLauncher()
   const profile = state?.profiles.find((item) => item.id === profileId) ?? null
   const [tab, setTab] = useState<'catalog' | 'installed'>('catalog')
   const [query, setQuery] = useState('')
@@ -38,6 +42,9 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const [issues, setIssues] = useState<ModIssue[]>([])
   const [analyzing, setAnalyzing] = useState(false)
   const [updatingAll, setUpdatingAll] = useState(false)
+  const [showUpdatePreview, setShowUpdatePreview] = useState(false)
+  const [previewSelected, setPreviewSelected] = useState<string[]>([])
+  const [updateResult, setUpdateResult] = useState<{ updated: number; failed: number } | null>(null)
 
   const versionFilter = matchVersion ? profile?.versionId : undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
@@ -66,6 +73,10 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   useEffect(() => {
     void loadMods()
     setSelectedFiles([])
+    setModUpdates([])
+    setPreviewSelected([])
+    setUpdateResult(null)
+    setShowUpdatePreview(false)
   }, [profileId, state?.installedVersions.length])
 
   useEffect(() => {
@@ -224,23 +235,74 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     }
   }
 
-  const updateAll = async () => {
+  const openUpdatePreview = () => {
+    setShowUpdates(true)
+    setPreviewSelected(modUpdates.map((update) => update.fileName))
+    setUpdateResult(null)
+    setShowUpdatePreview(true)
+  }
+
+  const closeUpdatePreview = () => {
+    if (updatingAll) return
+    setShowUpdatePreview(false)
+    setUpdateResult(null)
+  }
+
+  const togglePreviewUpdate = (fileName: string) => {
+    setPreviewSelected((current) => current.includes(fileName)
+      ? current.filter((entry) => entry !== fileName)
+      : [...current, fileName])
+  }
+
+  const applySelectedUpdates = async () => {
+    const selected = modUpdates.filter((update) => previewSelected.includes(update.fileName))
+    if (!selected.length || updatingAll) return
+    const allSelected = selected.length === modUpdates.length
     setBusy(true)
     setUpdatingAll(true)
-    setShowUpdates(true)
+    setUpdateResult(null)
+    const updated: string[] = []
+    const failed: string[] = []
     try {
-      const result = await api.updateAllMods(profileId)
-      await refreshMods()
-      setModUpdates((current) => current.filter((entry) => !result.updated.includes(entry.fileName)))
-      if (!result.updated.length && !result.failed.length) {
-        pushToast('success', t('Все моды актуальны'))
+      if (allSelected) {
+        // updateAllMods creates an automatic backup on the main-process side.
+        const result = await api.updateAllMods(profileId)
+        updated.push(...result.updated)
+        failed.push(...result.failed)
       } else {
-        pushToast(result.failed.length ? 'info' : 'success', result.failed.length
-          ? t('Обновлено модов: {updated}, не удалось: {failed}', {
-            updated: result.updated.length,
-            failed: result.failed.length
-          })
-          : t('Обновлено модов: {count}', { count: result.updated.length }))
+        try {
+          await api.createBackup(profileId)
+        } catch (error) {
+          pushToast('error', t('Не удалось создать автобэкап: {error}', { error: errorMessage(error) }))
+          return
+        }
+        for (const update of selected) {
+          try {
+            await api.updateMod(profileId, update.fileName, update.projectId)
+            updated.push(update.fileName)
+          } catch (error) {
+            failed.push(update.fileName)
+            pushToast('error', t('Не удалось обновить мод {name}: {error}', {
+              name: update.name,
+              error: errorMessage(error)
+            }))
+          }
+        }
+      }
+      await refresh()
+      await refreshMods()
+      setModUpdates((current) => current.filter((entry) => !updated.includes(entry.fileName)))
+      setPreviewSelected((current) => current.filter((entry) => !updated.includes(entry)))
+      if (failed.length) {
+        setUpdateResult({ updated: updated.length, failed: failed.length })
+        pushToast('info', t('Обновлено: {updated}, не удалось: {failed}', {
+          updated: updated.length,
+          failed: failed.length
+        }))
+      } else {
+        pushToast('success', t('Обновления применены'))
+        setShowUpdatePreview(false)
+        setUpdateResult(null)
       }
     } finally {
       setBusy(false)
@@ -275,8 +337,8 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
         <Button onClick={() => void checkForUpdates()} disabled={checkingUpdates || busy}>
           {checkingUpdates ? <Spinner size={15} /> : <RefreshCw size={15} />} {t('Проверить обновления')}
         </Button>
-        <Button onClick={() => void updateAll()} disabled={updatingAll || checkingUpdates || busy}>
-          {updatingAll ? <Spinner size={15} /> : <RefreshCw size={15} />} {t('Обновить все')}
+        <Button onClick={openUpdatePreview} disabled={updatingAll || checkingUpdates || busy}>
+          <RefreshCw size={15} /> {t('Обновить все')}
         </Button>
         {tab === 'catalog' && (
           <>
@@ -530,6 +592,72 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
           loading: installing === selectedProjectId
         } : undefined}
       />
+
+      <Modal
+        open={showUpdatePreview}
+        onClose={closeUpdatePreview}
+        title={t('Предпросмотр обновлений')}
+        width="max-w-2xl"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="px-3 py-1.5 text-[11px]" onClick={() => setPreviewSelected(modUpdates.map((update) => update.fileName))} disabled={updatingAll || !modUpdates.length}>
+              {t('Выбрать все')}
+            </Button>
+            <Button className="px-3 py-1.5 text-[11px]" onClick={() => setPreviewSelected([])} disabled={updatingAll || !previewSelected.length}>
+              {t('Снять выделение')}
+            </Button>
+            <span className="text-[11px] text-slate-400">{t('Выбрано обновлений: {count}', { count: previewSelected.length })}</span>
+            <span className="text-[11px] text-slate-600">/ {t('Доступно обновлений модов: {count}', { count: modUpdates.length })}</span>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-[11px] leading-relaxed text-amber-200">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
+            <div className="space-y-1">
+              <div>{t('Перед обновлением будет создана резервная копия')}</div>
+              <div>{t('Выбранные моды будут заменены новыми версиями.')}</div>
+            </div>
+          </div>
+
+          {modUpdates.length ? (
+            <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
+              {modUpdates.map((update) => (
+                <label key={update.fileName} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.12]">
+                  <input
+                    type="checkbox"
+                    checked={previewSelected.includes(update.fileName)}
+                    onChange={() => togglePreviewUpdate(update.fileName)}
+                    disabled={updatingAll}
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-mint-400"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-semibold text-slate-100">{update.name}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      {t('Текущая версия')}: v{update.currentVersion} → {t('Новая версия')}: v{update.latestVersion}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-[11px] text-slate-500">{t('Все моды актуальны')}</div>
+          )}
+
+          {updateResult && (
+            <div className="rounded-xl border border-iris-400/25 bg-iris-400/10 p-3 text-[11px] font-semibold text-iris-300">
+              {t('Обновлено: {updated}, не удалось: {failed}', updateResult)}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-4">
+            <Button onClick={closeUpdatePreview} disabled={updatingAll}>{t('Отмена')}</Button>
+            <Button variant="primary" onClick={() => void applySelectedUpdates()} disabled={updatingAll || !previewSelected.length}>
+              {updatingAll ? <Spinner size={15} /> : <Download size={15} />}
+              {updatingAll ? t('Обновление модов...') : t('Обновить выбранные')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {busy && installing && <div className="fixed bottom-6 left-1/2 -translate-x-1/2"><Spinner /></div>}
     </div>

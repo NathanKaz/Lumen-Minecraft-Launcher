@@ -12,6 +12,38 @@ import type {
 
 export type Page = 'home' | 'screenshots' | 'skins' | 'modpacks' | 'settings'
 
+export interface NotificationRecord extends ToastPayload {
+  time: number
+  read: boolean
+}
+
+const NOTIFICATIONS_KEY = 'lumen-notifications'
+const NOTIFICATION_LIMIT = 100
+
+function loadNotifications(): NotificationRecord[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? (parsed as NotificationRecord[]).slice(-NOTIFICATION_LIMIT) : []
+  } catch {
+    return []
+  }
+}
+
+function saveNotifications(items: NotificationRecord[]): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-NOTIFICATION_LIMIT)))
+  } catch {
+    // Storage may be unavailable in private mode; notifications still work in memory.
+  }
+}
+
+export function unreadCount(items: NotificationRecord[]): number {
+  return items.filter((item) => !item.read).length
+}
+
 interface LauncherStore {
   state: AppState | null
   versions: VersionManifest | null
@@ -21,6 +53,9 @@ interface LauncherStore {
   logs: LogPayload[]
   gameStatus: GameStatus
   toasts: ToastPayload[]
+  notifications: NotificationRecord[]
+  crashProfileId: string | null
+  globalSearchOpen: boolean
   busy: boolean
   init: () => Promise<void>
   refresh: () => Promise<void>
@@ -30,8 +65,14 @@ interface LauncherStore {
   /** Shows the native confirmation dialog, then removes the build and all of its files. */
   removeProfile: (id: string) => Promise<boolean>
   setBusy: (busy: boolean) => void
+  setGameStatus: (status: GameStatus) => void
   dismissToast: (id: string) => void
   pushToast: (type: ToastPayload['type'], message: string) => void
+  recordNotification: (type: ToastPayload['type'], message: string) => void
+  markNotificationsRead: () => void
+  clearNotifications: () => void
+  setCrashProfileId: (id: string | null) => void
+  setGlobalSearchOpen: (open: boolean) => void
 }
 
 export const useLauncher = create<LauncherStore>((set, get) => ({
@@ -43,13 +84,19 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
   logs: [],
   gameStatus: 'idle',
   toasts: [],
+  notifications: [],
+  crashProfileId: null,
+  globalSearchOpen: false,
   busy: false,
 
   init: async () => {
     api.onProgress((progress) => set({ progress }))
     api.onLog((log) => set({ logs: [...get().logs, log].slice(-400) }))
-    api.onGameStatus((gameStatus) => set({ gameStatus }))
-    api.onToast((toast) => set({ toasts: [...get().toasts, toast] }))
+    api.onGameStatus((status) => get().setGameStatus(status))
+    api.onToast((toast) => {
+      set({ toasts: [...get().toasts, toast] })
+      get().recordNotification(toast.type, toast.message)
+    })
 
     const [state, versions, gameStatus, logs] = await Promise.all([
       api.getState(),
@@ -57,7 +104,8 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
       api.getGameStatus().catch(() => 'idle' as GameStatus),
       api.getLogs().catch(() => [])
     ])
-    set({ state, versions, gameStatus, logs })
+    set({ state, versions, logs, notifications: loadNotifications() })
+    get().setGameStatus(gameStatus)
   },
 
   refresh: async () => {
@@ -86,9 +134,45 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
     return true
   },
   setBusy: (busy) => set({ busy }),
+  setGameStatus: (status) => {
+    const previous = get().gameStatus
+    set({ gameStatus: status })
+    if (status === 'crashed' && previous !== 'crashed') {
+      const profileId = get().state?.selectedProfileId
+      if (profileId) set({ crashProfileId: profileId })
+    } else if (status !== 'crashed' && get().crashProfileId) {
+      set({ crashProfileId: null })
+    }
+  },
   dismissToast: (id) => set({ toasts: get().toasts.filter((toast) => toast.id !== id) }),
-  pushToast: (type, message) =>
-    set({ toasts: [...get().toasts, { id: `${Date.now()}-${Math.random()}`, type, message }] })
+  pushToast: (type, message) => {
+    const toast: ToastPayload = { id: `${Date.now()}-${Math.random()}`, type, message }
+    set({ toasts: [...get().toasts, toast] })
+    get().recordNotification(type, message)
+  },
+  recordNotification: (type, message) => {
+    const notification: NotificationRecord = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type,
+      message,
+      time: Date.now(),
+      read: false
+    }
+    const notifications = [...get().notifications, notification].slice(-NOTIFICATION_LIMIT)
+    saveNotifications(notifications)
+    set({ notifications })
+  },
+  markNotificationsRead: () => {
+    const notifications = get().notifications.map((item) => ({ ...item, read: true }))
+    saveNotifications(notifications)
+    set({ notifications })
+  },
+  clearNotifications: () => {
+    saveNotifications([])
+    set({ notifications: [] })
+  },
+  setCrashProfileId: (id) => set({ crashProfileId: id }),
+  setGlobalSearchOpen: (open) => set({ globalSearchOpen: open })
 }))
 
 export function selectedProfile(state?: AppState | null) {

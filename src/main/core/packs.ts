@@ -63,7 +63,11 @@ export async function installPack(profileId: string, kind: PackKind): Promise<vo
   })
   if (result.canceled || !result.filePaths[0]) return
 
-  const source = result.filePaths[0]
+  await installPackFile(profileId, kind, result.filePaths[0])
+}
+
+/** Installs an already selected resource/shader pack archive. */
+export async function installPackFile(profileId: string, kind: PackKind, source: string): Promise<void> {
   const target = packsDir(profileId, kind)
   await fs.ensureDir(target)
   await fs.copy(source, path.join(target, path.basename(source)), { overwrite: true })

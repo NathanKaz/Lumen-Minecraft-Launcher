@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getLocale, t } from '../lib/i18n'
-import { CheckCircle2, Clock, Coffee, Copy, Download, FolderOpen, RefreshCw, Search, Terminal, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Coffee, Copy, Download, FolderOpen, HelpCircle, RefreshCw, Search, Terminal, Trash2, XCircle } from 'lucide-react'
 import { api, isMock } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
+import { Tooltip } from '../components/Tooltip'
 import type { CrashReportInfo, JavaInfo, LogFileInfo, LogPayload, ScheduledBackupSettings, UpdateInfo } from '@shared/types'
 
 type LogSource = 'memory' | 'files'
@@ -54,6 +55,7 @@ export function Settings(): JSX.Element {
   const [activeEntry, setActiveEntry] = useState<ActiveEntry>(null)
   const [fileText, setFileText] = useState('')
   const [fileLoading, setFileLoading] = useState(false)
+  const [settingsQuery, setSettingsQuery] = useState('')
 
   const fileProfileId = logProfile === null ? state?.selectedProfileId ?? '' : logProfile
 
@@ -101,6 +103,33 @@ export function Settings(): JSX.Element {
   if (!state) return <Spinner />
   const settings = state.settings
   const scheduled: ScheduledBackupSettings = settings.scheduledBackup ?? { enabled: false, intervalHours: 6, keepCount: 10 }
+
+  // Search aliases are not user-visible, so English terms stay literal here.
+  const normalizedSettingsQuery = settingsQuery.trim().toLowerCase()
+  const matchesSection = (title: string, keywords: string): boolean =>
+    !normalizedSettingsQuery || `${title} ${keywords}`.toLowerCase().includes(normalizedSettingsQuery)
+  const showJava = matchesSection('Java', `${t('Путь к Java')} ${t('Автоматически устанавливать Java')} java jvm джава путь path auto`)
+  const showPerformance = matchesSection(
+    t('Производительность'),
+    `${t('Память')} ${t('Ширина окна')} ${t('Высота окна')} ${t('Полноэкранный режим')} memory ram память разрешение fullscreen resolution width height`
+  )
+  const showFolders = matchesSection(
+    t('Каталоги'),
+    `${t('Данные лаунчера')} ${t('Сборки и миры')} ${t('Моды активной сборки')} ${t('Журналы')} folders папки каталоги путь paths files`
+  )
+  const showGeneral = matchesSection(
+    t('Общее'),
+    `${t('Проверять обновления')} ${t('Язык интерфейса')} ${t('Повторить мастер первого запуска')} general language обновления язык setup wizard`
+  )
+  const showBackups = matchesSection(
+    t('Бэкапы по расписанию'),
+    `${t('Создавать копии автоматически')} ${t('Интервал, часы')} ${t('Хранить копий')} backup backups бэкап копии расписание interval`
+  )
+  const showLogs = matchesSection(
+    t('Журнал лаунчера'),
+    `${t('Поиск по журналу')} ${t('Файлы и отчёты')} log logs журнал логи crash ошибки reports`
+  )
+  const anySectionVisible = showJava || showPerformance || showFolders || showGeneral || showBackups || showLogs
 
   const update = async (patch: Partial<typeof settings>) => {
     await api.setState({ settings: { ...settings, ...patch } })
@@ -161,7 +190,18 @@ export function Settings(): JSX.Element {
     <div className="mx-auto max-w-[1060px]">
       <SectionHeader title={t("Настройки")} subtitle={t("Пути, память, Java и журналы лаунчера.")} />
 
+      <div className="relative mb-5">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
+        <input
+          className="input pl-9"
+          placeholder={t('Поиск по настройкам')}
+          value={settingsQuery}
+          onChange={(event) => setSettingsQuery(event.target.value)}
+        />
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
+        {showJava && (
         <div className="panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <Coffee size={18} className="text-mint-400" />
@@ -169,7 +209,12 @@ export function Settings(): JSX.Element {
           </div>
           <div className="space-y-4">
             <div>
-              <label className="label">{t("Путь к Java")}</label>
+              <label className="label flex items-center gap-1.5">
+                {t("Путь к Java")}
+                <Tooltip content={t('Путь к исполняемому файлу Java. Оставьте пустым, чтобы лаунчер использовал автоопределённую совместимую Java.')}>
+                  <HelpCircle size={13} className="text-slate-600" />
+                </Tooltip>
+              </label>
               <div className="flex gap-2">
                 <input
                   className="input font-mono text-xs"
@@ -207,7 +252,9 @@ export function Settings(): JSX.Element {
             </div>
           </div>
         </div>
+        )}
 
+        {showPerformance && (
         <div className="panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <Terminal size={18} className="text-iris-400" />
@@ -215,7 +262,12 @@ export function Settings(): JSX.Element {
           </div>
           <div className="space-y-5">
             <div>
-              <label className="label">{t('Память по умолчанию: {memory} МБ', { memory: settings.memory })}</label>
+              <label className="label flex items-center gap-1.5">
+                {t('Память по умолчанию: {memory} МБ', { memory: settings.memory })}
+                <Tooltip content={t('Объём памяти в мегабайтах для игр без собственного значения. Безопасное значение — 2048–4096 МБ.')}>
+                  <HelpCircle size={13} className="text-slate-600" />
+                </Tooltip>
+              </label>
               <input
                 type="range"
                 min={1024}
@@ -237,7 +289,12 @@ export function Settings(): JSX.Element {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">{t("Ширина окна")}</label>
+                <label className="label flex items-center gap-1.5">
+                  {t("Ширина окна")}
+                  <Tooltip content={t('Размер окна в пикселях. Безопасное значение — 1280×720; в полноэкранном режиме размер игнорируется.')}>
+                    <HelpCircle size={13} className="text-slate-600" />
+                  </Tooltip>
+                </label>
                 <input type="number" className="input" value={settings.width} onChange={(event) => void update({ width: Number(event.target.value) })} />
               </div>
               <div>
@@ -247,14 +304,21 @@ export function Settings(): JSX.Element {
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <div>
-                <div className="text-xs font-semibold text-slate-200">{t("Полноэкранный режим")}</div>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+                  {t("Полноэкранный режим")}
+                  <Tooltip content={t('Включите, чтобы игра запускалась на весь экран. Безопасное значение — выключено, размер окна задаётся выше.')}>
+                    <HelpCircle size={13} className="text-slate-600" />
+                  </Tooltip>
+                </div>
                 <div className="text-[10px] text-slate-500">{t("Игра запускается в полноэкранном режиме")}</div>
               </div>
               <Toggle checked={settings.fullscreen} onChange={() => void update({ fullscreen: !settings.fullscreen })} />
             </div>
           </div>
         </div>
+        )}
 
+        {showFolders && (
         <div className="panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <FolderOpen size={18} className="text-amber-400" />
@@ -277,7 +341,9 @@ export function Settings(): JSX.Element {
             ))}
           </div>
         </div>
+        )}
 
+        {showGeneral && (
         <div className="panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <Terminal size={18} className="text-slate-400" />
@@ -329,14 +395,30 @@ export function Settings(): JSX.Element {
                 {checkingUpdates ? <Spinner size={14} /> : <Download size={15} />} {t('Проверить')}
               </Button>
             </div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-200">{t('Повторить мастер первого запуска')}</div>
+                <div className="text-[10px] text-slate-500">{t('Настройки будут сброшены только для флага мастера')}</div>
+              </div>
+              <Button className="shrink-0" onClick={() => void update({ onboardingCompleted: false })}>
+                <RefreshCw size={14} /> {t('Повторить мастер первого запуска')}
+              </Button>
+            </div>
             {isMock && <Badge tone="iris">{t("Демо-режим: файлы не изменяются")}</Badge>}
           </div>
         </div>
+        )}
 
+        {showBackups && (
         <div className="panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <Clock size={18} className="text-amber-400" />
-            <h3 className="text-sm font-bold text-white">{t('Бэкапы по расписанию')}</h3>
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-white">
+              {t('Бэкапы по расписанию')}
+              <Tooltip content={t('Автоматические копии миров с заданным интервалом. Безопасные значения: интервал 6 часов и не более 10 последних копий.')}>
+                <HelpCircle size={14} className="text-slate-600" />
+              </Tooltip>
+            </h3>
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
@@ -378,8 +460,14 @@ export function Settings(): JSX.Element {
             </p>
           </div>
         </div>
+        )}
+
+        {!anySectionVisible && (
+          <div className="panel p-8 text-center text-sm text-slate-500">{t('Ничего не найдено')}</div>
+        )}
       </div>
 
+      {showLogs && (
       <div className="panel mt-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
           <div className="flex items-center gap-2">
@@ -510,6 +598,7 @@ export function Settings(): JSX.Element {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

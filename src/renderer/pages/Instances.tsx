@@ -3,7 +3,7 @@ import { getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
   ArrowRight, Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
-  LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Users, Wrench
+  LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Upload, Users, Wrench
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
@@ -11,6 +11,7 @@ import { selectedProfile, useLauncher } from '../store'
 import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { ProfileFields } from '../components/ProfileFields'
+import { InstanceSignals } from '../components/InstanceSignals'
 import { ContextMenu, type ContextMenuState } from '../components/ContextMenu'
 import type { BuildGroup, ImportCandidate, ImportSource, Profile } from '@shared/types'
 
@@ -101,6 +102,7 @@ export function Instances(): JSX.Element {
   const [renamingGroupName, setRenamingGroupName] = useState('')
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
+  const [fileDropTarget, setFileDropTarget] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [selectMode, setSelectMode] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -413,6 +415,46 @@ export function Instances(): JSX.Element {
     else void sectionId
   }
 
+  const importDropped = async (profile: Profile, path: string) => {
+    const supported = ['.jar', '.mrpack', '.zip', '.mcworld']
+    if (!supported.some((extension) => path.toLowerCase().endsWith(extension))) {
+      pushToast('error', `${t('Не удалось установить файл')}: ${t('Поддерживаются файлы .jar, .mrpack, .zip и .mcworld')}`)
+      return
+    }
+    setBusy(true)
+    try {
+      await api.importDroppedFile(profile.id, path)
+      await refresh()
+      pushToast('success', t('Файл установлен в сборку'))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onCardDragOver = (event: DragEvent, profile: Profile) => {
+    if (event.dataTransfer.files.length === 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'copy'
+    setFileDropTarget(profile.id)
+  }
+
+  const onCardDrop = (event: DragEvent, profile: Profile) => {
+    if (event.dataTransfer.files.length === 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    setFileDropTarget(null)
+    const file = event.dataTransfer.files[0]
+    const path = (file as File & { path?: string }).path
+    if (!path) {
+      pushToast('error', t('Не удалось установить файл'))
+      return
+    }
+    void importDropped(profile, path)
+  }
+
   const renderCard = (profile: Profile) => {
     const installed = isProfileInstalled(profile, state)
     const active = profile.id === state.selectedProfileId
@@ -446,11 +488,26 @@ export function Instances(): JSX.Element {
         onContextMenu={(event) => openCardMenu(event, profile)}
         onDragStartCapture={(event) => onDragStart(event, profile)}
         onDragEndCapture={() => { setDraggingId(null); setDropTarget(null) }}
+        onDragOver={(event) => onCardDragOver(event, profile)}
+        onDragLeave={(event) => {
+          if (event.dataTransfer.files.length > 0 && !event.currentTarget.contains(event.relatedTarget as Node)) {
+            setFileDropTarget(null)
+          }
+        }}
+        onDrop={(event) => onCardDrop(event, profile)}
         className={`panel relative cursor-pointer overflow-hidden p-5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-mint-400/40 ${
           active ? 'border-mint-400/35 shadow-glow' : 'hover:border-white/15'
-        } ${draggingId === profile.id ? 'opacity-40' : ''} ${view === 'grid' ? 'flex flex-col' : 'flex items-center gap-5'}`}
+        } ${draggingId === profile.id ? 'opacity-40' : ''} ${fileDropTarget === profile.id ? 'border-mint-400 bg-mint-400/[0.06] ring-2 ring-mint-400/40' : ''} ${
+          view === 'grid' ? 'flex flex-col' : 'flex items-center gap-5'
+        }`}
       >
         <div className={`absolute inset-x-0 top-0 h-1 ${active ? 'bg-gradient-to-r from-mint-400 to-iris-500' : 'bg-white/5'}`} />
+
+        {fileDropTarget === profile.id && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-2xl bg-ink-900/75 text-xs font-bold text-mint-300">
+            <Upload size={16} /> {t('Перетащите файл на сборку')}
+          </div>
+        )}
 
         {selectMode && (
           <button
@@ -505,6 +562,7 @@ export function Instances(): JSX.Element {
               {group && <Badge tone={groupTone(group.color)}>{group.name}</Badge>}
               {profile.modpack && <Badge tone="amber">{profile.modpack.name}</Badge>}
             </div>
+            <div className="mt-2"><InstanceSignals profile={profile} /></div>
           </div>
         </div>
 

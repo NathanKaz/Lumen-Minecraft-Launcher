@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Check, Download, Loader2, Search } from 'lucide-react'
+import { Check, Download, HelpCircle, Loader2, Search } from 'lucide-react'
 import { Select, Toggle } from './ui'
+import { Tooltip } from './Tooltip'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
@@ -187,7 +188,12 @@ export function ProfileFields({
       </div>
 
       <div>
-        <label className="label">{t("Загрузчик модов")}</label>
+        <label className="label flex items-center gap-1.5">
+          {t("Загрузчик модов")}
+          <Tooltip content={t('Загрузчик определяет, какие моды работают со сборкой. Если вы не уверены, оставьте Vanilla — лаунчер сам подберёт версию загрузчика.')}>
+            <HelpCircle size={13} className="text-slate-600" />
+          </Tooltip>
+        </label>
         <div className="grid grid-cols-2 gap-2">
           {loaders.map((loader) => (
             <button
@@ -216,7 +222,12 @@ export function ProfileFields({
 
       <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
         <div>
-          <label className="label">{t('Java для сборки')}</label>
+          <label className="label flex items-center gap-1.5">
+            {t('Java для сборки')}
+            <Tooltip content={t('Путь к Java для этой сборки перекрывает глобальные настройки. Оставьте поле пустым, чтобы использовать автоопределённую совместимую Java.')}>
+              <HelpCircle size={13} className="text-slate-600" />
+            </Tooltip>
+          </label>
           <div className="flex gap-2">
             <input
               className="input flex-1"
@@ -237,7 +248,12 @@ export function ProfileFields({
           </button>
         </div>
         <div>
-          <label className="label">{t('JVM-аргументы')}</label>
+          <label className="label flex items-center gap-1.5">
+            {t('JVM-аргументы')}
+            <Tooltip content={t('Флаги передаются Java при каждом запуске сборки. Обычно поле оставляют пустым; безопасный пример: -XX:+UseG1GC -Dfile.encoding=UTF-8.')}>
+              <HelpCircle size={13} className="text-slate-600" />
+            </Tooltip>
+          </label>
           <textarea
             className="input min-h-[64px] resize-y py-2"
             placeholder={t('Например: -XX:+UseG1GC -Dfile.encoding=UTF-8')}
@@ -276,7 +292,12 @@ export function ProfileFields({
           </div>
           {profile.memory !== undefined && (
             <div className="mt-3">
-              <label className="label">{t('Память сборки: {memory} МБ', { memory: profile.memory })}</label>
+              <label className="label flex items-center gap-1.5">
+                {t('Память сборки: {memory} МБ', { memory: profile.memory })}
+                <Tooltip content={t('Объём оперативной памяти для сборки в мегабайтах. Безопасное значение — 2048–4096 МБ; не выделяйте больше половины установленной ОЗУ.')}>
+                  <HelpCircle size={13} className="text-slate-600" />
+                </Tooltip>
+              </label>
               <input
                 type="range"
                 min={1024}

@@ -834,7 +834,171 @@ const en: Record<string, string> = {
   'Сборки не найдены': 'No instances found',
   'Проверьте каталоги MultiMC, Prism Launcher и официального лаунчера или выберите архив CurseForge.':
     'Check the MultiMC, Prism Launcher and official launcher folders or choose a CurseForge archive.',
-  'Выберите файл': 'Choose a file'
+  'Выберите файл': 'Choose a file',
+
+  // First-run wizard, global search and notifications
+  'Мастер первого запуска': 'First-run setup',
+  'Добро пожаловать в Lumen Launcher': 'Welcome to Lumen Launcher',
+  'Настроим лаунчер за три шага': 'Let’s set up the launcher in three steps',
+  'English': 'English',
+  'Проверка Java': 'Java check',
+  'Проверяем Java...': 'Checking Java...',
+  'Подходящая Java найдена': 'Compatible Java found',
+  'Установить подходящую Java': 'Install compatible Java',
+  'Установка Java...': 'Installing Java...',
+  'Не удалось проверить Java': 'Could not check Java',
+  'Первая сборка': 'First instance',
+  'Создать ванильную сборку': 'Create a vanilla instance',
+  'Имя сборки': 'Instance name',
+  'Создание сборки...': 'Creating instance...',
+  'Готово': 'Done',
+  'Пропустить': 'Skip',
+  'Назад': 'Back',
+  'Далее': 'Next',
+  'Повторить мастер первого запуска': 'Re-run first-run setup',
+  'Настройки будут сброшены только для флага мастера': 'Only the setup flag will be changed',
+  'Глобальный поиск': 'Global search',
+  'Поиск сборок, модов, миров и действий...': 'Search instances, mods, worlds and actions...',
+  'Сборки': 'Instances',
+  'Разделы': 'Sections',
+  'Действия': 'Actions',
+  'Нажмите Ctrl+K для поиска': 'Press Ctrl+K to search',
+  'Создать резервную копию всех сборок': 'Back up all instances',
+  'Открыть папку логов': 'Open logs folder',
+  'Центр уведомлений': 'Notification center',
+  'Нет уведомлений': 'No notifications',
+  'Здесь появятся события установки, обновлений и бэкапов': 'Install, update and backup events will appear here',
+  'Отметить прочитанными': 'Mark all as read',
+  'назад': 'ago',
+  'только что': 'just now',
+  'мин назад': 'min ago',
+  'ч назад': 'h ago',
+  'дн назад': 'd ago',
+
+  // Crash assistant
+  'Помощник при вылете игры': 'Game crash assistant',
+  'Игра завершилась с ошибкой': 'The game crashed',
+  'Анализируем отчёт...': 'Analyzing the report...',
+  'Не удалось проанализировать сбой': 'Could not analyze the crash',
+  'Причина': 'Cause',
+  'Что можно сделать': 'Suggested actions',
+  'Подробности': 'Details',
+  'Открыть полный отчёт': 'Open full report',
+  'Скрыть полный отчёт': 'Hide full report',
+  'Открыть список модов': 'Open mod list',
+  'Проверьте дубликаты, несовместимые загрузчики и недавно добавленные моды.':
+    'Check for duplicates, incompatible loaders and recently added mods.',
+  'Проверить файлы сборки': 'Verify instance files',
+  'Лаунчер восстановит отсутствующие или повреждённые файлы.':
+    'The launcher will restore missing or damaged files.',
+  'Восстановить файлы': 'Repair files',
+  'Увеличить память сборки': 'Increase instance memory',
+  'Выделите больше ОЗУ для Minecraft (сейчас рекомендуется не менее {memory} МБ).':
+    'Allocate more RAM to Minecraft (at least {memory} MB is recommended now).',
+  'Проверить настройки Java и памяти': 'Check Java and memory settings',
+  'Проверьте путь к Java и объём выделенной памяти.': 'Check the Java path and allocated memory.',
+  'Для этой версии Minecraft нужна Java {major} или новее.':
+    'This Minecraft version requires Java {major} or newer.',
+  'Указать другую Java вручную': 'Choose another Java manually',
+  'Откройте настройки и выберите установленную Java.': 'Open settings and select an installed Java.',
+  'Версия клиента может не соответствовать версии сборки.':
+    'The client version may not match the instance version.',
+  'Проверить совместимость модов': 'Check mod compatibility',
+  'Моды могут быть собраны для другой версии Minecraft.':
+    'Mods may target a different Minecraft version.',
+  'Восстановите клиент, библиотеки и ассеты по контрольным суммам.':
+    'Restore the client, libraries and assets using checksums.',
+  'Открыть полный отчёт о сбое': 'Open the full crash report',
+  'Отчёт содержит полный стек вызовов и список загруженных модов.':
+    'The report contains the full stack trace and loaded mod list.',
+  'Не хватает памяти. Увеличьте объём ОЗУ для сборки.':
+    'Out of memory. Increase the RAM allocated to the instance.',
+  'Версия Java не подходит для этой версии Minecraft.':
+    'The Java version is incompatible with this Minecraft version.',
+  'Похоже, проблема в моде или конфликте модов.': 'Looks like a mod or mod conflict issue.',
+  'Несовместимость версии клиента и сборки.':
+    'The client and instance versions are incompatible.',
+  'Причина сбоя не определена автоматически. Откройте полный отчёт.':
+    'The cause could not be detected automatically. Open the full report.',
+  'Причина сбоя не определена автоматически. Проверьте файлы сборки.':
+    'The cause could not be detected automatically. Verify the instance files.',
+
+  // Instance dashboard and file drop
+  'Сигналы сборки': 'Instance signals',
+  'модов': 'mods',
+  'обновлений': 'updates',
+  'миров': 'worlds',
+  'Создать бэкап': 'Back up now',
+  'Следующий бэкап': 'Next backup',
+  'выключены': 'disabled',
+  'Перетащите файл на сборку': 'Drop a file onto the instance',
+  'Поддерживаются файлы .jar, .mrpack, .zip и .mcworld':
+    'Supported files: .jar, .mrpack, .zip and .mcworld',
+  'Файл принят (демо)': 'File accepted (demo)',
+  'Файл установлен в сборку': 'File installed into the instance',
+  'Не удалось установить файл': 'Could not install the file',
+
+  // Update-all preview
+  'Предпросмотр обновлений': 'Update preview',
+  'Обновить выбранные': 'Update selected',
+  'Выбрано обновлений: {count}': 'Updates selected: {count}',
+  'Текущая версия': 'Current version',
+  'Новая версия': 'Latest version',
+  'Перед обновлением будет создана резервная копия': 'A backup will be created before updating',
+  'Обновление модов...': 'Updating mods...',
+  'Обновлено: {updated}, не удалось: {failed}': 'Updated: {updated}, failed: {failed}',
+  'Обновления применены': 'Updates applied',
+
+  // Technical field help
+  'Путь к исполняемому файлу Java. Оставьте пустым для автоопределения.':
+    'Path to the Java executable. Leave empty for auto-detection.',
+  'Аргументы JVM': 'JVM arguments',
+  'Дополнительные флаги Java перед запуском игры. Обычно менять не нужно.':
+    'Extra Java flags passed before starting the game. Usually safe to leave empty.',
+  'Выделенная память': 'Allocated memory',
+  'Объём ОЗУ в мегабайтах для Minecraft. 2048 МБ достаточно для большинства сборок.':
+    'RAM in megabytes for Minecraft. 2048 MB is enough for most instances.',
+  'Версия загрузчика': 'Loader version',
+  'Конкретная версия Fabric/Forge. Оставьте «последнюю», если сомневаетесь.':
+    'A specific Fabric/Forge version. Keep “latest” if unsure.',
+  'Разрешение окна': 'Window resolution',
+  'Размер окна при запуске в полноэкранном режиме не используется.':
+    'Ignored when the game starts in fullscreen mode.',
+  'Резервные копии по расписанию': 'Scheduled backups',
+  'Автоматические копии папки saves. По умолчанию выключены.':
+    'Automatic copies of the saves folder. Disabled by default.',
+  'Ничего не найдено. Попробуйте другой запрос.': 'Nothing found. Try a different query.',
+  'Java': 'Java',
+  'Поиск по лаунчеру...': 'Search the launcher...',
+  'Только что': 'Just now',
+  '{count} мин назад': '{count} min ago',
+  '{count} ч назад': '{count} h ago',
+  '{count} дн назад': '{count} d ago',
+  'Уведомления': 'Notifications',
+  'Отметить всё прочитанным': 'Mark all as read',
+  'Новые уведомления появятся здесь.': 'New notifications will appear here.',
+  'Непрочитано': 'Unread',
+  'Выбранные моды будут заменены новыми версиями.':
+    'Selected mods will be replaced with their new versions.',
+  'Поиск по настройкам': 'Search settings',
+  'Путь к исполняемому файлу Java. Оставьте пустым, чтобы лаунчер использовал автоопределённую совместимую Java.':
+    'Path to the Java executable. Leave empty to use the compatible Java detected by the launcher.',
+  'Объём памяти в мегабайтах для игр без собственного значения. Безопасное значение — 2048–4096 МБ.':
+    'Memory in megabytes for instances without an override. A safe value is 2048–4096 MB.',
+  'Размер окна в пикселях. Безопасное значение — 1280×720; в полноэкранном режиме размер игнорируется.':
+    'Window size in pixels. A safe value is 1280×720; ignored in fullscreen mode.',
+  'Включите, чтобы игра запускалась на весь экран. Безопасное значение — выключено, размер окна задаётся выше.':
+    'Enable to start the game in fullscreen. Safe default is off; window size is set above.',
+  'Автоматические копии миров с заданным интервалом. Безопасные значения: интервал 6 часов и не более 10 последних копий.':
+    'Automatic world copies at a set interval. Safe values: every 6 hours, keep at most 10 backups.',
+  'Путь к Java для этой сборки перекрывает глобальные настройки. Оставьте поле пустым, чтобы использовать автоопределённую совместимую Java.':
+    'The Java path for this instance overrides global settings. Leave empty to use the compatible Java detected by the launcher.',
+  'Флаги передаются Java при каждом запуске сборки. Обычно поле оставляют пустым; безопасный пример: -XX:+UseG1GC -Dfile.encoding=UTF-8.':
+    'Flags passed to Java on every instance launch. Usually left empty; a safe example is -XX:+UseG1GC -Dfile.encoding=UTF-8.',
+  'Загрузчик определяет, какие моды работают со сборкой. Если вы не уверены, оставьте Vanilla — лаунчер сам подберёт версию загрузчика.':
+    'The loader determines which mods work with the instance. If unsure, keep Vanilla — the launcher will pick a loader version.',
+  'Объём оперативной памяти для сборки в мегабайтах. Безопасное значение — 2048–4096 МБ; не выделяйте больше половины установленной ОЗУ.':
+    'RAM for the instance in megabytes. A safe value is 2048–4096 MB; do not allocate more than half of your installed RAM.'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {

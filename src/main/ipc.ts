@@ -53,7 +53,8 @@ import { exportProfiles, importProfiles } from './core/profileTransfer'
 import { deletePack, installPack, listPacks, togglePack } from './core/packs'
 import { checkModUpdates, updateAllMods, updateMod } from './core/modUpdates'
 import { installCatalogProject, searchCatalog } from './core/catalog'
-import { getLogFiles, listCrashReports, readLogFile } from './core/diagnostics'
+import { analyzeCrash, getLogFiles, listCrashReports, readLogFile } from './core/diagnostics'
+import { importDroppedFile } from './core/fileDrop'
 import { detectImportSources, importLauncherProfile } from './core/importLaunchers'
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
@@ -227,6 +228,8 @@ export function registerIpc(): void {
   handle(IPC.getLogFiles, (profileId?: string) => getLogFiles(profileId))
   handle(IPC.readLogFile, (profileId: string | undefined, name: string) => readLogFile(profileId, name))
   handle(IPC.listCrashReports, (profileId?: string) => listCrashReports(profileId))
+  handle(IPC.analyzeCrash, (profileId: string) => analyzeCrash(profileId))
+  handle(IPC.importDroppedFile, (profileId: string, filePath: string) => importDroppedFile(profileId, filePath))
 
   // Import from other launchers
   handle(IPC.detectImportSources, () => detectImportSources())

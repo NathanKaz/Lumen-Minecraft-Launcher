@@ -99,7 +99,13 @@ export const IPC = {
 
   // Import from other launchers
   detectImportSources: 'import:detect',
-  importLauncherProfile: 'import:apply'
+  importLauncherProfile: 'import:apply',
+
+  // Crash diagnostics
+  analyzeCrash: 'logs:analyzeCrash',
+
+  // Dropping files onto an instance card
+  importDroppedFile: 'profile:importDroppedFile'
 } as const
 
 export const EVENTS = {

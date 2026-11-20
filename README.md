@@ -24,6 +24,14 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Per-instance Java** — override the Java executable and JVM arguments for each build. If no compatible Java is found, the launcher can download a managed Temurin JRE automatically into its own data directory (no system-wide changes).
 - **Multiple offline profiles** — create, rename, switch between, and delete local players. Each player has an isolated set of instances, groups, and skins; switching profiles closes the current instance view and loads that player's world. Profile folders on disk are kept when a player is removed.
 - **Cross-platform builds** — electron-builder targets Windows (NSIS), macOS (DMG, x64 + Apple Silicon), and Linux (AppImage + DEB, x64 + arm64). Ready-to-use `dist:win`, `dist:mac`, `dist:linux`, and `dist:all` scripts plus a GitHub Actions matrix build native artifacts for all three systems.
+- **First-run wizard** — a three-step setup for interface language, Java detection/installation and an optional vanilla instance. It runs once on a fresh install and can be re-opened from Settings.
+- **Global search** — `Ctrl+K` / `Cmd+K` opens a command palette that searches instances, installed mods and worlds, settings sections and common actions.
+- **Crash assistant** — when the game crashes, the launcher analyzes the newest crash report and logs, explains the likely cause and offers concrete fixes (memory, Java, mods, file verification, full report).
+- **Update preview** — `Update all` now shows a checklist of `current → latest` versions; select only the updates to apply, with an automatic backup before a full batch.
+- **Drop files on an instance** — drop `.jar` mods, `.mrpack` modpacks, `.mcworld`/`.zip` worlds or `.zip` resource packs directly onto an instance card.
+- **Notification center** — the titlebar bell keeps a local history of install, update and backup events with unread counts and filtering actions.
+- **Instance signals** — cards show mod/update/world counts, last launch and scheduled backup status, with a one-click backup button.
+- **Settings search & field help** — filter settings sections by keyword and open `?` tooltips explaining Java, JVM, memory, loader and backup options.
 - **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
 
 ## Development

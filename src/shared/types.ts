@@ -48,6 +48,8 @@ export interface Settings {
   autoInstallJava?: boolean
   /** Periodic world backups. Disabled by default. */
   scheduledBackup?: ScheduledBackupSettings
+  /** Set after the first-run wizard is finished. */
+  onboardingCompleted?: boolean
 }
 
 export interface ScheduledBackupSettings {
@@ -343,6 +345,36 @@ export interface ImportResult {
   skipped: string[]
 }
 
+/** Result of analyzing logs and crash reports after a game crash. */
+export type CrashCause = 'memory' | 'java' | 'mod' | 'version' | 'unknown'
+
+export type CrashAction =
+  | 'increaseMemory'
+  | 'installJava'
+  | 'openMods'
+  | 'verifyFiles'
+  | 'openReport'
+  | 'openSettings'
+
+export interface CrashSuggestion {
+  id: string
+  title: string
+  description: string
+  action: CrashAction
+}
+
+export interface CrashAnalysis {
+  profileId: string
+  detected: boolean
+  cause: CrashCause
+  summary: string
+  /** Short excerpts of the crash report/logs that led to the conclusion. */
+  details: string[]
+  reportName?: string
+  reportText?: string
+  suggestions: CrashSuggestion[]
+}
+
 export interface LauncherAPI {
   getState(): Promise<AppState>
   setState(patch: Partial<AppState>): Promise<AppState>
@@ -447,6 +479,12 @@ export interface LauncherAPI {
   // Importing instances from other launchers
   detectImportSources(): Promise<ImportCandidate[]>
   importLauncherProfile(candidate: ImportCandidate): Promise<boolean>
+
+  // Crash diagnostics
+  analyzeCrash(profileId: string): Promise<CrashAnalysis>
+
+  /** Installs a file dropped onto an instance card (.jar, .mrpack, .zip, .mcworld). */
+  importDroppedFile(profileId: string, filePath: string): Promise<void>
 
   isMock: boolean
 }

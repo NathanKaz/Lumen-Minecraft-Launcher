@@ -5,6 +5,7 @@ import type {
   AppState,
   BackupInfo,
   CatalogQuery,
+  CrashAnalysis,
   CrashReportInfo,
   GameStatus,
   ImportCandidate,
@@ -199,7 +200,7 @@ function mockState(): AppState {
     profiles,
     groups,
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, activeSkinId: 'skin-steve' },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, onboardingCompleted: true, activeSkinId: 'skin-steve' },
     account: steve,
     accounts: [
       { ...steve, profiles, groups, selectedProfileId: 'default', activeSkinId: 'skin-steve' },
@@ -776,7 +777,27 @@ function createMock(): LauncherAPI {
     listCrashReports: async (): Promise<CrashReportInfo[]> => [],
 
     detectImportSources: async (): Promise<ImportCandidate[]> => [],
-    importLauncherProfile: async () => false
+    importLauncherProfile: async () => false,
+
+    importDroppedFile: async () => {
+      emit('toast', { id: String(Date.now()), type: 'info', message: t('Файл принят (демо)') })
+    },
+
+    analyzeCrash: async (profileId): Promise<CrashAnalysis> => ({
+      profileId,
+      detected: false,
+      cause: 'unknown',
+      summary: t('Причина сбоя не определена автоматически. Проверьте файлы сборки.'),
+      details: [],
+      suggestions: [
+        {
+          id: 'verify',
+          title: t('Проверить файлы сборки'),
+          description: t('Восстановите клиент, библиотеки и ассеты по контрольным суммам.'),
+          action: 'verifyFiles'
+        }
+      ]
+    })
   }
   return api
 }

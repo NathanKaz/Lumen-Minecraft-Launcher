@@ -7,6 +7,9 @@ import { findProfile, useLauncher } from './store'
 import { Titlebar } from './components/Titlebar'
 import { Sidebar } from './components/Sidebar'
 import { ToastHost } from './components/ToastHost'
+import { FirstRunWizard } from './components/FirstRunWizard'
+import { GlobalSearch } from './components/GlobalSearch'
+import { CrashAssistant } from './components/CrashAssistant'
 import { Badge, Button, Modal } from './components/ui'
 import { SkinsPanel } from './components/SkinsPanel'
 import { Instances } from './pages/Instances'
@@ -19,9 +22,12 @@ import type { AccountRecord } from '@shared/types'
 export default function App(): JSX.Element {
   const {
     state, page, openedProfileId, gameStatus,
-    init, refresh, setPage, backToInstances, pushToast
+    crashProfileId, globalSearchOpen,
+    init, refresh, setPage, backToInstances, pushToast,
+    setCrashProfileId, setGlobalSearchOpen
   } = useLauncher()
   const [accountOpen, setAccountOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [newAccountName, setNewAccountName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -33,6 +39,23 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void init()
   }, [init])
+
+  // New installations (and users who re-run setup from Settings) get the wizard.
+  useEffect(() => {
+    if (state && !state.settings.onboardingCompleted) setWizardOpen(true)
+  }, [state, state?.settings.onboardingCompleted])
+
+  // Ctrl/Cmd+K opens the command palette from anywhere in the launcher.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setGlobalSearchOpen(!globalSearchOpen)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [globalSearchOpen, setGlobalSearchOpen])
 
   const gameBusy = gameStatus === 'running' || gameStatus === 'starting'
 
@@ -121,6 +144,14 @@ export default function App(): JSX.Element {
       </div>
 
       <ToastHost />
+      <GlobalSearch />
+      <FirstRunWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      {crashProfileId && (
+        <CrashAssistant
+          profileId={crashProfileId}
+          onClose={() => setCrashProfileId(null)}
+        />
+      )}
 
       <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-2xl">
         {state && (
