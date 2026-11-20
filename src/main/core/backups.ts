@@ -6,7 +6,22 @@ import { msg } from './i18n'
 import { backupDir, instanceDir } from './paths'
 import { getState } from './store'
 import { emitLog, emitToast, uid } from './events'
-import type { BackupInfo } from '@shared/types'
+import { getStatus } from './launch'
+import type { BackupInfo, ScheduledBackupSettings } from '@shared/types'
+
+const SCHEDULED_DEFAULTS: ScheduledBackupSettings = { enabled: false, intervalHours: 6, keepCount: 10 }
+
+/** Missing or partially saved settings still produce a valid schedule. */
+export function getScheduledBackupSettings(): ScheduledBackupSettings {
+  const value = getState()?.settings?.scheduledBackup
+  const bounded = (input: number | undefined, fallback: number, min: number): number =>
+    typeof input === 'number' && Number.isFinite(input) ? Math.max(min, Math.floor(input)) : fallback
+  return {
+    enabled: value?.enabled ?? SCHEDULED_DEFAULTS.enabled,
+    intervalHours: bounded(value?.intervalHours, SCHEDULED_DEFAULTS.intervalHours, 1),
+    keepCount: bounded(value?.keepCount, SCHEDULED_DEFAULTS.keepCount, 1)
+  }
+}
 
 function profileName(id: string): string {
   return getState().profiles.find((profile) => profile.id === id)?.name ?? id
@@ -126,4 +141,82 @@ export async function deleteBackup(profileId: string, fileName: string): Promise
   if (!(await fs.pathExists(backup))) return
   await fs.remove(backup)
   emitToast('success', msg('Резервная копия удалена'))
+}
+
+/** Removes the oldest ZIP archives, keeping at most keepCount of them. */
+async function pruneBackups(profileId: string, keepCount: number): Promise<number> {
+  const backups = await listBackups(profileId)
+  let removed = 0
+  for (const backup of backups.slice(keepCount)) {
+    await fs.remove(path.join(backupDir(profileId), path.basename(backup.fileName)))
+    removed += 1
+  }
+  return removed
+}
+
+let timer: NodeJS.Timeout | null = null
+let timerHours = 0
+let tickRunning = false
+
+async function runScheduledTick(): Promise<void> {
+  if (tickRunning) return
+  tickRunning = true
+  try {
+    const schedule = getScheduledBackupSettings()
+    if (!schedule.enabled) return
+    const status = getStatus()
+    if (status === 'starting' || status === 'running') {
+      emitLog('info', msg('Бэкап по расписанию пропущен: игра запущена'))
+      return
+    }
+    for (const profile of getState().profiles) {
+      const saves = path.join(instanceDir(profile.id), 'saves')
+      if (!(await fs.pathExists(saves))) continue
+      try {
+        await createBackup(profile.id, true)
+        const removed = await pruneBackups(profile.id, schedule.keepCount)
+        emitLog('info', msg('Бэкап по расписанию: {name} · удалено старых копий: {count}', {
+          name: profile.name,
+          count: removed
+        }))
+      } catch (error) {
+        emitLog('error', msg('Не удалось создать бэкап по расписанию для {name}: {error}', {
+          name: profile.name,
+          error: error instanceof Error ? error.message : String(error)
+        }))
+      }
+    }
+  } finally {
+    tickRunning = false
+  }
+}
+
+function onScheduledTick(): void {
+  // Settings are re-read on every tick, so changes made in Settings take effect
+  // on the next run without needing a dedicated IPC channel.
+  if (getScheduledBackupSettings().intervalHours !== timerHours) {
+    startScheduledBackups()
+    return
+  }
+  void runScheduledTick()
+}
+
+/** Starts the interval in the main process; safe to call more than once. */
+export function startScheduledBackups(): void {
+  stopScheduledBackups()
+  const schedule = getScheduledBackupSettings()
+  timerHours = schedule.intervalHours
+  timer = setInterval(onScheduledTick, schedule.intervalHours * 60 * 60 * 1000)
+  timer.unref()
+}
+
+export function stopScheduledBackups(): void {
+  if (timer) clearInterval(timer)
+  timer = null
+  timerHours = 0
+}
+
+/** Re-reads the interval and rebuilds the timer, e.g. after settings change. */
+export function restartScheduledBackups(): void {
+  startScheduledBackups()
 }

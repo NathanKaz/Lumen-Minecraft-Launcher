@@ -76,7 +76,7 @@ export async function exportProfiles(profileIds: string[]): Promise<string | nul
   return result.filePath
 }
 
-function sanitizeProfile(value: Partial<Profile>, id: string, groupId?: string): Profile {
+export function sanitizeProfile(value: Partial<Profile>, id: string, groupId?: string): Profile {
   const memory = Number(value.memory)
   const lastPlayed = Number(value.lastPlayed)
   const playtime = Number(value.playtimeMinutes)

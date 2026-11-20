@@ -46,6 +46,14 @@ export interface Settings {
   autoBackupBeforeUpdates?: boolean
   /** Download a managed JRE when no compatible Java is installed. */
   autoInstallJava?: boolean
+  /** Periodic world backups. Disabled by default. */
+  scheduledBackup?: ScheduledBackupSettings
+}
+
+export interface ScheduledBackupSettings {
+  enabled: boolean
+  intervalHours: number
+  keepCount: number
 }
 
 export interface Account {
@@ -257,6 +265,84 @@ export interface ModUpdateInfo {
   projectId: string
 }
 
+/** A single save folder shown in the local worlds tab. */
+export interface WorldInfo {
+  dirName: string
+  name: string
+  version: string
+  lastPlayed?: number
+  size: number
+  modifiedAt: number
+  iconUrl?: string
+}
+
+/** Modrinth project types the launcher can install into an instance. */
+export type CatalogKind = 'modpack' | 'datapack' | 'resourcepack' | 'shader'
+
+export interface CatalogQuery {
+  kind: CatalogKind
+  query: string
+  gameVersion?: string
+  loader?: string
+  category?: string
+  offset?: number
+}
+
+export type ModIssueType = 'duplicate' | 'loader' | 'version' | 'unknown' | 'disabled'
+
+export interface ModIssue {
+  fileName: string
+  type: ModIssueType
+  message: string
+}
+
+export interface ModListEntry {
+  projectId: string
+  versionId?: string
+  fileName: string
+  name: string
+}
+
+export interface UpdateAllResult {
+  updated: string[]
+  failed: string[]
+}
+
+export interface LogFileInfo {
+  name: string
+  size: number
+  modifiedAt: number
+}
+
+export interface LogFileContent {
+  name: string
+  text: string
+}
+
+export interface CrashReportInfo extends LogFileInfo {
+  text: string
+}
+
+export type ImportSource = 'official' | 'multimc' | 'curseforge'
+
+export interface ImportCandidate {
+  /** Opaque id unique for one detection pass. */
+  id: string
+  source: ImportSource
+  /** Folder or archive to import from. */
+  path: string
+  name: string
+  versionId: string
+  loader: LoaderType
+  loaderVersionId?: string
+  details?: string
+}
+
+export interface ImportResult {
+  imported: string[]
+  skipped: string[]
+}
+
 export interface LauncherAPI {
   getState(): Promise<AppState>
   setState(patch: Partial<AppState>): Promise<AppState>
@@ -304,7 +390,7 @@ export interface LauncherAPI {
   importProfiles(): Promise<number>
   /** Creates world backups for every instance that has saves. Returns the count. */
   backupAllProfiles(): Promise<number>
-  openFolder(kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs'): Promise<void>
+  openFolder(kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs' | 'saves' | 'datapacks'): Promise<void>
   getLogs(): Promise<LogPayload[]>
   clearLogs(): Promise<void>
   onProgress(cb: (payload: ProgressPayload) => void): () => void
@@ -333,6 +419,34 @@ export interface LauncherAPI {
 
   checkModUpdates(profileId: string): Promise<ModUpdateInfo[]>
   updateMod(profileId: string, fileName: string, versionId: string): Promise<void>
+
+  // Local worlds
+  listWorlds(profileId: string): Promise<WorldInfo[]>
+  importWorldFile(profileId: string): Promise<void>
+  exportWorld(profileId: string, dirName: string): Promise<void>
+  copyWorld(profileId: string, dirName: string, targetProfileId: string): Promise<void>
+  renameWorld(profileId: string, dirName: string, name: string): Promise<void>
+  deleteWorld(profileId: string, dirName: string): Promise<void>
+
+  // Modrinth catalogs (modpacks, datapacks, resource packs, shaders)
+  searchCatalog(query: CatalogQuery): Promise<ModrinthProject[]>
+  installCatalogProject(profileId: string, kind: CatalogKind, projectId: string): Promise<void>
+
+  // Bulk mod management
+  setModsEnabled(profileId: string, fileNames: string[], enabled: boolean): Promise<void>
+  exportModList(profileId: string): Promise<void>
+  importModList(profileId: string): Promise<void>
+  analyzeMods(profileId: string): Promise<ModIssue[]>
+  updateAllMods(profileId: string): Promise<UpdateAllResult>
+
+  // Log and crash diagnostics
+  getLogFiles(profileId?: string): Promise<LogFileInfo[]>
+  readLogFile(profileId: string | undefined, name: string): Promise<LogFileContent>
+  listCrashReports(profileId?: string): Promise<CrashReportInfo[]>
+
+  // Importing instances from other launchers
+  detectImportSources(): Promise<ImportCandidate[]>
+  importLauncherProfile(candidate: ImportCandidate): Promise<boolean>
 
   isMock: boolean
 }

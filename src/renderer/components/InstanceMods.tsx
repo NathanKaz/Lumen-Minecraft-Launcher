@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { formatSize, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Wrench } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Spinner, Toggle } from './ui'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
-import type { ModInfo, ModUpdateInfo, ModrinthProject } from '@shared/types'
+import type { ModInfo, ModIssue, ModIssueType, ModUpdateInfo, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 24
 
@@ -34,6 +34,10 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const [modUpdates, setModUpdates] = useState<ModUpdateInfo[]>([])
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [showUpdates, setShowUpdates] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [issues, setIssues] = useState<ModIssue[]>([])
+  const [analyzing, setAnalyzing] = useState(false)
+  const [updatingAll, setUpdatingAll] = useState(false)
 
   const versionFilter = matchVersion ? profile?.versionId : undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
@@ -43,9 +47,30 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     setMods(result)
   }
 
+  const loadIssues = async (silent = false) => {
+    if (!silent) setAnalyzing(true)
+    try {
+      setIssues(await api.analyzeMods(profileId))
+    } catch {
+      if (!silent) setIssues([])
+    } finally {
+      if (!silent) setAnalyzing(false)
+    }
+  }
+
+  const refreshMods = async () => {
+    await loadMods()
+    await loadIssues(true)
+  }
+
   useEffect(() => {
     void loadMods()
+    setSelectedFiles([])
   }, [profileId, state?.installedVersions.length])
+
+  useEffect(() => {
+    if (tab === 'installed') void loadIssues()
+  }, [tab, profileId])
 
   useEffect(() => {
     let cancelled = false
@@ -88,7 +113,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     setBusy(true)
     try {
       await api.installMod(profileId, projectId)
-      await loadMods()
+      await refreshMods()
       pushToast('success', t("Мод добавлен в сборку"))
     } finally {
       setInstalling(null)
@@ -100,7 +125,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     setBusy(true)
     try {
       await api.installLocalMod(profileId)
-      await loadMods()
+      await refreshMods()
       pushToast('success', t("Моды добавлены в сборку"))
     } finally {
       setBusy(false)
@@ -109,12 +134,68 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
 
   const toggle = async (fileName: string) => {
     await api.toggleMod(profileId, fileName)
-    await loadMods()
+    await refreshMods()
   }
 
   const remove = async (fileName: string) => {
     await api.deleteMod(profileId, fileName)
-    await loadMods()
+    await refreshMods()
+  }
+
+  const toggleSelected = (fileName: string) => {
+    setSelectedFiles((current) => current.includes(fileName)
+      ? current.filter((entry) => entry !== fileName)
+      : [...current, fileName])
+  }
+
+  const changeEnabled = async (fileNames: string[], enabled: boolean) => {
+    if (!fileNames.length) return
+    setBusy(true)
+    try {
+      await api.setModsEnabled(profileId, fileNames, enabled)
+      setSelectedFiles([])
+      await refreshMods()
+      pushToast('success', t(enabled ? 'Включено модов: {count}' : 'Отключено модов: {count}', { count: fileNames.length }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deleteSelected = async () => {
+    const count = selectedFiles.length
+    if (!count) return
+    if (!window.confirm([
+      t('Удалить выбранные моды: {count}', { count }),
+      t('Отменить это действие нельзя.')
+    ].join('\n'))) return
+    setBusy(true)
+    try {
+      for (const fileName of selectedFiles) await api.deleteMod(profileId, fileName)
+      setSelectedFiles([])
+      await refreshMods()
+      pushToast('success', t('Удалено модов: {count}', { count }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const exportList = async () => {
+    setBusy(true)
+    try {
+      await api.exportModList(profileId)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const importList = async () => {
+    setBusy(true)
+    try {
+      await api.importModList(profileId)
+      await refreshMods()
+    } finally {
+      setBusy(false)
+    }
   }
 
   const checkForUpdates = async () => {
@@ -135,12 +216,44 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     setBusy(true)
     try {
       await api.updateMod(profileId, update.fileName, update.projectId)
-      await loadMods()
+      await refreshMods()
       setModUpdates((current) => current.filter((entry) => entry.fileName !== update.fileName))
       pushToast('success', t('Мод обновлён'))
     } finally {
       setBusy(false)
     }
+  }
+
+  const updateAll = async () => {
+    setBusy(true)
+    setUpdatingAll(true)
+    setShowUpdates(true)
+    try {
+      const result = await api.updateAllMods(profileId)
+      await refreshMods()
+      setModUpdates((current) => current.filter((entry) => !result.updated.includes(entry.fileName)))
+      if (!result.updated.length && !result.failed.length) {
+        pushToast('success', t('Все моды актуальны'))
+      } else {
+        pushToast(result.failed.length ? 'info' : 'success', result.failed.length
+          ? t('Обновлено модов: {updated}, не удалось: {failed}', {
+            updated: result.updated.length,
+            failed: result.failed.length
+          })
+          : t('Обновлено модов: {count}', { count: result.updated.length }))
+      }
+    } finally {
+      setBusy(false)
+      setUpdatingAll(false)
+    }
+  }
+
+  const issueLabels: Record<ModIssueType, string> = {
+    duplicate: t('Дубликат'),
+    loader: t('Несовместимый загрузчик'),
+    version: t('Версия'),
+    unknown: t('Неизвестный мод'),
+    disabled: t('Отключён')
   }
 
   return (
@@ -161,6 +274,9 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
         <Button onClick={() => void installLocal()} disabled={busy}><FolderPlus size={16} /> {t("Из файла")}</Button>
         <Button onClick={() => void checkForUpdates()} disabled={checkingUpdates || busy}>
           {checkingUpdates ? <Spinner size={15} /> : <RefreshCw size={15} />} {t('Проверить обновления')}
+        </Button>
+        <Button onClick={() => void updateAll()} disabled={updatingAll || checkingUpdates || busy}>
+          {updatingAll ? <Spinner size={15} /> : <RefreshCw size={15} />} {t('Обновить все')}
         </Button>
         {tab === 'catalog' && (
           <>
@@ -273,64 +389,134 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
             description={t("Попробуйте другой запрос или отключите фильтры версии и загрузчика.")}
           />
         )
-      ) : mods.length ? (
-        <>
-        {showUpdates && (
-          <div className="panel mb-4 p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
-              <RefreshCw size={15} className="text-iris-400" /> {t('Обновления модов')}
-            </div>
-            {checkingUpdates ? (
-              <div className="flex items-center justify-center py-4"><Spinner size={18} /></div>
-            ) : modUpdates.length ? (
-              <div className="space-y-2">
-                {modUpdates.map((update) => (
-                  <div key={update.fileName} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-semibold text-slate-100">{update.name}</div>
-                      <div className="mt-0.5 text-[10px] text-slate-500">v{update.currentVersion} → v{update.latestVersion}</div>
-                    </div>
-                    <Button onClick={() => void applyUpdate(update)} disabled={busy}>
-                      <Download size={14} /> {t('Обновить')}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-2 text-[11px] text-slate-500">{t('Все моды актуальны')}</div>
-            )}
-          </div>
-        )}
-        <div className="panel divide-y divide-white/[0.05] overflow-hidden">
-          {mods.map((mod) => (
-            <div key={mod.fileName} className="flex items-center gap-4 px-5 py-4 transition hover:bg-white/[0.02]">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${mod.enabled ? 'bg-mint-400/10 text-mint-400' : 'bg-white/5 text-slate-600'}`}>
-                <Wrench size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className={`truncate text-sm font-semibold ${mod.enabled ? 'text-slate-100' : 'text-slate-500 line-through'}`}>{mod.name}</span>
-                  {mod.version && <Badge>v{mod.version}</Badge>}
-                  <Badge tone="iris">{mod.loader}</Badge>
-                </div>
-                <div className="mt-1 truncate text-[11px] text-slate-500">{mod.description ? t(mod.description) : mod.fileName}</div>
-              </div>
-              <span className="hidden text-[10px] text-slate-600 sm:block">{formatSize(mod.size)}</span>
-              <Toggle checked={mod.enabled} onChange={() => void toggle(mod.fileName)} />
-              <button onClick={() => void remove(mod.fileName)} className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-400" title={t("Удалить")}>
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-        </>
       ) : (
-        <EmptyState
-          icon={<Power size={22} />}
-          title={t("Моды пока не установлены")}
-          description={t("Найдите моды в каталоге или добавьте .jar файл вручную.")}
-          action={<Button variant="primary" onClick={() => setTab('catalog')}>{t("Открыть каталог")}</Button>}
-        />
+        <div className="space-y-4">
+          <div className="panel flex flex-wrap items-center gap-2 p-3">
+            <Button className="px-3 py-1.5 text-[11px]" onClick={() => setSelectedFiles(mods.map((mod) => mod.fileName))} disabled={busy || !mods.length}>
+              {t('Выбрать все')}
+            </Button>
+            <Button className="px-3 py-1.5 text-[11px]" onClick={() => setSelectedFiles([])} disabled={busy || !selectedFiles.length}>
+              {t('Снять выделение')}
+            </Button>
+            <span className="mx-1 text-[10px] text-slate-500">{t('Выбрано: {count}', { count: selectedFiles.length })}</span>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void changeEnabled(mods.map((mod) => mod.fileName), true)} disabled={busy || !mods.length}>
+                <Power size={14} /> {t('Включить все')}
+              </Button>
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void changeEnabled(mods.map((mod) => mod.fileName), false)} disabled={busy || !mods.length}>
+                <Power size={14} /> {t('Отключить все')}
+              </Button>
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void changeEnabled(selectedFiles, true)} disabled={busy || !selectedFiles.length}>
+                <Power size={14} /> {t('Включить выбранные')}
+              </Button>
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void changeEnabled(selectedFiles, false)} disabled={busy || !selectedFiles.length}>
+                <Power size={14} /> {t('Отключить выбранные')}
+              </Button>
+              <Button variant="danger" className="px-3 py-1.5 text-[11px]" onClick={() => void deleteSelected()} disabled={busy || !selectedFiles.length}>
+                <Trash2 size={14} /> {t('Удалить выбранные')}
+              </Button>
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void exportList()} disabled={busy}>
+                <Download size={14} /> {t('Экспорт списка модов')}
+              </Button>
+              <Button className="px-3 py-1.5 text-[11px]" onClick={() => void importList()} disabled={busy}>
+                <Upload size={14} /> {t('Импорт списка модов')}
+              </Button>
+            </div>
+          </div>
+
+          {(analyzing || issues.length > 0 || mods.length > 0) && (
+            <div className="panel p-4">
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-bold text-white">
+                <AlertTriangle size={15} className="text-amber-400" /> {t('Проблемы')}
+                <Badge tone={issues.length ? 'amber' : 'mint'}>{t('Найдено проблем: {count}', { count: issues.length })}</Badge>
+                {analyzing && <Spinner size={14} />}
+              </div>
+              {issues.length ? (
+                <div className="space-y-2">
+                  {issues.map((issue, index) => (
+                    <div key={`${issue.fileName}-${issue.type}-${index}`} className="flex flex-wrap items-start gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                      <Badge tone={['duplicate', 'loader', 'unknown'].includes(issue.type) ? 'amber' : 'slate'}>
+                        {issueLabels[issue.type]}
+                      </Badge>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] text-slate-300">{t(issue.message)}</div>
+                        <div className="mt-0.5 truncate text-[10px] text-slate-600">{issue.fileName}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-1 text-[11px] text-slate-500">{t('Проблемы не найдены')}</div>
+              )}
+            </div>
+          )}
+
+          {showUpdates && (
+            <div className="panel p-4">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                <RefreshCw size={15} className="text-iris-400" /> {t('Обновления модов')}
+              </div>
+              {checkingUpdates ? (
+                <div className="flex items-center justify-center py-4"><Spinner size={18} /></div>
+              ) : modUpdates.length ? (
+                <div className="space-y-2">
+                  {modUpdates.map((update) => (
+                    <div key={update.fileName} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-semibold text-slate-100">{update.name}</div>
+                        <div className="mt-0.5 text-[10px] text-slate-500">v{update.currentVersion} → v{update.latestVersion}</div>
+                      </div>
+                      <Button onClick={() => void applyUpdate(update)} disabled={busy}>
+                        <Download size={14} /> {t('Обновить')}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-2 text-[11px] text-slate-500">{t('Все моды актуальны')}</div>
+              )}
+            </div>
+          )}
+
+          {mods.length ? (
+            <div className="panel divide-y divide-white/[0.05] overflow-hidden">
+              {mods.map((mod) => (
+                <div key={mod.fileName} className="flex items-center gap-4 px-5 py-4 transition hover:bg-white/[0.02]">
+                  <input
+                    type="checkbox"
+                    aria-label={mod.name}
+                    checked={selectedFiles.includes(mod.fileName)}
+                    onChange={() => toggleSelected(mod.fileName)}
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-mint-400"
+                  />
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${mod.enabled ? 'bg-mint-400/10 text-mint-400' : 'bg-white/5 text-slate-600'}`}>
+                    <Wrench size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`truncate text-sm font-semibold ${mod.enabled ? 'text-slate-100' : 'text-slate-500 line-through'}`}>{mod.name}</span>
+                      {mod.version && <Badge>v{mod.version}</Badge>}
+                      <Badge tone="iris">{mod.loader}</Badge>
+                    </div>
+                    <div className="mt-1 truncate text-[11px] text-slate-500">{mod.description ? t(mod.description) : mod.fileName}</div>
+                  </div>
+                  <span className="hidden text-[10px] text-slate-600 sm:block">{formatSize(mod.size)}</span>
+                  <Toggle checked={mod.enabled} onChange={() => void toggle(mod.fileName)} />
+                  <button onClick={() => void remove(mod.fileName)} className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-400" title={t("Удалить")}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Power size={22} />}
+              title={t("Моды пока не установлены")}
+              description={t("Найдите моды в каталоге или добавьте .jar файл вручную.")}
+              action={<Button variant="primary" onClick={() => setTab('catalog')}>{t("Открыть каталог")}</Button>}
+            />
+          )}
+        </div>
       )}
 
       <ProjectDetailPanel

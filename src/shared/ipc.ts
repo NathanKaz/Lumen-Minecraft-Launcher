@@ -71,7 +71,35 @@ export const IPC = {
 
   // Mod updates
   checkModUpdates: 'mods:checkUpdates',
-  updateMod: 'mods:update'
+  updateMod: 'mods:update',
+
+  // Local worlds
+  listWorlds: 'worlds:list',
+  importWorldFile: 'worlds:importFile',
+  exportWorld: 'worlds:export',
+  copyWorld: 'worlds:copy',
+  renameWorld: 'worlds:rename',
+  deleteWorld: 'worlds:delete',
+
+  // Modrinth catalogs
+  searchCatalog: 'modrinth:searchCatalog',
+  installCatalogProject: 'modrinth:installCatalog',
+
+  // Bulk mod management
+  setModsEnabled: 'mods:setEnabled',
+  exportModList: 'mods:exportList',
+  importModList: 'mods:importList',
+  analyzeMods: 'mods:analyze',
+  updateAllMods: 'mods:updateAll',
+
+  // Log and crash diagnostics
+  getLogFiles: 'logs:files',
+  readLogFile: 'logs:readFile',
+  listCrashReports: 'logs:crashes',
+
+  // Import from other launchers
+  detectImportSources: 'import:detect',
+  importLauncherProfile: 'import:apply'
 } as const
 
 export const EVENTS = {

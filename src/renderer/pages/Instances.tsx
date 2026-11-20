@@ -12,7 +12,7 @@ import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../com
 import { InstallProgress } from '../components/InstallProgress'
 import { ProfileFields } from '../components/ProfileFields'
 import { ContextMenu, type ContextMenuState } from '../components/ContextMenu'
-import type { BuildGroup, Profile } from '@shared/types'
+import type { BuildGroup, ImportCandidate, ImportSource, Profile } from '@shared/types'
 
 const DRAG_TYPE = 'application/x-lumen-profile'
 
@@ -28,6 +28,18 @@ const emptyProfile = (version: string): Profile => ({
 function groupTone(color?: string): 'slate' | 'mint' | 'iris' | 'amber' {
   if (color === 'mint' || color === 'iris' || color === 'amber') return color
   return 'slate'
+}
+
+function importSourceLabel(source: ImportSource): string {
+  if (source === 'official') return t('Официальный')
+  if (source === 'curseforge') return t('CurseForge')
+  return t('MultiMC / Prism')
+}
+
+function importSourceTone(source: ImportSource): 'slate' | 'mint' | 'iris' | 'amber' {
+  if (source === 'official') return 'mint'
+  if (source === 'curseforge') return 'amber'
+  return 'iris'
 }
 
 function RenameField({ value, onCommit, onCancel }: {
@@ -91,6 +103,10 @@ export function Instances(): JSX.Element {
   const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [selectMode, setSelectMode] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([])
+  const [importScanning, setImportScanning] = useState(false)
+  const [importingId, setImportingId] = useState<string | null>(null)
 
   if (!state) return <Spinner />
 
@@ -232,6 +248,38 @@ export function Instances(): JSX.Element {
     } catch (error) {
       pushToast('error', error instanceof Error ? error.message : String(error))
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const detectImports = async () => {
+    setImportScanning(true)
+    try {
+      const found = await api.detectImportSources()
+      setImportCandidates(found)
+      setImportOpen(true)
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setImportScanning(false)
+    }
+  }
+
+  const importCandidate = async (candidate: ImportCandidate) => {
+    setImportingId(candidate.id)
+    setBusy(true)
+    try {
+      const imported = await api.importLauncherProfile(candidate)
+      if (imported) {
+        await refresh()
+        setImportCandidates((current) => current.filter((entry) => entry.id !== candidate.id))
+      } else {
+        pushToast('error', t('Не удалось импортировать сборку: {name}', { name: candidate.name }))
+      }
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setImportingId(null)
       setBusy(false)
     }
   }
@@ -545,6 +593,13 @@ export function Instances(): JSX.Element {
               <Download size={14} /> {t("Импорт сборок")}
             </button>
             <button
+              onClick={() => void detectImports()}
+              disabled={busy || importScanning}
+              className="flex items-center gap-1.5 rounded-xl border border-mint-400/25 bg-mint-400/[0.06] px-3 py-1.5 text-xs font-semibold text-mint-300 transition hover:border-mint-400/50 hover:text-mint-200 disabled:opacity-40"
+            >
+              <Download size={14} /> {t('Импорт')}
+            </button>
+            <button
               onClick={() => void backupAll()}
               disabled={busy}
               className="flex items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-white/20 hover:text-slate-200"
@@ -796,6 +851,64 @@ export function Instances(): JSX.Element {
               <Plus size={15} /> {t("Добавить")}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title={t('Импорт из других лаунчеров')}
+        width="max-w-2xl"
+      >
+        {importScanning ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-xs text-slate-500">
+            <Spinner size={16} /> {t('Поиск сборок...')}
+          </div>
+        ) : importCandidates.length ? (
+          <div className="space-y-3">
+            {importCandidates.map((candidate) => (
+              <motion.div
+                key={candidate.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="panel flex flex-wrap items-center gap-3 p-4"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-iris-500/15 text-iris-400">
+                  <Download size={17} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-bold text-white">{candidate.name}</span>
+                    <Badge tone={importSourceTone(candidate.source)}>{importSourceLabel(candidate.source)}</Badge>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Minecraft {candidate.versionId} · {candidate.loader.toUpperCase()}
+                    {candidate.loaderVersionId ? ` · ${candidate.loaderVersionId}` : ''}
+                    {candidate.details ? ` · ${candidate.details}` : ''}
+                  </div>
+                  <div className="mt-0.5 truncate text-[10px] text-slate-600" title={candidate.path}>{candidate.path}</div>
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => void importCandidate(candidate)}
+                  disabled={busy || importingId !== null}
+                >
+                  {importingId === candidate.id ? <Spinner size={14} /> : <Download size={14} />}
+                  {t('Импортировать')}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<Boxes size={22} />}
+            title={t('Сборки не найдены')}
+            description={t('Проверьте каталоги MultiMC, Prism Launcher и официального лаунчера или выберите архив CurseForge.')}
+          />
+        )}
+        <div className="mt-5 flex justify-end">
+          <Button onClick={() => setImportOpen(false)}>{t('Закрыть')}</Button>
         </div>
       </Modal>
 

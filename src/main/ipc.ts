@@ -1,9 +1,10 @@
+import path from 'node:path'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { msg } from './core/i18n'
 import fs from 'fs-extra'
 import { IPC } from '@shared/ipc'
 import type { AppState, LogPayload, Profile } from '@shared/types'
-import { dirs, instanceDir, modsDir, screenshotsDir } from './core/paths'
+import { dirs, instanceDir, modsDir, savesDir, screenshotsDir } from './core/paths'
 import {
   addAccount,
   createProfile,
@@ -19,9 +20,27 @@ import {
 import { emitToast, emitLog, getLogs, clearLogs, uid } from './core/events'
 import { getVersionList, installProfile } from './core/versions'
 import { getStatus, launchGame, stopGame } from './core/launch'
-import { copyModFile, deleteMod, listMods, toggleMod } from './core/mods'
+import {
+  analyzeMods,
+  copyModFile,
+  deleteMod,
+  exportModList,
+  importModList,
+  listMods,
+  setModsEnabled,
+  toggleMod
+} from './core/mods'
 import { getProjectDetails, installMod, searchMods, searchModpacks } from './core/modrinth'
-import { installWorld, searchWorlds } from './core/worlds'
+import {
+  copyWorld,
+  deleteWorld,
+  exportWorld,
+  importWorldFile,
+  installWorld,
+  listWorlds,
+  renameWorld,
+  searchWorlds
+} from './core/worlds'
 import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
 import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
@@ -32,7 +51,10 @@ import { repairProfile, verifyProfile } from './core/verify'
 import { backupAllProfiles, createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
 import { exportProfiles, importProfiles } from './core/profileTransfer'
 import { deletePack, installPack, listPacks, togglePack } from './core/packs'
-import { checkModUpdates, updateMod } from './core/modUpdates'
+import { checkModUpdates, updateAllMods, updateMod } from './core/modUpdates'
+import { installCatalogProject, searchCatalog } from './core/catalog'
+import { getLogFiles, listCrashReports, readLogFile } from './core/diagnostics'
+import { detectImportSources, importLauncherProfile } from './core/importLaunchers'
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
   ipcMain.handle(channel, async (_event, ...args: unknown[]) => {
@@ -180,6 +202,36 @@ export function registerIpc(): void {
   // Mod updates
   handle(IPC.checkModUpdates, (profileId: string) => checkModUpdates(profileId))
   handle(IPC.updateMod, (profileId: string, fileName: string, versionId: string) => updateMod(profileId, fileName, versionId))
+  handle(IPC.updateAllMods, (profileId: string) => updateAllMods(profileId))
+  handle(IPC.setModsEnabled, (profileId: string, fileNames: string[], enabled: boolean) =>
+    setModsEnabled(profileId, fileNames, enabled))
+  handle(IPC.exportModList, (profileId: string) => exportModList(profileId))
+  handle(IPC.importModList, (profileId: string) => importModList(profileId))
+  handle(IPC.analyzeMods, (profileId: string) => analyzeMods(profileId))
+
+  // Local worlds
+  handle(IPC.listWorlds, (profileId: string) => listWorlds(profileId))
+  handle(IPC.importWorldFile, (profileId: string) => importWorldFile(profileId))
+  handle(IPC.exportWorld, (profileId: string, dirName: string) => exportWorld(profileId, dirName))
+  handle(IPC.copyWorld, (profileId: string, dirName: string, targetProfileId: string) =>
+    copyWorld(profileId, dirName, targetProfileId))
+  handle(IPC.renameWorld, (profileId: string, dirName: string, name: string) => renameWorld(profileId, dirName, name))
+  handle(IPC.deleteWorld, (profileId: string, dirName: string) => deleteWorld(profileId, dirName))
+
+  // Modrinth catalogs
+  handle(IPC.searchCatalog, (query: Parameters<typeof searchCatalog>[0]) => searchCatalog(query))
+  handle(IPC.installCatalogProject, (profileId: string, kind: Parameters<typeof installCatalogProject>[1], projectId: string) =>
+    installCatalogProject(profileId, kind, projectId))
+
+  // Logs and crash reports
+  handle(IPC.getLogFiles, (profileId?: string) => getLogFiles(profileId))
+  handle(IPC.readLogFile, (profileId: string | undefined, name: string) => readLogFile(profileId, name))
+  handle(IPC.listCrashReports, (profileId?: string) => listCrashReports(profileId))
+
+  // Import from other launchers
+  handle(IPC.detectImportSources, () => detectImportSources())
+  handle(IPC.importLauncherProfile, (candidate: Parameters<typeof importLauncherProfile>[0]) =>
+    importLauncherProfile(candidate))
 
   ipcMain.handle(IPC.installLocalMod, async (_event, profileId: string) => {
     const result = await dialog.showOpenDialog({
@@ -195,14 +247,16 @@ export function registerIpc(): void {
     emitToast('success', msg('Установлено модов: {count}', { count: result.filePaths.length }))
   })
 
-  ipcMain.handle(IPC.openFolder, async (_event, kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs') => {
+  ipcMain.handle(IPC.openFolder, async (_event, kind: 'root' | 'instances' | 'mods' | 'screenshots' | 'logs' | 'saves' | 'datapacks') => {
     const profileId = getState().selectedProfileId
     const targets: Record<typeof kind, string> = {
       root: dirs.root,
       instances: dirs.instances,
       mods: modsDir(profileId),
       screenshots: screenshotsDir(profileId),
-      logs: dirs.logs
+      logs: dirs.logs,
+      saves: savesDir(profileId),
+      datapacks: path.join(instanceDir(profileId), 'datapacks')
     }
     const target = targets[kind]
     await fs.ensureDir(target)

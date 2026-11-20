@@ -7,6 +7,7 @@ import { msg } from './core/i18n'
 import { initStore, getState } from './core/store'
 import { initTray, isQuitting, markQuitting } from './core/tray'
 import { checkUpdates, shouldCheckOnStartup } from './core/updates'
+import { startScheduledBackups, stopScheduledBackups } from './core/backups'
 
 const isDev = !app.isPackaged
 
@@ -87,6 +88,7 @@ async function bootstrap(): Promise<void> {
   emitLog('info', msg('Каталог данных: {path}', { path: dirs.root }))
   createWindow()
   initTray()
+  startScheduledBackups()
 
   if (shouldCheckOnStartup()) {
     void checkUpdates().then((info) => {
@@ -106,6 +108,7 @@ async function bootstrap(): Promise<void> {
 void bootstrap()
 
 app.on('before-quit', markQuitting)
+app.on('before-quit', stopScheduledBackups)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

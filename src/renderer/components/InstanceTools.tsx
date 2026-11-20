@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Archive, CheckCircle2, HardDriveDownload, Layers, RotateCcw, ShieldCheck, Trash2, Upload } from 'lucide-react'
+import { Archive, CheckCircle2, HardDriveDownload, Layers, RotateCcw, Search, ShieldCheck, Trash2, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatSize, t } from '../lib/i18n'
 import { useLauncher } from '../store'
 import { Badge, Button, Spinner, Toggle } from './ui'
+import { CatalogPanel } from './CatalogPanel'
 import type { BackupInfo, PackInfo, PackKind, Profile, VerifyReport } from '@shared/types'
 
 function formatDate(value: number): string {
@@ -149,6 +150,7 @@ function Packs({ profile }: { profile: Profile }): JSX.Element {
   const [packs, setPacks] = useState<PackInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [showCatalog, setShowCatalog] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -162,6 +164,10 @@ function Packs({ profile }: { profile: Profile }): JSX.Element {
   }
 
   useEffect(() => { void load() }, [profile.id, kind])
+
+  useEffect(() => {
+    if (!showCatalog) void load()
+  }, [showCatalog])
 
   const install = async () => {
     setBusy(true)
@@ -203,9 +209,25 @@ function Packs({ profile }: { profile: Profile }): JSX.Element {
             </button>
           ))}
         </div>
-        <Button onClick={() => void install()} disabled={busy}>{busy ? <Spinner size={14} /> : <Upload size={15} />} {t('Добавить')}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setShowCatalog((value) => !value)}>
+            {showCatalog ? <Layers size={14} /> : <Search size={14} />}
+            {showCatalog ? t('Установленные') : t('Каталог')}
+          </Button>
+          {!showCatalog && (
+            <Button onClick={() => void install()} disabled={busy}>
+              {busy ? <Spinner size={14} /> : <Upload size={15} />} {t('Добавить')}
+            </Button>
+          )}
+        </div>
       </div>
-      {loading ? (
+      {showCatalog ? (
+        <CatalogPanel
+          key={kind}
+          kind={kind === 'resource' ? 'resourcepack' : 'shader'}
+          profileId={profile.id}
+        />
+      ) : loading ? (
         <div className="flex items-center justify-center py-8"><Spinner size={20} /></div>
       ) : packs.length ? (
         <div className="space-y-2">

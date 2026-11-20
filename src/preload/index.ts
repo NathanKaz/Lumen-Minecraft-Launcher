@@ -80,7 +80,30 @@ const api: LauncherAPI = {
   deletePack: (profileId, kind, fileName) => invoke(IPC.deletePack, profileId, kind, fileName),
 
   checkModUpdates: (profileId) => invoke(IPC.checkModUpdates, profileId),
-  updateMod: (profileId, fileName, versionId) => invoke(IPC.updateMod, profileId, fileName, versionId)
+  updateMod: (profileId, fileName, versionId) => invoke(IPC.updateMod, profileId, fileName, versionId),
+
+  listWorlds: (profileId) => invoke(IPC.listWorlds, profileId),
+  importWorldFile: (profileId) => invoke(IPC.importWorldFile, profileId),
+  exportWorld: (profileId, dirName) => invoke(IPC.exportWorld, profileId, dirName),
+  copyWorld: (profileId, dirName, targetProfileId) => invoke(IPC.copyWorld, profileId, dirName, targetProfileId),
+  renameWorld: (profileId, dirName, name) => invoke(IPC.renameWorld, profileId, dirName, name),
+  deleteWorld: (profileId, dirName) => invoke(IPC.deleteWorld, profileId, dirName),
+
+  searchCatalog: (query) => invoke(IPC.searchCatalog, query),
+  installCatalogProject: (profileId, kind, projectId) => invoke(IPC.installCatalogProject, profileId, kind, projectId),
+
+  setModsEnabled: (profileId, fileNames, enabled) => invoke(IPC.setModsEnabled, profileId, fileNames, enabled),
+  exportModList: (profileId) => invoke(IPC.exportModList, profileId),
+  importModList: (profileId) => invoke(IPC.importModList, profileId),
+  analyzeMods: (profileId) => invoke(IPC.analyzeMods, profileId),
+  updateAllMods: (profileId) => invoke(IPC.updateAllMods, profileId),
+
+  getLogFiles: (profileId) => invoke(IPC.getLogFiles, profileId),
+  readLogFile: (profileId, name) => invoke(IPC.readLogFile, profileId, name),
+  listCrashReports: (profileId) => invoke(IPC.listCrashReports, profileId),
+
+  detectImportSources: () => invoke(IPC.detectImportSources),
+  importLauncherProfile: (candidate) => invoke(IPC.importLauncherProfile, candidate)
 }
 
 contextBridge.exposeInMainWorld('launcher', api)

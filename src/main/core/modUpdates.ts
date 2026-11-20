@@ -2,13 +2,14 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { msg } from './i18n'
+import { emitLog, emitProgress } from './events'
 import { modsDir } from './paths'
 import { getState } from './store'
 import { fetchJson } from './http'
 import { downloadMany, type DownloadTask } from './downloader'
 import { createAutoBackup } from './backups'
 import { listMods } from './mods'
-import type { ModUpdateInfo } from '@shared/types'
+import type { ModUpdateInfo, UpdateAllResult } from '@shared/types'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -96,11 +97,10 @@ export async function checkModUpdates(profileId: string): Promise<ModUpdateInfo[
   return result
 }
 
-export async function updateMod(profileId: string, fileName: string, projectId: string): Promise<void> {
+/** Shared download step for single and bulk mod updates (no backup/progress here). */
+async function downloadModVersion(profileId: string, fileName: string, projectId: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg('Сборка не найдена'))
-
-  await createAutoBackup(profileId, msg('Автобэкап перед обновлением модов'))
 
   const versions = await projectVersions(projectId, profile.versionId, profile.loader)
   const version = versions[0]
@@ -120,4 +120,59 @@ export async function updateMod(profileId: string, fileName: string, projectId: 
     label: file.filename
   }
   await downloadMany([task], 'mod', msg('Мод {name}', { name: version.name }), 2)
+}
+
+export async function updateMod(profileId: string, fileName: string, projectId: string): Promise<void> {
+  await createAutoBackup(profileId, msg('Автобэкап перед обновлением модов'))
+  await downloadModVersion(profileId, fileName, projectId)
+}
+
+function batchProgress(message: string, current: number, total: number): void {
+  emitProgress({
+    phase: 'mod',
+    message,
+    percent: total ? Math.round((current / total) * 100) : 100,
+    current,
+    total,
+    bytes: 0,
+    totalBytes: 0,
+    speed: 0
+  })
+}
+
+export async function updateAllMods(profileId: string): Promise<UpdateAllResult> {
+  const updates = await checkModUpdates(profileId)
+  const result: UpdateAllResult = { updated: [], failed: [] }
+  if (!updates.length) return result
+
+  try {
+    await createAutoBackup(profileId, msg('Автобэкап перед обновлением модов'))
+  } catch (error) {
+    emitLog('warn', msg('Не удалось создать автобэкап: {error}', {
+      error: error instanceof Error ? error.message : String(error)
+    }))
+  }
+
+  const total = updates.length
+  batchProgress(msg('Обновление модов: {current}/{total}', { current: 0, total }), 0, total)
+  for (let index = 0; index < total; index++) {
+    const update = updates[index]
+    batchProgress(msg('Обновление мода {name}', { name: update.name }), index, total)
+    try {
+      await downloadModVersion(profileId, update.fileName, update.projectId)
+      result.updated.push(update.fileName)
+    } catch (error) {
+      result.failed.push(update.fileName)
+      emitLog('warn', msg('Не удалось обновить мод {name}: {error}', {
+        name: update.name,
+        error: error instanceof Error ? error.message : String(error)
+      }))
+    }
+    batchProgress(msg('Обновление модов: {current}/{total}', { current: index + 1, total }), index + 1, total)
+  }
+  emitLog('info', msg('Обновлено модов: {updated}, не удалось: {failed}', {
+    updated: result.updated.length,
+    failed: result.failed.length
+  }))
+  return result
 }

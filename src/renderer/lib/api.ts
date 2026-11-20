@@ -4,11 +4,17 @@ import type {
   AccountRecord,
   AppState,
   BackupInfo,
+  CatalogQuery,
+  CrashReportInfo,
   GameStatus,
+  ImportCandidate,
   JavaInfo,
   LauncherAPI,
+  LogFileContent,
+  LogFileInfo,
   LogPayload,
   ModInfo,
+  ModIssue,
   ModUpdateInfo,
   ModrinthProject,
   ModrinthProjectDetails,
@@ -20,8 +26,10 @@ import type {
   SkinInfo,
   ToastPayload,
   UpdateInfo,
+  UpdateAllResult,
   VerifyReport,
-  VersionManifest
+  VersionManifest,
+  WorldInfo
 } from '@shared/types'
 
 declare global {
@@ -151,6 +159,18 @@ function skinPreview(shirt: string, hair: string): string {
 const mockSkins: SkinInfo[] = [
   { id: 'skin-steve', name: 'Steve', model: 'wide', dataUrl: skinPreview('#3b82f6', '#6b4f2a'), size: 4213, addedAt: Date.now() - 86_400_000, active: false },
   { id: 'skin-alex', name: 'Alex', model: 'slim', dataUrl: skinPreview('#ec4899', '#1d4ed8'), size: 3980, addedAt: Date.now() - 172_800_000, active: false }
+]
+
+const mockLocalWorlds: WorldInfo[] = [
+  { dirName: 'Новый мир', name: 'Новый мир', version: '1.20.1', lastPlayed: Date.now() - 3_600_000, size: 42_000_000, modifiedAt: Date.now() - 3_600_000, iconUrl: icon('Н', '#16a34a') },
+  { dirName: 'Hardcore', name: 'Hardcore', version: '1.20.1', lastPlayed: Date.now() - 172_800_000, size: 18_400_000, modifiedAt: Date.now() - 172_800_000, iconUrl: icon('H', '#b45309') }
+]
+
+const mockCatalog: ModrinthProject[] = [
+  { project_id: 'worldgen-adventure', slug: 'worldgen-adventure', title: 'Adventure Islands', description: 'Карта с островами, храмами и заданиями.', icon_url: icon('A', '#16a34a'), downloads: 840_000, follow_count: 4_200, categories: ['adventure', 'worldgen'], project_type: 'modpack', versions: ['1.20.1'] },
+  { project_id: 'datapack-caves', slug: 'datapack-caves', title: 'Caves & Ruins', description: 'Набор данных с новыми пещерами и руинами.', icon_url: icon('C', '#2563eb'), downloads: 1_250_000, follow_count: 7_800, categories: ['worldgen', 'datapack'], project_type: 'datapack', versions: ['1.20.1'] },
+  { project_id: 'shader-bs', slug: 'shader-bs', title: 'Beautiful Shaders', description: 'Мягкий свет и реалистичная вода.', icon_url: icon('S', '#7c3aed'), downloads: 3_100_000, follow_count: 15_200, categories: ['shader'], project_type: 'shader', versions: ['1.20.1'] },
+  { project_id: 'pack-medieval', slug: 'pack-medieval', title: 'Medieval Pack', description: 'Средневековые текстуры для всего мира.', icon_url: icon('M', '#b45309'), downloads: 2_200_000, follow_count: 9_300, categories: ['resourcepack'], project_type: 'resourcepack', versions: ['1.20.1'] }
 ]
 
 const mockWorlds: ModrinthProject[] = [
@@ -691,7 +711,72 @@ function createMock(): LauncherAPI {
         mod.fileName === fileName ? { ...mod, version: versionId, fileName: `${mod.name.replace(/\s+/g, '-').toLowerCase()}-${versionId}.jar` } : mod
       )
       emit('toast', { id: String(Date.now()), type: 'success', message: t('Мод обновлён') })
-    }
+    },
+
+    listWorlds: async () => mockLocalWorlds.map((world) => ({ ...world })),
+    importWorldFile: async () => {
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир установлен') })
+    },
+    exportWorld: async () => {
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир экспортирован') })
+    },
+    copyWorld: async () => {
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир скопирован') })
+    },
+    renameWorld: async (profileId, dirName, name) => {
+      const index = mockLocalWorlds.findIndex((world) => world.dirName === dirName)
+      if (index >= 0) mockLocalWorlds[index] = { ...mockLocalWorlds[index], dirName: name, name }
+    },
+    deleteWorld: async (_profileId, dirName) => {
+      const index = mockLocalWorlds.findIndex((world) => world.dirName === dirName)
+      if (index >= 0) mockLocalWorlds.splice(index, 1)
+    },
+
+    searchCatalog: async (query: CatalogQuery) => {
+      await wait(220)
+      const normalized = query.query.trim().toLowerCase()
+      return mockCatalog.filter((project) => {
+        const kind = query.kind === 'modpack' ? 'modpack' : query.kind === 'datapack' ? 'datapack' : query.kind
+        if (project.project_type !== kind) return false
+        if (query.category && !project.categories.includes(query.category)) return false
+        return !normalized || `${project.title} ${project.description}`.toLowerCase().includes(normalized)
+      })
+    },
+    installCatalogProject: async (_profileId, kind, projectId) => {
+      await mockProgress(t(kind === 'datapack' ? 'Установка набора данных' : 'Установка проекта'), kind === 'shader' ? 'mod' : 'modpack')
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Проект установлен') })
+    },
+
+    setModsEnabled: async (profileId, fileNames, enabled) => {
+      modsByProfile[profileId] = modsFor(profileId).map((mod) =>
+        fileNames.includes(mod.fileName) ? { ...mod, enabled } : mod
+      )
+    },
+    exportModList: async () => {
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Список модов экспортирован') })
+    },
+    importModList: async (profileId) => {
+      await wait(200)
+      modsByProfile[profileId] = [...modsFor(profileId), {
+        fileName: 'imported-mod.jar', name: 'Imported Mod', version: '1.0.0', loader: 'fabric', enabled: true, size: 120_000
+      }]
+      emit('toast', { id: String(Date.now()), type: 'success', message: t('Список модов импортирован') })
+    },
+    analyzeMods: async (): Promise<ModIssue[]> => [],
+    updateAllMods: async (): Promise<UpdateAllResult> => ({ updated: [], failed: [] }),
+
+    getLogFiles: async (): Promise<LogFileInfo[]> => {
+      const now = Date.now()
+      return [
+        { name: 'latest.log', size: 24_000, modifiedAt: now },
+        { name: 'debug.log', size: 180_000, modifiedAt: now }
+      ]
+    },
+    readLogFile: async (): Promise<LogFileContent> => ({ name: 'latest.log', text: '[info] Демонстрационный лог' }),
+    listCrashReports: async (): Promise<CrashReportInfo[]> => [],
+
+    detectImportSources: async (): Promise<ImportCandidate[]> => [],
+    importLauncherProfile: async () => false
   }
   return api
 }
