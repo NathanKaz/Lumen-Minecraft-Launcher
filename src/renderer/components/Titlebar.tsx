@@ -13,7 +13,7 @@ export function Titlebar(): JSX.Element {
   return (
     <div className="drag-region flex h-11 shrink-0 items-center justify-between border-b border-white/[0.05] bg-ink-950/60 px-4 backdrop-blur">
       <div className="flex items-center gap-2.5">
-        <div className="flex h-5 w-5 items-center justify-center rounded-[6px] bg-gradient-to-br from-mint-300 to-mint-600 text-[10px] font-black text-ink-950">N</div>
+        <img src="./logo.png" alt="" className="h-5 w-5 shrink-0 object-contain" />
         <span className="text-xs font-bold tracking-wide text-slate-300">LUMEN LAUNCHER</span>
         {isMock && <span className="rounded border border-iris-400/30 bg-iris-500/10 px-1.5 py-0.5 text-[9px] font-bold text-iris-400">DEMO</span>}
       </div>

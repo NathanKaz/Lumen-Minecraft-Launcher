@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 import { ensureDirs, dirs } from './core/paths'
+import { appIcon } from './core/icon'
 import { registerIpc } from './ipc'
 import { emitLog, emitToast } from './core/events'
 import { msg } from './core/i18n'
@@ -24,6 +25,7 @@ function createWindow(): BrowserWindow {
     minHeight: 680,
     show: false,
     frame: false,
+    icon: appIcon(),
     backgroundColor: '#0B0E14',
     titleBarStyle: 'hidden',
     webPreferences: {

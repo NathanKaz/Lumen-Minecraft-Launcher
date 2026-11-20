@@ -1,5 +1,5 @@
-import path from 'node:path'
-import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron'
+import { app, BrowserWindow, Menu, Tray } from 'electron'
+import { appIcon } from './icon'
 import { msg } from './i18n'
 import { getState } from './store'
 import { getStatus, launchGame, stopGame } from './launch'
@@ -14,13 +14,6 @@ export function markQuitting(): void {
 
 export function isQuitting(): boolean {
   return quitting
-}
-
-function icon(): Electron.NativeImage {
-  const base = app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'build')
-  const image = nativeImage.createFromPath(path.join(base, 'icon.png'))
-  if (!image.isEmpty()) return image.resize({ width: 16, height: 16 })
-  return nativeImage.createEmpty()
 }
 
 function selectedProfileId(): string | undefined {
@@ -68,7 +61,7 @@ function rebuildMenu(): void {
 export function initTray(): void {
   if (tray || process.platform === 'darwin') return
   try {
-    tray = new Tray(icon())
+    tray = new Tray(appIcon(16))
     tray.setToolTip('Lumen Launcher')
     rebuildMenu()
     tray.on('double-click', showLauncherWindow)

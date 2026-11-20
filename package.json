@@ -50,8 +50,10 @@
     },
     "files": [
       "dist/**/*",
+      "build/icon.png",
       "package.json"
     ],
+    "icon": "build/icon.png",
     "artifactName": "Lumen-Launcher-${version}-${os}-${arch}.${ext}",
     "linux": {
       "target": [
