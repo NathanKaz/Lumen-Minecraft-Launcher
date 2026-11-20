@@ -180,3 +180,8 @@ export async function installMod(profileId: string, projectId: string): Promise<
 export async function getModVersionsForMrpack(projectId: string) {
   return projectVersions(projectId)
 }
+
+/** All published versions of a project, used by the worlds installer. */
+export async function getProjectVersions(projectId: string) {
+  return projectVersions(projectId)
+}

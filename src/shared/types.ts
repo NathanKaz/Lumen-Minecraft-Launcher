@@ -98,6 +98,7 @@ export type ProgressPhase =
   | 'loader'
   | 'mod'
   | 'modpack'
+  | 'world'
   | 'launch'
   | 'java'
 
@@ -282,10 +283,12 @@ export interface LauncherAPI {
   searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
   installMod(profileId: string, projectId: string): Promise<void>
   searchModpacks(query: string): Promise<ModrinthProject[]>
+  searchWorlds(query: string): Promise<ModrinthProject[]>
   getProjectDetails(projectId: string): Promise<ModrinthProjectDetails>
   installModpack(profileId: string): Promise<void>
   installModpackFilePath(profileId: string, filePath: string): Promise<void>
   installModpackFromModrinth(profileId: string, projectId: string): Promise<void>
+  installWorld(profileId: string, projectId: string): Promise<void>
   listScreenshots(profileId?: string): Promise<ScreenshotInfo[]>
   deleteScreenshot(profileId: string, fileName: string): Promise<void>
   /** Native confirmation dialog. Resolves true only when the user confirms deletion. */

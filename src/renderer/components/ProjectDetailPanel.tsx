@@ -25,7 +25,7 @@ export function ProjectDetailPanel({
   action
 }: {
   projectId: string | null
-  kind: 'mod' | 'modpack'
+  kind: 'mod' | 'modpack' | 'world'
   onClose: () => void
   action?: {
     label: string
@@ -100,7 +100,7 @@ export function ProjectDetailPanel({
             <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
               <div className="flex items-center gap-2 text-sm font-bold text-white">
                 <Package size={16} className="text-mint-400" />
-                {kind === 'mod' ? t("О моде") : t("О модпаке")}
+                {kind === 'mod' ? t("О моде") : kind === 'world' ? t("О мире") : t("О модпаке")}
               </div>
               <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white">
                 <X size={18} />

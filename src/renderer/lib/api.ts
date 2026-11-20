@@ -120,9 +120,9 @@ function skinPreview(shirt: string, hair: string): string {
     rect(11, 14, 2, 1, '#9a6245'),
 
     // Torso.
-    rect(20, 16, 8, 4, shirt), rect(24, 16, 8, 4, pants),
+    rect(20, 16, 8, 4, shirt), rect(28, 16, 8, 4, pants),
     rect(16, 20, 4, 12, shirt), rect(20, 20, 8, 12, shirt),
-    rect(36, 20, 4, 12, shirt), rect(32, 20, 8, 12, shirt),
+    rect(28, 20, 4, 12, shirt), rect(32, 20, 8, 12, shirt),
 
     // Right arm.
     rect(44, 16, 4, 4, shirt), rect(48, 16, 4, 4, skin),
@@ -131,8 +131,8 @@ function skinPreview(shirt: string, hair: string): string {
 
     // Left arm.
     rect(36, 48, 4, 4, shirt), rect(40, 48, 4, 4, skin),
-    rect(52, 48, 4, 12, shirt), rect(36, 52, 4, 10, shirt), rect(36, 62, 4, 2, skin),
-    rect(44, 52, 4, 12, shirt), rect(48, 52, 4, 10, shirt), rect(48, 62, 4, 2, skin),
+    rect(32, 52, 4, 12, shirt), rect(36, 52, 4, 10, shirt), rect(36, 62, 4, 2, skin),
+    rect(40, 52, 4, 12, shirt), rect(44, 52, 4, 10, shirt), rect(44, 62, 4, 2, skin),
 
     // Right leg.
     rect(4, 16, 4, 4, pants), rect(8, 16, 4, 4, shoe),
@@ -151,6 +151,12 @@ function skinPreview(shirt: string, hair: string): string {
 const mockSkins: SkinInfo[] = [
   { id: 'skin-steve', name: 'Steve', model: 'wide', dataUrl: skinPreview('#3b82f6', '#6b4f2a'), size: 4213, addedAt: Date.now() - 86_400_000, active: false },
   { id: 'skin-alex', name: 'Alex', model: 'slim', dataUrl: skinPreview('#ec4899', '#1d4ed8'), size: 3980, addedAt: Date.now() - 172_800_000, active: false }
+]
+
+const mockWorlds: ModrinthProject[] = [
+  { project_id: 'wild-village', slug: 'wild-village', title: 'Дикая деревня', description: 'Большая деревня с лесом поблизости и готовыми домами для заселения.', icon_url: icon('Д', '#16a34a'), downloads: 840_000, follow_count: 4_200, categories: ['survival'], project_type: 'world', versions: ['1.20.1'] },
+  { project_id: 'skyblock-islands', slug: 'skyblock-islands', title: 'Skyblock Islands', description: 'Архипелаг островов с шахтами и заданиями на выживание.', icon_url: icon('S', '#2563eb'), downloads: 1_250_000, follow_count: 7_800, categories: ['skyblock'], project_type: 'world', versions: ['1.20.1'] },
+  { project_id: 'ancient-temple', slug: 'ancient-temple', title: 'Храм древних', description: 'Приключенческая карта с подземельями, ловушками и сокровищами.', icon_url: icon('Х', '#b45309'), downloads: 460_000, follow_count: 2_100, categories: ['adventure'], project_type: 'world', versions: ['1.20.1'] }
 ]
 
 function mockState(): AppState {
@@ -444,6 +450,22 @@ function createMock(): LauncherAPI {
       const normalized = query.trim().toLowerCase()
       return normalized ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized)) : packs
     },
+    searchWorlds: async (query) => {
+      await wait(220)
+      const normalized = query.trim().toLowerCase()
+      return normalized
+        ? mockWorlds.filter((world) => `${world.title} ${world.description}`.toLowerCase().includes(normalized))
+        : mockWorlds
+    },
+    installWorld: async (_profileId, projectId) => {
+      const world = mockWorlds.find((entry) => entry.project_id === projectId)
+      await mockProgress(t('Скачивание мира'), 'world')
+      emit('toast', {
+        id: String(Date.now()),
+        type: 'success',
+        message: t('Мир «{name}» установлен (демо-режим)', { name: world?.title ?? projectId })
+      })
+    },
     getProjectDetails: async (projectId): Promise<ModrinthProjectDetails> => {
       await wait(220)
       const base = mockProjects.find((project) => project.project_id === projectId)
@@ -452,7 +474,8 @@ function createMock(): LauncherAPI {
         { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
         { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
       ].find((item) => item.project_id === projectId) : null
-      const project = base ?? pack
+      const world = !base && !pack ? mockWorlds.find((item) => item.project_id === projectId) : null
+      const project = base ?? pack ?? world
       if (!project) throw new Error(t('Проект не найден'))
       return {
         ...project,

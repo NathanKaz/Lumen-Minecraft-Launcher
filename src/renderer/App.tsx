@@ -12,6 +12,7 @@ import { SkinsPanel } from './components/SkinsPanel'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
+import { Worlds } from './pages/Worlds'
 import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
 import type { AccountRecord } from '@shared/types'
@@ -109,7 +110,9 @@ export default function App(): JSX.Element {
                   <>
                     {page === 'home' && <Instances />}
                     {page === 'screenshots' && <Screenshots />}
+                    {page === 'skins' && <SkinsPanel accountId={state.activeAccountId} />}
                     {page === 'modpacks' && <Modpacks />}
+                    {page === 'worlds' && <Worlds />}
                     {page === 'settings' && <Settings />}
                   </>
                 )}
@@ -121,9 +124,9 @@ export default function App(): JSX.Element {
 
       <ToastHost />
 
-      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-5xl">
+      <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title={t("Аккаунт")} width="max-w-2xl">
         {state && (
-          <div className="grid gap-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
+          <div className="min-w-0">
             <section className="min-w-0 space-y-4">
               <div className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
@@ -245,10 +248,6 @@ export default function App(): JSX.Element {
               <p className="text-[11px] leading-relaxed text-slate-500">
                 {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
               </p>
-            </section>
-
-            <section className="min-w-0 border-t border-white/[0.06] pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-              <SkinsPanel accountId={state.activeAccountId} />
             </section>
           </div>
         )}

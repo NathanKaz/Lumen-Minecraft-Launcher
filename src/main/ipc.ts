@@ -21,6 +21,7 @@ import { getVersionList, installProfile } from './core/versions'
 import { getStatus, launchGame, stopGame } from './core/launch'
 import { copyModFile, deleteMod, listMods, toggleMod } from './core/mods'
 import { getProjectDetails, installMod, searchMods, searchModpacks } from './core/modrinth'
+import { installWorld, searchWorlds } from './core/worlds'
 import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
 import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
@@ -127,6 +128,8 @@ export function registerIpc(): void {
   )
   handle(IPC.installMod, (id: string, projectId: string) => installMod(id, projectId))
   handle(IPC.searchModpacks, (query: string) => searchModpacks(query))
+  handle(IPC.searchWorlds, (query: string) => searchWorlds(query))
+  handle(IPC.installWorld, (profileId: string, projectId: string) => installWorld(profileId, projectId))
   handle(IPC.getProjectDetails, (projectId: string) => getProjectDetails(projectId))
   handle(IPC.installModpack, (id: string) => installModpackFromFile(id))
   handle(IPC.installModpackFilePath, (id: string, filePath: string) => installModpackFromPath(id, filePath))

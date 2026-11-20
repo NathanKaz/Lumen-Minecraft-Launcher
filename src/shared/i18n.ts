@@ -550,6 +550,25 @@ const en: Record<string, string> = {
   'В сборке нет миров для резервной копии': 'This instance has no worlds to back up',
   'Резервных копий пока нет.': 'No backups yet.',
 
+  // Modrinth worlds catalog
+  'Каталог миров': 'World catalog',
+  'Карты и миры Modrinth устанавливаются в папку saves активной сборки «{name}».':
+    'Modrinth maps and worlds are installed into the active instance’s saves folder (“{name}”).',
+  'Популярные миры': 'Popular worlds',
+  'Поиск миров': 'Search worlds',
+  'Мир': 'World',
+  'О мире': 'About this world',
+  'Установить мир': 'Install world',
+  'Миры не найдены': 'No worlds found',
+  'Скачивание мира': 'Downloading world',
+  'Мир «{name}» установлен': 'World “{name}” installed',
+  'Мир «{name}» установлен (демо-режим)': 'World “{name}” installed (demo mode)',
+  'Мир «{name}» установлен в сборку «{profile}»': 'World “{name}” installed into instance “{profile}”',
+  'У мира нет файла для установки': 'This world has no installable file',
+  'Файл не содержит мир Minecraft (level.dat)': 'The file does not contain a Minecraft world (level.dat)',
+  'Не удалось найти мир в архиве': 'Could not find the world inside the archive',
+  'Архив мира содержит небезопасные пути': 'The world archive contains unsafe paths',
+
   // Packs
   'Ресурсы и шейдеры': 'Resources & shaders',
   'Наборы ресурсов': 'Resource packs',

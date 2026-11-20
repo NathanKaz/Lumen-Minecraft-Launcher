@@ -107,7 +107,7 @@ export function SkinsPanel({ accountId }: { accountId: string }): JSX.Element {
       {loading ? (
         <div className="flex items-center justify-center py-8"><Spinner size={20} /></div>
       ) : skins.length ? (
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3">
           {skins.map((skin) => (
             <div
               key={skin.id}
@@ -126,7 +126,7 @@ export function SkinsPanel({ accountId }: { accountId: string }): JSX.Element {
                   {skin.active && <Badge tone="mint"><Check size={10} /> {t('Активный')}</Badge>}
                 </div>
                 <div className="mt-0.5 text-[10px] text-slate-500">{formatSize(skin.size)}</div>
-                <div className="mt-2 w-28">
+                <div className="mt-2 w-full max-w-[140px]">
                   <Select
                     value={skin.model}
                     onChange={(value) => void setModel(skin, value as SkinModel)}
@@ -138,8 +138,8 @@ export function SkinsPanel({ accountId }: { accountId: string }): JSX.Element {
                 </div>
               </div>
               <div className="flex shrink-0 flex-col gap-2">
-                <Button onClick={() => void select(skin)} disabled={busy}>{skin.active ? t('Снять') : t('Использовать')}</Button>
-                <Button onClick={() => void remove(skin)} disabled={busy}><Trash2 size={14} /> {t('Удалить')}</Button>
+                <Button className="whitespace-nowrap" onClick={() => void select(skin)} disabled={busy}>{skin.active ? t('Снять') : t('Использовать')}</Button>
+                <Button className="whitespace-nowrap" onClick={() => void remove(skin)} disabled={busy}><Trash2 size={14} /> {t('Удалить')}</Button>
               </div>
             </div>
           ))}

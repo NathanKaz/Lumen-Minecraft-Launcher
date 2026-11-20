@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { t } from '../lib/i18n'
-import { Gamepad2, Image as ImageIcon, LayoutDashboard, Package, Settings, ChevronRight } from 'lucide-react'
+import { Gamepad2, Globe2, Image as ImageIcon, LayoutDashboard, Package, Settings, Shirt, ChevronRight } from 'lucide-react'
 import { selectedProfile, useLauncher, type Page } from '../store'
 
 // Labels are computed on every render so switching the interface language
@@ -8,7 +8,9 @@ import { selectedProfile, useLauncher, type Page } from '../store'
 const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> => [
   { id: 'home', label: t("Главная"), icon: LayoutDashboard },
   { id: 'screenshots', label: t("Скриншоты"), icon: ImageIcon },
+  { id: 'skins', label: t("Скины"), icon: Shirt },
   { id: 'modpacks', label: t("Модпаки"), icon: Package },
+  { id: 'worlds', label: t("Миры"), icon: Globe2 },
   { id: 'settings', label: t("Настройки"), icon: Settings }
 ]
 

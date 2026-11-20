@@ -35,6 +35,10 @@ export function screenshotsDir(profileId: string): string {
   return path.join(instanceDir(profileId), 'screenshots')
 }
 
+export function savesDir(profileId: string): string {
+  return path.join(instanceDir(profileId), 'saves')
+}
+
 export function versionDir(versionId: string): string {
   return path.join(dirs.versions, versionId)
 }

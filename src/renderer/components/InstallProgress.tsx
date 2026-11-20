@@ -12,6 +12,7 @@ const phaseKeys: Record<ProgressPhase, string> = {
   loader: 'Загрузчик',
   mod: 'Мод',
   modpack: 'Модпак',
+  world: 'Мир',
   launch: 'Запуск',
   java: 'Java'
 }

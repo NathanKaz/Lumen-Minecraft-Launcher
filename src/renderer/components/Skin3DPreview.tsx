@@ -22,6 +22,7 @@ interface Face {
   normal: Vec3
 }
 
+// Base layer. Rectangle format is [textureX, textureY, width, height].
 const HEAD_UV: Record<FaceName, UV> = {
   top: [8, 0, 8, 8],
   bottom: [16, 0, 8, 8],
@@ -33,10 +34,10 @@ const HEAD_UV: Record<FaceName, UV> = {
 
 const BODY_UV: Record<FaceName, UV> = {
   top: [20, 16, 8, 4],
-  bottom: [24, 16, 8, 4],
+  bottom: [28, 16, 8, 4],
   right: [16, 20, 4, 12],
   front: [20, 20, 8, 12],
-  left: [36, 20, 4, 12],
+  left: [28, 20, 4, 12],
   back: [32, 20, 8, 12]
 }
 
@@ -52,10 +53,10 @@ const RIGHT_ARM_UV: Record<FaceName, UV> = {
 const LEFT_ARM_UV: Record<FaceName, UV> = {
   top: [36, 48, 4, 4],
   bottom: [40, 48, 4, 4],
-  right: [52, 48, 4, 12],
+  right: [32, 52, 4, 12],
   front: [36, 52, 4, 12],
-  left: [44, 52, 4, 12],
-  back: [48, 52, 4, 12]
+  left: [40, 52, 4, 12],
+  back: [44, 52, 4, 12]
 }
 
 const RIGHT_LEG_UV: Record<FaceName, UV> = {
@@ -76,24 +77,110 @@ const LEFT_LEG_UV: Record<FaceName, UV> = {
   back: [28, 52, 4, 12]
 }
 
+// Second (overlay) layer: hat, jacket, sleeves and pants.
+const HEAD_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [40, 0, 8, 8],
+  bottom: [48, 0, 8, 8],
+  right: [32, 8, 8, 8],
+  front: [40, 8, 8, 8],
+  left: [48, 8, 8, 8],
+  back: [56, 8, 8, 8]
+}
+
+const BODY_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [20, 32, 8, 4],
+  bottom: [28, 32, 8, 4],
+  right: [16, 36, 4, 12],
+  front: [20, 36, 8, 12],
+  left: [28, 36, 4, 12],
+  back: [32, 36, 8, 12]
+}
+
+const RIGHT_ARM_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [44, 32, 4, 4],
+  bottom: [48, 32, 4, 4],
+  right: [40, 36, 4, 12],
+  front: [44, 36, 4, 12],
+  left: [48, 36, 4, 12],
+  back: [52, 36, 4, 12]
+}
+
+const LEFT_ARM_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [52, 48, 4, 4],
+  bottom: [56, 48, 4, 4],
+  right: [48, 52, 4, 12],
+  front: [52, 52, 4, 12],
+  left: [56, 52, 4, 12],
+  back: [60, 52, 4, 12]
+}
+
+const RIGHT_LEG_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [4, 32, 4, 4],
+  bottom: [8, 32, 4, 4],
+  right: [0, 36, 4, 12],
+  front: [4, 36, 4, 12],
+  left: [8, 36, 4, 12],
+  back: [12, 36, 4, 12]
+}
+
+const LEFT_LEG_OVERLAY_UV: Record<FaceName, UV> = {
+  top: [4, 48, 4, 4],
+  bottom: [8, 48, 4, 4],
+  right: [0, 52, 4, 12],
+  front: [4, 52, 4, 12],
+  left: [8, 52, 4, 12],
+  back: [12, 52, 4, 12]
+}
+
+/**
+ * Slim arms are 3 units wide instead of 4. Only the faces whose texture width
+ * follows the arm width shrink; side faces follow the (unchanged) depth.
+ */
 function narrowUV(uv: Record<FaceName, UV>): Record<FaceName, UV> {
   const result = {} as Record<FaceName, UV>
+  const widthFaces: FaceName[] = ['front', 'back', 'top', 'bottom']
   for (const [face, rect] of Object.entries(uv) as Array<[FaceName, UV]>) {
-    result[face] = rect[2] === 4 ? [rect[0], rect[1], 3, rect[3]] : rect
+    result[face] = widthFaces.includes(face) && rect[2] === 4
+      ? [rect[0], rect[1], 3, rect[3]]
+      : rect
   }
   return result
 }
 
 function buildBoxes(model: SkinModel): Box[] {
   const armWidth = model === 'slim' ? 3 : 4
-  return [
+  const slim = (uv: Record<FaceName, UV>) => model === 'slim' ? narrowUV(uv) : uv
+  const base: Box[] = [
     { x0: -4, x1: 4, y0: 8, y1: 16, z0: -4, z1: 4, uv: HEAD_UV },
     { x0: -4, x1: 4, y0: -4, y1: 8, z0: -2, z1: 2, uv: BODY_UV },
-    { x0: -4 - armWidth, x1: -4, y0: -4, y1: 8, z0: -2, z1: 2, uv: model === 'slim' ? narrowUV(RIGHT_ARM_UV) : RIGHT_ARM_UV },
-    { x0: 4, x1: 4 + armWidth, y0: -4, y1: 8, z0: -2, z1: 2, uv: model === 'slim' ? narrowUV(LEFT_ARM_UV) : LEFT_ARM_UV },
+    { x0: -4 - armWidth, x1: -4, y0: -4, y1: 8, z0: -2, z1: 2, uv: slim(RIGHT_ARM_UV) },
+    { x0: 4, x1: 4 + armWidth, y0: -4, y1: 8, z0: -2, z1: 2, uv: slim(LEFT_ARM_UV) },
     { x0: -4, x1: 0, y0: -16, y1: -4, z0: -2, z1: 2, uv: RIGHT_LEG_UV },
     { x0: 0, x1: 4, y0: -16, y1: -4, z0: -2, z1: 2, uv: LEFT_LEG_UV }
   ]
+  const overlays = [
+    HEAD_OVERLAY_UV,
+    BODY_OVERLAY_UV,
+    slim(RIGHT_ARM_OVERLAY_UV),
+    slim(LEFT_ARM_OVERLAY_UV),
+    RIGHT_LEG_OVERLAY_UV,
+    LEFT_LEG_OVERLAY_UV
+  ]
+  // The overlay shell is drawn slightly larger than the base model, as in game.
+  const margin = 0.25
+  const overlayBoxes: Box[] = overlays.map((uv, index) => {
+    const source = base[index]
+    return {
+      x0: source.x0 - margin,
+      x1: source.x1 + margin,
+      y0: source.y0 - margin,
+      y1: source.y1 + margin,
+      z0: source.z0 - margin,
+      z1: source.z1 + margin,
+      uv
+    }
+  })
+  return [...base, ...overlayBoxes]
 }
 
 function boxFaces(box: Box): Face[] {
@@ -125,7 +212,8 @@ function dot(a: Vec3, b: Vec3): number {
 /**
  * Lightweight, dependency-free Minecraft skin renderer. It samples the skin
  * atlas on a 2D canvas and projects textured boxes with manual rotation and
- * depth sorting, so it also works in the browser demo build.
+ * depth sorting, so it also works in the browser demo build. Both the base
+ * texture and the transparent overlay layer are rendered.
  */
 export function Skin3DPreview({ dataUrl, model, className = '' }: {
   dataUrl: string
@@ -151,9 +239,24 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       ctx.imageSmoothingEnabled = false
-      ctx.fillStyle = '#8b8b8b'
-      ctx.fillRect(0, 0, 64, 64)
-      ctx.drawImage(image, 0, 0, image.naturalWidth || 64, image.naturalHeight || 64, 0, 0, 64, 64)
+      const width = image.naturalWidth || 64
+      const height = image.naturalHeight || 64
+      if (height >= 64) {
+        ctx.drawImage(image, 0, 0, width, height, 0, 0, 64, 64)
+      } else {
+        // Legacy 64x32 skins: keep the base at native size and mirror the
+        // right arm/leg into the left limb slots used by modern skins.
+        ctx.drawImage(image, 0, 0, width, height, 0, 0, 64, 32)
+        const mirror = (sx: number, sy: number, dx: number, dy: number) => {
+          ctx.save()
+          ctx.translate(dx + 16, dy)
+          ctx.scale(-1, 1)
+          ctx.drawImage(image, sx, sy, 16, 16, 0, 0, 16, 16)
+          ctx.restore()
+        }
+        mirror(40, 16, 32, 48)
+        mirror(0, 16, 16, 48)
+      }
       textureRef.current = canvas
     }
     image.src = dataUrl
@@ -168,6 +271,10 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    const patch = document.createElement('canvas')
+    const patchCtx = patch.getContext('2d')
+    if (!patchCtx) return
 
     let frame = 0
     const boxes = buildBoxes(model)
@@ -233,6 +340,22 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
         const brightness = 0.7 + 0.35 * Math.max(0, dot(normal, light) / lightLength)
         const alpha = brightness < 1 ? (1 - brightness) * 0.85 : 0
 
+        // Shade the face on its own small canvas so transparent overlay
+        // texels stay transparent instead of becoming a dark shell.
+        if (patch.width !== width || patch.height !== height) {
+          patch.width = width
+          patch.height = height
+        }
+        patchCtx.clearRect(0, 0, width, height)
+        patchCtx.imageSmoothingEnabled = false
+        patchCtx.drawImage(texture, u, v, width, height, 0, 0, width, height)
+        if (alpha > 0.01) {
+          patchCtx.globalCompositeOperation = 'source-atop'
+          patchCtx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`
+          patchCtx.fillRect(0, 0, width, height)
+          patchCtx.globalCompositeOperation = 'source-over'
+        }
+
         ctx.save()
         ctx.beginPath()
         ctx.moveTo(tl.x, tl.y)
@@ -249,21 +372,8 @@ export function Skin3DPreview({ dataUrl, model, className = '' }: {
           tl.x,
           tl.y
         )
-        ctx.drawImage(texture, u, v, width, height, 0, 0, width, height)
+        ctx.drawImage(patch, 0, 0)
         ctx.restore()
-
-        if (alpha > 0.01) {
-          ctx.save()
-          ctx.beginPath()
-          ctx.moveTo(tl.x, tl.y)
-          ctx.lineTo(tr.x, tr.y)
-          ctx.lineTo(face.screen[3].x, face.screen[3].y)
-          ctx.lineTo(bl.x, bl.y)
-          ctx.closePath()
-          ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`
-          ctx.fill()
-          ctx.restore()
-        }
       }
     }
     frame = requestAnimationFrame(draw)
