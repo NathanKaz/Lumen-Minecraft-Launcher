@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Archive, Copy, Download, FolderOpen, Globe2, Pencil, Search, Trash2, Upload, X
+  Archive, Copy, Download, FolderOpen, Globe2, Info, Pencil, Search, Trash2, Upload, X
 } from 'lucide-react'
 import { formatSize, t } from '../lib/i18n'
 import { api } from '../lib/api'
@@ -10,12 +10,11 @@ import { Badge, Button, EmptyState, Spinner } from '../components/ui'
 import { CatalogPanel } from '../components/CatalogPanel'
 import type { WorldInfo } from '@shared/types'
 
-/** Hybrid worlds tab: local saves manager plus a Modrinth map/datapack catalog. */
+/** Worlds tab: local saves manager plus a Modrinth worldgen datapack catalog. */
 export function Worlds({ profileId }: { profileId: string }): JSX.Element {
   const { state, busy, setBusy, pushToast } = useLauncher()
   const target = state?.profiles.find((item) => item.id === profileId)
   const [section, setSection] = useState<'local' | 'catalog'>('local')
-  const [catalogKind, setCatalogKind] = useState<'adventure' | 'datapack'>('adventure')
   const [worlds, setWorlds] = useState<WorldInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
@@ -95,27 +94,15 @@ export function Worlds({ profileId }: { profileId: string }): JSX.Element {
 
       {section === 'catalog' ? (
         <div>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {([
-              { id: 'adventure', label: t('Карты и приключения') },
-              { id: 'datapack', label: t('Наборы данных') }
-            ] as const).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setCatalogKind(item.id)}
-                className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
-                  catalogKind === item.id ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] leading-snug text-slate-500">
+            <Info size={15} className="mt-0.5 shrink-0 text-iris-400" />
+            <span>{t('Modrinth не выделяет миры в отдельный тип. Здесь собраны наборы данных, которые меняют генерацию мира, — без модпаков.')}</span>
           </div>
           <CatalogPanel
-            key={catalogKind}
-            kind={catalogKind === 'adventure' ? 'modpack' : 'datapack'}
+            kind="datapack"
             profileId={profileId}
-            category={catalogKind === 'adventure' ? 'adventure' : 'worldgen'}
+            category="worldgen"
+            title={t('Миры и генерация')}
           />
         </div>
       ) : loading && !worlds.length ? (
