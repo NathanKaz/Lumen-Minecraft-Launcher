@@ -22,6 +22,8 @@ export interface Profile {
   createdAt: number
   lastPlayed?: number
   playtimeMinutes: number
+  /** Filesystem folder name derived from the display name; legacy builds omit it. */
+  dirName?: string
   modpack?: {
     name: string
     version: string
@@ -73,6 +75,8 @@ export interface AccountRecord extends Account {
   groups: BuildGroup[]
   selectedProfileId: string
   activeSkinId?: string
+  /** Filesystem folder name derived from the player name; legacy records omit it. */
+  dirName?: string
 }
 
 export interface AppState {

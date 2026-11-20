@@ -2,7 +2,7 @@ import path from 'node:path'
 import { msg } from './i18n'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
-import { dirs, root } from './paths'
+import { clearDirNames, dirs, registerAccountDir, registerProfileDir, root, safeDirName } from './paths'
 import type { Account, AccountRecord, AppState, BuildGroup, Profile, Settings } from '@shared/types'
 
 const statePath = path.join(root, 'launcher-state.json')
@@ -211,8 +211,80 @@ export function initStore(): AppState {
   return state!
 }
 
+/**
+ * Renames instance/backup/skin folders from IDs (or old display names) to the
+ * current names shown in the launcher, and keeps the ID -> folder mapping used
+ * by all path helpers. Existing data is never overwritten.
+ */
+function moveFolder(source: string, target: string): boolean {
+  if (source === target) return true
+  if (!fs.existsSync(source)) return true
+  if (fs.existsSync(target)) return false
+  try {
+    fs.renameSync(source, target)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function assignDirNames<T extends { id: string; name: string; dirName?: string }>(
+  records: T[],
+  register: (id: string, name: string) => void,
+  roots: string[]
+): void {
+  const byId = new Map<string, T[]>()
+  for (const record of records) {
+    const group = byId.get(record.id)
+    if (group) group.push(record)
+    else byId.set(record.id, [record])
+  }
+
+  const used = new Set<string>()
+  for (const [id, group] of byId) {
+    const oldName = group[0].dirName ?? id
+    const base = safeDirName(group[0].name)
+    let candidate = base
+    let index = 2
+    while (used.has(candidate.toLowerCase()) ||
+      roots.some((dir) => fs.existsSync(path.join(dir, candidate)) && candidate !== oldName)) {
+      candidate = `${base}-${index++}`.slice(0, 80)
+    }
+    used.add(candidate.toLowerCase())
+
+    // Move every root, then roll back if any failed so the registry and the
+    // filesystem always agree about where a profile's data lives.
+    const moves = roots.map((dir) => {
+      const from = path.join(dir, oldName)
+      const to = path.join(dir, candidate)
+      return { from, to, changed: from !== to && fs.existsSync(from) }
+    })
+    const moved = moves.every(({ from, to }) => moveFolder(from, to))
+    if (!moved) {
+      for (const { from, to, changed } of moves) {
+        if (changed) moveFolder(to, from)
+      }
+    }
+    const finalName = moved ? candidate : oldName
+    register(id, finalName)
+    for (const record of group) record.dirName = finalName
+  }
+}
+
+function syncDirNames(): void {
+  if (!state) return
+  clearDirNames()
+  const profiles = [
+    ...state.profiles,
+    ...(state.accounts ?? []).flatMap((account) => account.profiles ?? [])
+  ]
+  assignDirNames(profiles, registerProfileDir, [dirs.instances, dirs.backups])
+  assignDirNames(state.accounts ?? [], registerAccountDir, [dirs.skins])
+}
+
 export function saveState(): void {
   if (!state) return
+  syncDirNames()
   state = snapshotActive(state)
   const temp = `${statePath}.tmp`
   fs.writeJsonSync(temp, state, { spaces: 2 })

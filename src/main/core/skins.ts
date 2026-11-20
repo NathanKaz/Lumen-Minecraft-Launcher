@@ -3,7 +3,7 @@ import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
 import { dialog } from 'electron'
 import { msg } from './i18n'
-import { dirs, instanceDir, packsDir } from './paths'
+import { accountSkinDir as accountSkinPath, dirs, instanceDir, packsDir } from './paths'
 import { getState, setState } from './store'
 import { emitLog, emitToast, uid } from './events'
 import type { SkinInfo, SkinModel } from '@shared/types'
@@ -23,7 +23,7 @@ const migrationMarker = path.join(dirs.skins, '.lumen-skins-migrated')
 /** Each offline player has an isolated skin library. */
 function accountSkinDir(): string {
   const state = getState()
-  return path.join(dirs.skins, state.activeAccountId || state.account.id)
+  return accountSkinPath(state.activeAccountId || state.account.id)
 }
 
 function libraryPath(): string {
