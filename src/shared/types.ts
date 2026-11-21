@@ -52,6 +52,8 @@ export interface Settings {
   scheduledBackup?: ScheduledBackupSettings
   /** Set after the first-run wizard is finished. */
   onboardingCompleted?: boolean
+  /** Azure application (client) ID used for the Microsoft sign-in flow. */
+  msaClientId?: string
 }
 
 export interface ScheduledBackupSettings {
@@ -64,9 +66,27 @@ export interface Account {
   id: string
   name: string
   uuid: string
+  /** Minecraft access token used in the `auth_access_token` launch argument. */
   token: string
   type: 'offline' | 'microsoft'
   createdAt: number
+  /** Expiry time of the Minecraft access token (Microsoft accounts only). */
+  expiresAt?: number
+  /** Xbox user ID, passed to the game as `auth_xuid`. */
+  xuid?: string
+  /** Xbox user hash used to build the Minecraft identity token. */
+  userHash?: string
+}
+
+/** Data returned by the Microsoft → Xbox → Minecraft authentication chain. */
+export interface MicrosoftCredentials {
+  name: string
+  uuid: string
+  token: string
+  expiresAt: number
+  refreshToken: string
+  xuid?: string
+  userHash?: string
 }
 
 /** A fully isolated offline player: its own builds, groups and active skin. */
@@ -125,6 +145,23 @@ export interface ProgressPayload {
   bytes: number
   totalBytes: number
   speed: number
+  taskId?: string
+}
+
+export type TaskStatus = 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'canceled'
+
+export interface TaskInfo {
+  id: string
+  label: string
+  phase: ProgressPhase
+  status: TaskStatus
+  progress: ProgressPayload | null
+  error?: string
+  createdAt: number
+  updatedAt: number
+  canPause: boolean
+  canCancel: boolean
+  canRetry: boolean
 }
 
 export interface LogPayload {
@@ -385,6 +422,12 @@ export interface LauncherAPI {
   /** Renames the active offline account (kept for backward compatibility). */
   setAccount(name: string): Promise<AppState>
   addAccount(name: string): Promise<AppState>
+  /** Runs the Microsoft (MSA → Xbox → Minecraft) sign-in flow and adds the account. */
+  loginMicrosoft(): Promise<AppState>
+  /** Silently refreshes the Minecraft token of a Microsoft account. */
+  refreshMicrosoft(id: string): Promise<AppState>
+  /** Signs out: drops the stored refresh token and turns the profile offline. */
+  logoutMicrosoft(id: string): Promise<AppState>
   selectAccount(id: string): Promise<AppState>
   renameAccount(id: string, name: string): Promise<AppState>
   deleteAccount(id: string): Promise<AppState>
@@ -489,6 +532,13 @@ export interface LauncherAPI {
 
   /** Installs a file dropped onto an instance card (.jar, .mrpack, .zip, .mcworld). */
   importDroppedFile(profileId: string, filePath: string): Promise<void>
+
+  listTasks(): Promise<TaskInfo[]>
+  cancelTask(id: string): Promise<void>
+  pauseTask(id: string): Promise<void>
+  resumeTask(id: string): Promise<void>
+  clearFinishedTasks(): Promise<void>
+  onTasks(cb: (tasks: TaskInfo[]) => void): () => void
 
   isMock: boolean
 }

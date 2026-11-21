@@ -217,7 +217,7 @@ export async function resolveVersion(versionId: string, seen = new Set<string>()
   return mergeVersions(parent, json)
 }
 
-export async function installLibraries(version: VersionJson, label: string): Promise<void> {
+export async function installLibraries(version: VersionJson, label: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const tasks: DownloadTask[] = []
   for (const lib of version.libraries ?? []) {
     if (lib.action === 'disallow' || !ruleAllowed(lib.rules)) continue
@@ -244,7 +244,7 @@ export async function installLibraries(version: VersionJson, label: string): Pro
       })
     }
   }
-  await downloadMany(tasks, 'libraries', label)
+  await downloadMany(tasks, 'libraries', label, 4, opts)
 }
 
 export function extractNatives(version: VersionJson): void {
@@ -271,7 +271,7 @@ export function extractNatives(version: VersionJson): void {
   }
 }
 
-export async function installClientVersion(versionId: string, version: VersionJson): Promise<void> {
+export async function installClientVersion(versionId: string, version: VersionJson, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const dir = versionDir(versionId)
   await fs.ensureDir(dir)
 
@@ -297,10 +297,10 @@ export async function installClientVersion(versionId: string, version: VersionJs
       size: version.assetIndex.size,
       label: msg("индекс ассетов")
     })
-    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4)
-    await installAssets(version.assetIndex.id)
+    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4, opts)
+    await installAssets(version.assetIndex.id, opts)
   } else {
-    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4)
+    await downloadMany(tasks, 'version', msg("Загрузка клиента"), 4, opts)
   }
 
   const loggingFile = version.logging?.client?.file
@@ -315,12 +315,13 @@ export async function installClientVersion(versionId: string, version: VersionJs
       }],
       'version',
       msg("Загрузка конфигурации"),
-      1
+      1,
+      opts
     )
   }
 }
 
-async function installAssets(indexId: string): Promise<void> {
+async function installAssets(indexId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const indexPath = path.join(dirs.assets, 'indexes', `${indexId}.json`)
   const index = await fs.readJson(indexPath) as { objects: Record<string, { hash: string; size: number }> }
   const tasks: DownloadTask[] = Object.values(index.objects).map((object) => ({
@@ -330,7 +331,7 @@ async function installAssets(indexId: string): Promise<void> {
     size: object.size,
     label: msg("ассеты")
   }))
-  await downloadMany(tasks, 'assets', msg("Загрузка ассетов"), 3)
+  await downloadMany(tasks, 'assets', msg("Загрузка ассетов"), 3, opts)
 
   if (indexId === 'legacy') {
     for (const [relative, object] of Object.entries(index.objects)) {

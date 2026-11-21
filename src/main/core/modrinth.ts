@@ -127,7 +127,8 @@ export async function installModrinthProject(
   profileId: string,
   projectId: string,
   versionId?: string,
-  visited = new Set<string>()
+  visited = new Set<string>(),
+  opts?: { signal?: AbortSignal; taskId?: string }
 ): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
@@ -158,7 +159,7 @@ export async function installModrinthProject(
     totalBytes: 0,
     speed: 0
   })
-  await downloadMany(tasks, 'mod', msg('Мод {name}', { name: version.name }), 2)
+  await downloadMany(tasks, 'mod', msg('Мод {name}', { name: version.name }), 2, opts)
 
   for (const dependency of version.dependencies) {
     if (dependency.dependency_type !== 'required') continue
@@ -167,13 +168,14 @@ export async function installModrinthProject(
       profileId,
       dependency.project_id ?? '',
       dependency.version_id,
-      visited
+      visited,
+      opts
     )
   }
 }
 
-export async function installMod(profileId: string, projectId: string): Promise<void> {
-  await installModrinthProject(profileId, projectId)
+export async function installMod(profileId: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
+  await installModrinthProject(profileId, projectId, undefined, new Set<string>(), opts)
   emitToast('success', msg("Мод установлен в выбранную сборку"))
 }
 

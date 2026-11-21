@@ -6,11 +6,12 @@ import type {
   GameStatus,
   LogPayload,
   ProgressPayload,
+  TaskInfo,
   ToastPayload,
   VersionManifest
 } from '@shared/types'
 
-export type Page = 'home' | 'library' | 'screenshots' | 'skins' | 'modpacks' | 'logs' | 'settings'
+export type Page = 'home' | 'library' | 'screenshots' | 'skins' | 'modpacks' | 'logs' | 'tasks' | 'settings'
 
 /** Sections of the dedicated instance page shown in its own sidebar. */
 export type ProfileSection = 'overview' | 'mods' | 'worlds' | 'screenshots' | 'tools' | 'settings'
@@ -54,6 +55,7 @@ interface LauncherStore {
   openedProfileId: string | null
   profileSection: ProfileSection
   progress: ProgressPayload | null
+  tasks: TaskInfo[]
   logs: LogPayload[]
   gameStatus: GameStatus
   toasts: ToastPayload[]
@@ -78,6 +80,10 @@ interface LauncherStore {
   clearNotifications: () => void
   setCrashProfileId: (id: string | null) => void
   setGlobalSearchOpen: (open: boolean) => void
+  cancelTask: (id: string) => Promise<void>
+  pauseTask: (id: string) => Promise<void>
+  resumeTask: (id: string) => Promise<void>
+  clearFinishedTasks: () => Promise<void>
 }
 
 export const useLauncher = create<LauncherStore>((set, get) => ({
@@ -87,6 +93,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
   openedProfileId: null,
   profileSection: 'overview',
   progress: null,
+  tasks: [],
   logs: [],
   gameStatus: 'idle',
   toasts: [],
@@ -103,14 +110,16 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
       set({ toasts: [...get().toasts, toast] })
       get().recordNotification(toast.type, toast.message)
     })
+    api.onTasks((tasks) => set({ tasks }))
 
-    const [state, versions, gameStatus, logs] = await Promise.all([
+    const [state, versions, gameStatus, logs, tasks] = await Promise.all([
       api.getState(),
       api.getVersions().catch(() => null),
       api.getGameStatus().catch(() => 'idle' as GameStatus),
-      api.getLogs().catch(() => [])
+      api.getLogs().catch(() => []),
+      api.listTasks().catch(() => [] as TaskInfo[])
     ])
-    set({ state, versions, logs, notifications: loadNotifications() })
+    set({ state, versions, logs, tasks, notifications: loadNotifications() })
     get().setGameStatus(gameStatus)
   },
 
@@ -179,7 +188,11 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
     set({ notifications: [] })
   },
   setCrashProfileId: (id) => set({ crashProfileId: id }),
-  setGlobalSearchOpen: (open) => set({ globalSearchOpen: open })
+  setGlobalSearchOpen: (open) => set({ globalSearchOpen: open }),
+  cancelTask: async (id) => { await api.cancelTask(id) },
+  pauseTask: async (id) => { await api.pauseTask(id) },
+  resumeTask: async (id) => { await api.resumeTask(id) },
+  clearFinishedTasks: async () => { await api.clearFinishedTasks() }
 }))
 
 export function selectedProfile(state?: AppState | null) {

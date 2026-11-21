@@ -265,7 +265,7 @@ export async function deleteWorld(profileId: string, dirName: string): Promise<v
 }
 
 /** Downloads a Modrinth project and installs it into the active instance's `saves`. */
-export async function installWorld(profileId: string, projectId: string): Promise<void> {
+export async function installWorld(profileId: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
 
@@ -281,7 +281,8 @@ export async function installWorld(profileId: string, projectId: string): Promis
     [{ url: file.url, dest: archive, sha1: file.hashes?.sha1, size: file.size, label: file.filename }],
     'world',
     msg('Скачивание мира'),
-    1
+    1,
+    opts
   )
 
   const temp = path.join(dirs.cache, `world-extract-${uid()}`)

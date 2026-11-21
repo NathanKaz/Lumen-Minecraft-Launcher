@@ -31,13 +31,19 @@ export function request(
   url: string,
   timeout = 30000,
   headers: Record<string, string> = {},
-  redirectsLeft = 5
+  redirectsLeft = 5,
+  signal?: AbortSignal
 ): Promise<NetworkResponse> {
   const target = new URL(url)
   const isHttps = target.protocol === 'https:'
   const transport = isHttps ? https : http
 
   return new Promise<NetworkResponse>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('TASK_ABORTED'))
+      return
+    }
+
     const req = transport.get(
       target,
       {
@@ -54,7 +60,7 @@ export function request(
             return
           }
           const next = new URL(response.headers.location, target).toString()
-          request(next, timeout, headers, redirectsLeft - 1).then(resolve, reject)
+          request(next, timeout, headers, redirectsLeft - 1, signal).then(resolve, reject)
           return
         }
 
@@ -68,25 +74,46 @@ export function request(
       }
     )
 
+    const onAbort = () => {
+      const error = new Error('TASK_ABORTED')
+      error.name = 'AbortError'
+      req.destroy(error)
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+
     req.setTimeout(timeout, () => {
       req.destroy(new Error(msg('Таймаут подключения {seconds} с', { seconds: Math.round(timeout / 1000) })))
     })
-    req.on('error', (error) => reject(new Error(describeError(error, target.toString()))))
+    req.on('error', (error) => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(error.name === 'AbortError' ? error : new Error(describeError(error, target.toString())))
+    })
+    req.on('close', () => signal?.removeEventListener('abort', onAbort))
   })
 }
 
-export async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3, signal?: AbortSignal): Promise<T> {
   let lastError: Error | undefined
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (signal?.aborted) {
+      const err = new Error('TASK_ABORTED')
+      err.name = 'AbortError'
+      throw err
+    }
     try {
       return await fn()
     } catch (error) {
       lastError = error as Error
+      if (lastError.name === 'AbortError' || signal?.aborted) throw lastError
       emitLog('warn', msg('{label} · попытка {attempt}/{attempts} не удалась: {error}', {
         label, attempt, attempts, error: lastError.message
       }))
       if (attempt < attempts) {
-        await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve() }, 500 * attempt)
+          const onAbort = () => { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); const err = new Error('TASK_ABORTED'); err.name = 'AbortError'; reject(err) }
+          signal?.addEventListener('abort', onAbort, { once: true })
+        })
       }
     }
   }

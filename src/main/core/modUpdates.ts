@@ -98,7 +98,7 @@ export async function checkModUpdates(profileId: string): Promise<ModUpdateInfo[
 }
 
 /** Shared download step for single and bulk mod updates (no backup/progress here). */
-async function downloadModVersion(profileId: string, fileName: string, projectId: string): Promise<void> {
+async function downloadModVersion(profileId: string, fileName: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg('Сборка не найдена'))
 
@@ -119,12 +119,12 @@ async function downloadModVersion(profileId: string, fileName: string, projectId
     size: file.size,
     label: file.filename
   }
-  await downloadMany([task], 'mod', msg('Мод {name}', { name: version.name }), 2)
+  await downloadMany([task], 'mod', msg('Мод {name}', { name: version.name }), 2, opts)
 }
 
-export async function updateMod(profileId: string, fileName: string, projectId: string): Promise<void> {
+export async function updateMod(profileId: string, fileName: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   await createAutoBackup(profileId, msg('Автобэкап перед обновлением модов'))
-  await downloadModVersion(profileId, fileName, projectId)
+  await downloadModVersion(profileId, fileName, projectId, opts)
 }
 
 function batchProgress(message: string, current: number, total: number): void {
@@ -140,7 +140,7 @@ function batchProgress(message: string, current: number, total: number): void {
   })
 }
 
-export async function updateAllMods(profileId: string): Promise<UpdateAllResult> {
+export async function updateAllMods(profileId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<UpdateAllResult> {
   const updates = await checkModUpdates(profileId)
   const result: UpdateAllResult = { updated: [], failed: [] }
   if (!updates.length) return result
@@ -156,12 +156,14 @@ export async function updateAllMods(profileId: string): Promise<UpdateAllResult>
   const total = updates.length
   batchProgress(msg('Обновление модов: {current}/{total}', { current: 0, total }), 0, total)
   for (let index = 0; index < total; index++) {
+    if (opts?.signal?.aborted) throw Object.assign(new Error('TASK_ABORTED'), { name: 'AbortError' })
     const update = updates[index]
     batchProgress(msg('Обновление мода {name}', { name: update.name }), index, total)
     try {
-      await downloadModVersion(profileId, update.fileName, update.projectId)
+      await downloadModVersion(profileId, update.fileName, update.projectId, opts)
       result.updated.push(update.fileName)
     } catch (error) {
+      if ((error as Error).name === 'AbortError') throw error
       result.failed.push(update.fileName)
       emitLog('warn', msg('Не удалось обновить мод {name}: {error}', {
         name: update.name,

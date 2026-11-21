@@ -26,6 +26,7 @@ import type {
   Profile,
   ScreenshotInfo,
   SkinInfo,
+  TaskInfo,
   ToastPayload,
   UpdateInfo,
   UpdateAllResult,
@@ -217,9 +218,10 @@ type MockBus = {
   log: Handler<LogPayload>[]
   gameStatus: Handler<GameStatus>[]
   toast: Handler<ToastPayload>[]
+  tasks: Handler<TaskInfo[]>[]
 }
 
-const bus: MockBus = { progress: [], log: [], gameStatus: [], toast: [] }
+const bus: MockBus = { progress: [], log: [], gameStatus: [], toast: [], tasks: [] }
 function emit<K extends keyof MockBus>(key: K, payload: Parameters<MockBus[K][number]>[0]): void {
   for (const handler of bus[key]) handler(payload as never)
 }
@@ -302,7 +304,11 @@ function createMock(): LauncherAPI {
     if (!record) throw new Error(t('Профиль не найден'))
     return {
       ...current,
-      account: { id: record.id, name: record.name, uuid: record.uuid, token: record.token, type: record.type, createdAt: record.createdAt },
+      account: {
+        id: record.id, name: record.name, uuid: record.uuid, token: record.token,
+        type: record.type, createdAt: record.createdAt,
+        expiresAt: record.expiresAt, xuid: record.xuid, userHash: record.userHash
+      },
       activeAccountId: record.id,
       profiles: record.profiles.map((profile) => ({ ...profile })),
       groups: record.groups.map((group) => ({ ...group })),
@@ -344,6 +350,42 @@ function createMock(): LauncherAPI {
       const record: AccountRecord = { ...account, profiles: [profile], groups: [], selectedProfileId: profile.id }
       state = load({ ...synced, accounts: [...synced.accounts, record] }, account.id)
       skinsByAccount[account.id] = []
+      return state
+    },
+    loginMicrosoft: async () => {
+      const synced = snapshot(state)
+      const account: Account = {
+        id: `msa-${Date.now()}`,
+        name: 'MicrosoftPlayer',
+        uuid: '253541b1e4d840e2b5b7b5a2f4a7e2b9',
+        token: 'mock-msa-token',
+        type: 'microsoft',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86_400_000,
+        xuid: '2535416228373764',
+        userHash: 'mock-user-hash'
+      }
+      const profile = { id: `profile-${Date.now()}`, name: t('Мой Minecraft'), versionId: '1.20.1', loader: 'vanilla' as const, createdAt: Date.now(), playtimeMinutes: 0 }
+      const record: AccountRecord = { ...account, profiles: [profile], groups: [], selectedProfileId: profile.id }
+      state = load({ ...synced, accounts: [...synced.accounts, record] }, account.id)
+      skinsByAccount[account.id] = []
+      return state
+    },
+    refreshMicrosoft: async (id) => commit(load(snapshot(state), id)),
+    logoutMicrosoft: async (id) => {
+      const synced = snapshot(state)
+      const target = synced.accounts.find((account) => account.id === id)
+      if (!target || target.type !== 'microsoft') throw new Error(t('Профиль не найден'))
+      const updated: AccountRecord = {
+        ...target,
+        type: 'offline',
+        token: `${Date.now()}`,
+        expiresAt: undefined,
+        xuid: undefined,
+        userHash: undefined
+      }
+      const accounts = synced.accounts.map((account) => (account.id === id ? updated : account))
+      state = synced.activeAccountId === id ? load({ ...synced, accounts }, id) : { ...synced, accounts }
       return state
     },
     selectAccount: async (id) => commit(load(snapshot(state), id)),
@@ -593,6 +635,18 @@ function createMock(): LauncherAPI {
         bus.toast = bus.toast.filter((handler) => handler !== cb)
       }
     },
+    onTasks: (cb) => {
+      bus.tasks.push(cb)
+      cb([])
+      return () => {
+        bus.tasks = bus.tasks.filter((handler) => handler !== cb)
+      }
+    },
+    listTasks: async () => [],
+    cancelTask: async () => undefined,
+    pauseTask: async () => undefined,
+    resumeTask: async () => undefined,
+    clearFinishedTasks: async () => undefined,
 
     listSkins: async () => [...skinsFor(state.activeAccountId)].map((skin) => ({ ...skin, active: skin.id === state.settings.activeSkinId })),
     importSkin: async () => {

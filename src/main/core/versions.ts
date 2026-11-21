@@ -16,7 +16,12 @@ import { createAutoBackup } from './backups'
 import { ensureJava } from './javaInstall'
 import { requiredJavaMajor } from './java'
 
-export async function installProfile(profileId: string, loaderVersion?: string, skipAutoBackup = false): Promise<void> {
+export async function installProfile(
+  profileId: string,
+  loaderVersion?: string,
+  skipAutoBackup = false,
+  opts?: { signal?: AbortSignal; taskId?: string }
+): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
 
@@ -30,12 +35,13 @@ export async function installProfile(profileId: string, loaderVersion?: string, 
     total: 1,
     bytes: 0,
     totalBytes: 0,
-    speed: 0
+    speed: 0,
+    taskId: opts?.taskId
   })
 
   const baseVersion = await fetchVersionJson(profile.versionId)
-  await installClientVersion(profile.versionId, baseVersion)
-  await installLibraries(baseVersion, msg("Загрузка библиотек Minecraft"))
+  await installClientVersion(profile.versionId, baseVersion, opts)
+  await installLibraries(baseVersion, msg("Загрузка библиотек Minecraft"), opts)
   extractNatives({ ...baseVersion, id: profile.versionId })
   markVersionInstalled(profile.versionId)
 

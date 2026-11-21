@@ -82,7 +82,8 @@ async function downloadPack(
   projectId: string,
   kind: CatalogKind,
   targetDir: string,
-  label: string
+  label: string,
+  opts?: { signal?: AbortSignal; taskId?: string }
 ): Promise<void> {
   const version = await latestVersion(projectId)
   const file = pickFile(version)
@@ -98,13 +99,15 @@ async function downloadPack(
     total: 1,
     bytes: 0,
     totalBytes: 0,
-    speed: 0
+    speed: 0,
+    taskId: opts?.taskId
   })
   await downloadMany(
     [{ url: file.url, dest: destination, sha1: file.hashes?.sha1, size: file.size, label: file.filename }],
     'mod',
     label,
-    1
+    1,
+    opts
   )
   if (kind === 'resourcepack' || kind === 'shader') {
     await setPackEnabled(profileId, kind === 'resourcepack' ? 'resource' : 'shader', path.basename(destination), true)
@@ -112,23 +115,23 @@ async function downloadPack(
 }
 
 /** Installs a Modrinth project into the given instance according to its type. */
-export async function installCatalogProject(profileId: string, kind: CatalogKind, projectId: string): Promise<void> {
+export async function installCatalogProject(profileId: string, kind: CatalogKind, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg('Сборка не найдена'))
 
   if (kind === 'modpack') {
-    await installModpackFromModrinth(profileId, projectId)
+    await installModpackFromModrinth(profileId, projectId, opts)
     emitToast('success', msg('Модпак установлен'))
     return
   }
 
   if (kind === 'datapack') {
-    await downloadPack(profileId, projectId, kind, path.join(instanceDir(profileId), 'datapacks'), msg('Набор данных'))
+    await downloadPack(profileId, projectId, kind, path.join(instanceDir(profileId), 'datapacks'), msg('Набор данных'), opts)
     emitToast('success', msg('Набор данных установлен'))
     return
   }
 
   const dir = packsDir(profileId, kind === 'resourcepack' ? 'resource' : 'shader')
-  await downloadPack(profileId, projectId, kind, dir, msg(kind === 'resourcepack' ? 'Набор ресурсов' : 'Шейдеры'))
+  await downloadPack(profileId, projectId, kind, dir, msg(kind === 'resourcepack' ? 'Набор ресурсов' : 'Шейдеры'), opts)
   emitToast('success', msg(kind === 'resourcepack' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен'))
 }

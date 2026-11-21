@@ -32,7 +32,7 @@ function detectLoader(dependencies: Record<string, string>): { loader: LoaderTyp
   return { loader: 'vanilla' }
 }
 
-async function installMrpack(profileId: string, file: string): Promise<void> {
+async function installMrpack(profileId: string, file: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
 
@@ -65,7 +65,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
     totalBytes: 0,
     speed: 0
   })
-  await installProfile(profileId, loaderVersion, true)
+  await installProfile(profileId, loaderVersion, true, opts)
 
   const directory = instanceDir(profileId)
   await fs.ensureDir(directory)
@@ -78,7 +78,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
       size: entry.fileSize,
       label: path.basename(entry.path)
     }))
-  await downloadMany(tasks, 'modpack', msg('Модпак {name}', { name: index.name }), 3)
+  await downloadMany(tasks, 'modpack', msg('Модпак {name}', { name: index.name }), 3, opts)
 
   const temp = path.join(dirs.cache, `mrpack-${uid()}`)
   await fs.ensureDir(temp)
@@ -94,7 +94,7 @@ async function installMrpack(profileId: string, file: string): Promise<void> {
   emitToast('success', msg('Модпак «{name}» установлен', { name: index.name }))
 }
 
-export async function installModpackFromFile(profileId: string): Promise<void> {
+export async function installModpackFromFile(profileId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const result = await dialog.showOpenDialog({
     title: msg("Выберите файл модпака"),
     filters: [
@@ -104,14 +104,14 @@ export async function installModpackFromFile(profileId: string): Promise<void> {
     properties: ['openFile']
   })
   if (result.canceled || !result.filePaths[0]) return
-  await installMrpack(profileId, result.filePaths[0])
+  await installMrpack(profileId, result.filePaths[0], opts)
 }
 
-export async function installModpackFromPath(profileId: string, filePath: string): Promise<void> {
-  await installMrpack(profileId, filePath)
+export async function installModpackFromPath(profileId: string, filePath: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
+  await installMrpack(profileId, filePath, opts)
 }
 
-export async function installModpackFromModrinth(profileId: string, projectId: string): Promise<void> {
+export async function installModpackFromModrinth(profileId: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
   const versions = await getModVersionsForMrpack(projectId)
   const version = versions[0]
   const file = version?.files.find((entry) => entry.filename.endsWith('.mrpack')) ?? version?.files[0]
@@ -122,8 +122,9 @@ export async function installModpackFromModrinth(profileId: string, projectId: s
     [{ url: file.url, dest: temp, sha1: file.hashes.sha1, size: file.size, label: file.filename }],
     'modpack',
     msg("Скачивание модпака"),
-    1
+    1,
+    opts
   )
-  await installMrpack(profileId, temp)
+  await installMrpack(profileId, temp, opts)
   await fs.remove(temp)
 }

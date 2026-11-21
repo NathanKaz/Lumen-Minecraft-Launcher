@@ -18,6 +18,7 @@ import {
   updateProfile
 } from './core/store'
 import { emitToast, emitLog, getLogs, clearLogs, uid } from './core/events'
+import { cancelTask, clearFinishedTasks, listTasks, pauseTask, resumeTask, runTaskAndWait } from './core/tasks'
 import { getVersionList, installProfile } from './core/versions'
 import { getStatus, launchGame, stopGame } from './core/launch'
 import {
@@ -56,13 +57,19 @@ import { installCatalogProject, searchCatalog } from './core/catalog'
 import { analyzeCrash, getLogFiles, listCrashReports, readLogFile } from './core/diagnostics'
 import { importDroppedFile } from './core/fileDrop'
 import { detectImportSources, importLauncherProfile } from './core/importLaunchers'
+import { forgetMicrosoftToken, loginMicrosoft, logoutMicrosoft, refreshMicrosoft } from './core/msa'
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
   ipcMain.handle(channel, async (_event, ...args: unknown[]) => {
     try {
       return await fn(...args)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const err = error instanceof Error ? error : new Error(String(error))
+      if (err.name === 'AbortError' || err.message === 'TASK_ABORTED') {
+        emitLog('info', msg('Задача отменена'))
+        throw err
+      }
+      const message = err.message
       emitLog('error', message)
       emitToast('error', message)
       throw error
@@ -75,9 +82,16 @@ export function registerIpc(): void {
   handle(IPC.setState, (patch: Partial<AppState>) => setState(patch))
   handle(IPC.setAccount, (name: string) => setAccountName(name))
   handle(IPC.addAccount, (name: string) => addAccount(name))
+  handle(IPC.loginMicrosoft, () => loginMicrosoft())
+  handle(IPC.refreshMicrosoft, (id: string) => refreshMicrosoft(id))
+  handle(IPC.logoutMicrosoft, (id: string) => logoutMicrosoft(id))
   handle(IPC.selectAccount, (id: string) => selectAccount(id))
   handle(IPC.renameAccount, (id: string, name: string) => renameAccount(id, name))
-  handle(IPC.deleteAccount, (id: string) => deleteAccount(id))
+  handle(IPC.deleteAccount, (id: string) => {
+    const next = deleteAccount(id)
+    forgetMicrosoftToken(id)
+    return next
+  })
   handle(IPC.confirmDeleteAccount, (id: string) => {
     const state = getState()
     const account = state.accounts.find((entry) => entry.id === id)
@@ -138,7 +152,14 @@ export function registerIpc(): void {
   })
 
   handle(IPC.getVersions, () => getVersionList())
-  handle(IPC.installProfile, (id: string) => installProfile(id))
+  handle(IPC.installProfile, (id: string) => {
+    const profile = getState().profiles.find((entry) => entry.id === id)
+    return runTaskAndWait({
+      label: msg('Установка {name}', { name: profile?.name ?? id }),
+      phase: 'version',
+      run: ({ signal, taskId }) => installProfile(id, undefined, false, { signal, taskId })
+    })
+  })
   handle(IPC.launch, (id: string) => launchGame(id))
   handle(IPC.stopGame, () => stopGame())
   handle(IPC.getGameStatus, () => getStatus())
@@ -149,20 +170,54 @@ export function registerIpc(): void {
   handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string, offset?: number) =>
     searchMods(query, gameVersion, loader, offset)
   )
-  handle(IPC.installMod, (id: string, projectId: string) => installMod(id, projectId))
+  handle(IPC.installMod, (id: string, projectId: string) =>
+    runTaskAndWait({
+      label: msg('Установка мода'),
+      phase: 'mod',
+      run: ({ signal, taskId }) => installMod(id, projectId, { signal, taskId })
+    })
+  )
   handle(IPC.searchModpacks, (query: string) => searchModpacks(query))
   handle(IPC.searchWorlds, (query: string) => searchWorlds(query))
-  handle(IPC.installWorld, (profileId: string, projectId: string) => installWorld(profileId, projectId))
+  handle(IPC.installWorld, (profileId: string, projectId: string) =>
+    runTaskAndWait({
+      label: msg('Установка мира'),
+      phase: 'world',
+      run: ({ signal, taskId }) => installWorld(profileId, projectId, { signal, taskId })
+    })
+  )
   handle(IPC.getProjectDetails, (projectId: string) => getProjectDetails(projectId))
-  handle(IPC.installModpack, (id: string) => installModpackFromFile(id))
-  handle(IPC.installModpackFilePath, (id: string, filePath: string) => installModpackFromPath(id, filePath))
-  handle(IPC.installModpackFromModrinth, (id: string, projectId: string) => installModpackFromModrinth(id, projectId))
+  handle(IPC.installModpack, (id: string) =>
+    runTaskAndWait({
+      label: msg('Установка модпака'),
+      phase: 'modpack',
+      run: ({ signal, taskId }) => installModpackFromFile(id, { signal, taskId })
+    })
+  )
+  handle(IPC.installModpackFilePath, (id: string, filePath: string) =>
+    runTaskAndWait({
+      label: msg('Установка модпака'),
+      phase: 'modpack',
+      run: ({ signal, taskId }) => installModpackFromPath(id, filePath, { signal, taskId })
+    })
+  )
+  handle(IPC.installModpackFromModrinth, (id: string, projectId: string) =>
+    runTaskAndWait({
+      label: msg('Установка модпака'),
+      phase: 'modpack',
+      run: ({ signal, taskId }) => installModpackFromModrinth(id, projectId, { signal, taskId })
+    })
+  )
   handle(IPC.listScreenshots, (profileId?: string) => listScreenshots(profileId))
   handle(IPC.deleteScreenshot, (profileId: string, fileName: string) => deleteScreenshot(profileId, fileName))
   handle(IPC.getJavaInfo, () => getJavaInfo())
   handle(IPC.detectJava, () => detectJava())
   handle(IPC.ensureJava, (major?: number, profileId?: string, explicit?: boolean) =>
-    ensureJava(major, profileId, explicit)
+    runTaskAndWait({
+      label: msg('Установка Java {version}', { version: major ?? '' }).trim(),
+      phase: 'java',
+      run: ({ signal, taskId }) => ensureJava(major, profileId, explicit, { signal, taskId })
+    })
   )
   handle(IPC.getLogs, (): LogPayload[] => getLogs())
   handle(IPC.clearLogs, () => clearLogs())
@@ -176,8 +231,20 @@ export function registerIpc(): void {
 
   // Updates & verification
   handle(IPC.checkUpdates, () => checkUpdates())
-  handle(IPC.verifyProfile, (id: string, repair?: boolean) => verifyProfile(id, repair))
-  handle(IPC.repairProfile, (id: string) => repairProfile(id))
+  handle(IPC.verifyProfile, (id: string, repair?: boolean) =>
+    runTaskAndWait({
+      label: repair ? msg('Восстановление файлов') : msg('Проверка файлов'),
+      phase: 'version',
+      run: ({ signal, taskId }) => verifyProfile(id, repair, { signal, taskId })
+    })
+  )
+  handle(IPC.repairProfile, (id: string) =>
+    runTaskAndWait({
+      label: msg('Восстановление файлов'),
+      phase: 'version',
+      run: ({ signal, taskId }) => repairProfile(id, { signal, taskId })
+    })
+  )
 
   // Backups
   handle(IPC.listBackups, (profileId: string) => listBackups(profileId))
@@ -202,8 +269,20 @@ export function registerIpc(): void {
 
   // Mod updates
   handle(IPC.checkModUpdates, (profileId: string) => checkModUpdates(profileId))
-  handle(IPC.updateMod, (profileId: string, fileName: string, versionId: string) => updateMod(profileId, fileName, versionId))
-  handle(IPC.updateAllMods, (profileId: string) => updateAllMods(profileId))
+  handle(IPC.updateMod, (profileId: string, fileName: string, versionId: string) =>
+    runTaskAndWait({
+      label: msg('Обновление мода'),
+      phase: 'mod',
+      run: ({ signal, taskId }) => updateMod(profileId, fileName, versionId, { signal, taskId })
+    })
+  )
+  handle(IPC.updateAllMods, (profileId: string) =>
+    runTaskAndWait({
+      label: msg('Обновление модов'),
+      phase: 'mod',
+      run: ({ signal, taskId }) => updateAllMods(profileId, { signal, taskId })
+    })
+  )
   handle(IPC.setModsEnabled, (profileId: string, fileNames: string[], enabled: boolean) =>
     setModsEnabled(profileId, fileNames, enabled))
   handle(IPC.exportModList, (profileId: string) => exportModList(profileId))
@@ -222,7 +301,12 @@ export function registerIpc(): void {
   // Modrinth catalogs
   handle(IPC.searchCatalog, (query: Parameters<typeof searchCatalog>[0]) => searchCatalog(query))
   handle(IPC.installCatalogProject, (profileId: string, kind: Parameters<typeof installCatalogProject>[1], projectId: string) =>
-    installCatalogProject(profileId, kind, projectId))
+    runTaskAndWait({
+      label: msg('Установка {name}', { name: kind }),
+      phase: kind === 'modpack' ? 'modpack' : 'mod',
+      run: ({ signal, taskId }) => installCatalogProject(profileId, kind, projectId, { signal, taskId })
+    })
+  )
 
   // Logs and crash reports
   handle(IPC.getLogFiles, (profileId?: string) => getLogFiles(profileId))
@@ -235,6 +319,12 @@ export function registerIpc(): void {
   handle(IPC.detectImportSources, () => detectImportSources())
   handle(IPC.importLauncherProfile, (candidate: Parameters<typeof importLauncherProfile>[0]) =>
     importLauncherProfile(candidate))
+
+  handle(IPC.listTasks, () => listTasks())
+  handle(IPC.cancelTask, (id: string) => cancelTask(id))
+  handle(IPC.pauseTask, (id: string) => pauseTask(id))
+  handle(IPC.resumeTask, (id: string) => resumeTask(id))
+  handle(IPC.clearFinishedTasks, () => clearFinishedTasks())
 
   ipcMain.handle(IPC.installLocalMod, async (_event, profileId: string) => {
     const result = await dialog.showOpenDialog({

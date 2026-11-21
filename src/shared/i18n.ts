@@ -83,8 +83,62 @@ const en: Record<string, string> = {
   'Профиль игрока будет удалён из лаунчера.': 'The player profile will be removed from the launcher.',
   'Сборки профиля останутся на диске, но станут недоступны из лаунчера.':
     'The profile’s instances will stay on disk but will no longer be available in the launcher.',
-  'Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.':
-    'An offline account works for single-player and servers without license checks. Microsoft sign-in will be added in a future update.',
+  'Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Для серверов с проверкой лицензии войдите через Microsoft.':
+    'An offline account works for single-player and servers without license checks. Sign in with Microsoft for servers that verify licenses.',
+
+  // Microsoft sign-in (UI temporarily disabled, backend kept for a later release)
+  'Скоро': 'Soon',
+  'Вход через Microsoft будет добавлен позже.': 'Microsoft sign-in will be added later.',
+  'Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен позже.':
+    'An offline account works for single-player and servers without license checks. Microsoft sign-in will be added later.',
+  'Войти через Microsoft': 'Sign in with Microsoft',
+  'Вход через Microsoft': 'Microsoft sign-in',
+  'Вход через Microsoft...': 'Signing in with Microsoft...',
+  'Обновление токена Microsoft...': 'Refreshing the Microsoft token...',
+  'Microsoft-аккаунт': 'Microsoft account',
+  'Лицензированный профиль Minecraft': 'Licensed Minecraft profile',
+  'Ожидание входа в браузере...': 'Waiting for sign-in in your browser...',
+  'Откройте браузер и завершите вход в Microsoft.': 'Complete the Microsoft sign-in in the browser window that opens.',
+  'Client ID приложения Azure': 'Azure application (client) ID',
+  'Укажите Client ID приложения Azure в настройках лаунчера.':
+    'Set the Azure application (client) ID in the launcher settings first.',
+  'Сохранить Client ID': 'Save client ID',
+  'Client ID сохранён': 'Client ID saved',
+  'Инструкция по настройке': 'Setup guide',
+  'Профиль Microsoft добавлен': 'Microsoft account added',
+  'Токен Microsoft обновлён': 'Microsoft token refreshed',
+  'Выполнен выход из Microsoft': 'Signed out of Microsoft',
+  'Проверить токен': 'Refresh token',
+  'Выйти из Microsoft': 'Sign out of Microsoft',
+  'Имя Microsoft-аккаунта берётся из профиля Minecraft и не меняется здесь.':
+    'A Microsoft account name comes from the Minecraft profile and cannot be changed here.',
+  'Не удалось открыть браузер. Откройте ссылку вручную: {url}':
+    'Could not open the browser. Open this link manually: {url}',
+  'Время ожидания входа через Microsoft истекло.': 'Microsoft sign-in timed out.',
+  'Неверное состояние запроса входа. Попробуйте ещё раз.':
+    'Invalid sign-in state. Please try again.',
+  'Ошибка авторизации Microsoft: {error}': 'Microsoft authorization error: {error}',
+  'Не удалось получить Access Token Microsoft: {error}':
+    'Could not get a Microsoft access token: {error}',
+  'Не удалось запустить локальный сервер для входа через Microsoft':
+    'Could not start the local server for Microsoft sign-in',
+  'У этой учётной записи нет Xbox Live профиля. Войдите в Minecraft на сайте minecraft.net.':
+    'This account has no Xbox Live profile. Sign in to Minecraft at minecraft.net first.',
+  'Xbox Live недоступен в вашем регионе.': 'Xbox Live is not available in your region.',
+  'Аккаунт требует подтверждения семьи в Xbox.': 'This account needs an Xbox family approval.',
+  'Аккаунт Xbox заблокирован.': 'This Xbox account is banned.',
+  'Не удалось получить Xbox Live токен (код {code}).': 'Could not get an Xbox Live token (code {code}).',
+  'Приложение Azure не имеет доступа к API Minecraft. Подайте заявку: https://aka.ms/mce-reviewappid':
+    'The Azure app is not approved for the Minecraft API. Apply here: https://aka.ms/mce-reviewappid',
+  'У учётной записи нет профиля Minecraft. Убедитесь, что игра приобретена и выполнен вход на minecraft.net.':
+    'This account has no Minecraft profile. Make sure the game is owned and you have signed in at minecraft.net.',
+  'Не удалось прочитать токен Microsoft: {error}': 'Could not read the Microsoft token: {error}',
+  'Не удалось получить токен Minecraft: {error}': 'Could not get a Minecraft token: {error}',
+  'Не удалось получить профиль Minecraft: {error}': 'Could not get a Minecraft profile: {error}',
+  'Войдите через Microsoft, чтобы обновить токен.': 'Sign in with Microsoft to refresh the token.',
+  'Срок действия входа истёк. Войдите через Microsoft снова.': 'Your session expired. Sign in with Microsoft again.',
+  'Токен обновления не найден. Войдите через Microsoft снова.':
+    'No refresh token was found. Sign in with Microsoft again.',
 
   // Instances / home
   'Последняя запущенная сборка': 'Last launched instance',
@@ -850,7 +904,14 @@ const en: Record<string, string> = {
   // First-run wizard, global search and notifications
   'Мастер первого запуска': 'First-run setup',
   'Добро пожаловать в Lumen Launcher': 'Welcome to Lumen Launcher',
-  'Настроим лаунчер за три шага': 'Let’s set up the launcher in three steps',
+  'Настроим лаунчер за четыре шага': 'Let’s set up the launcher in four steps',
+  'Создание аккаунта': 'Create account',
+  'Создайте офлайн-профиль игрока. У него будут свои сборки и скины.':
+    'Create an offline player profile. It will have its own instances and skins.',
+  'Это офлайн-аккаунт. Вход через Microsoft будет добавлен позже; имя можно изменить в окне аккаунта.':
+    'This is an offline account. Microsoft sign-in will be added later; the name can be changed in the Account dialog.',
+  'Профиль игрока создан': 'Player profile created',
+  'Создание профиля и сборки...': 'Creating profile and instance...',
   'English': 'English',
   'Проверка Java': 'Java check',
   'Проверяем Java...': 'Checking Java...',
@@ -877,6 +938,21 @@ const en: Record<string, string> = {
   'Создать резервную копию всех сборок': 'Back up all instances',
   'Открыть папку логов': 'Open logs folder',
   'Центр уведомлений': 'Notification center',
+  'Загрузки': 'Downloads',
+  'Очередь задач, загрузки и установка': 'Task queue, downloads and installs',
+  'Очистить завершённые': 'Clear finished',
+  'Очередь пуста': 'Queue is empty',
+  'Здесь появятся установки, загрузки и обновления': 'Installs, downloads and updates will appear here',
+  'Активные': 'Active',
+  'Завершённые': 'Finished',
+  'В очереди': 'Queued',
+  'Выполняется': 'Running',
+  'Завершено': 'Completed',
+  'Ошибка': 'Error',
+  'Отменено': 'Canceled',
+  'Повторить': 'Retry',
+  'Пауза': 'Pause',
+  'Задача отменена': 'Task canceled',
   'Нет уведомлений': 'No notifications',
   'Здесь появятся события установки, обновлений и бэкапов': 'Install, update and backup events will appear here',
   'Отметить прочитанными': 'Mark all as read',

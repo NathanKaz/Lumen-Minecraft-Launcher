@@ -81,7 +81,7 @@ function progressJava(percent: number, label: string): void {
   })
 }
 
-async function downloadAsset(major: number): Promise<{ archive: string; checksum?: string; checksumType?: string }> {
+async function downloadAsset(major: number, opts?: { signal?: AbortSignal; taskId?: string }): Promise<{ archive: string; checksum?: string; checksumType?: string }> {
   const { os, arch } = platformParams()
   const url = `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?os=${os}&architecture=${arch}&image_type=jre&vendor=eclipse`
   const releases = await fetchJson<AdoptiumAsset[]>(url, 60000)
@@ -96,7 +96,7 @@ async function downloadAsset(major: number): Promise<{ archive: string; checksum
     size: asset.size,
     label: msg('Загрузка Java {version}...', { version: major })
   }
-  await downloadMany([task], 'java', task.label, 1)
+  await downloadMany([task], 'java', task.label, 1, opts)
 
   const checksumType = (asset.checksum_type ?? '').toLowerCase()
   if (asset.checksum && (checksumType === 'sha256' || checksumType === 'sha-256')) {
@@ -121,10 +121,10 @@ async function extractArchive(archive: string, target: string): Promise<void> {
   throw new Error(msg('Не удалось установить Java {version}', { version: path.basename(archive) }))
 }
 
-async function installJava(major: number, profileId?: string): Promise<JavaInfo> {
+async function installJava(major: number, profileId?: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<JavaInfo> {
   const label = msg('Загрузка Java {version}...', { version: major })
   progressJava(5, label)
-  const { archive } = await downloadAsset(major)
+  const { archive } = await downloadAsset(major, opts)
 
   progressJava(75, msg('Распаковка Java...'))
   const target = path.join(dirs.java, `temurin-${major}-${uid().slice(0, 6)}`)
@@ -148,7 +148,12 @@ async function installJava(major: number, profileId?: string): Promise<JavaInfo>
  * installed, downloads a Temurin JRE into the launcher data directory and
  * remembers it as the default (and for the given profile, if provided).
  */
-export async function ensureJava(major?: number, profileId?: string, explicit = false): Promise<JavaInfo> {
+export async function ensureJava(
+  major?: number,
+  profileId?: string,
+  explicit = false,
+  opts?: { signal?: AbortSignal; taskId?: string }
+): Promise<JavaInfo> {
   const state = getState()
   const profile = profileId ? state.profiles.find((entry) => entry.id === profileId) : undefined
   const target = major ?? requiredJavaMajor(profile?.versionId ?? '')
@@ -167,7 +172,7 @@ export async function ensureJava(major?: number, profileId?: string, explicit = 
 
   let pending = inFlight.get(target)
   if (!pending) {
-    pending = installJava(target, profileId).finally(() => inFlight.delete(target))
+    pending = installJava(target, profileId, opts).finally(() => inFlight.delete(target))
     inFlight.set(target, pending)
   }
   return pending

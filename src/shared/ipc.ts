@@ -3,6 +3,9 @@ export const IPC = {
   setState: 'app:setState',
   setAccount: 'app:setAccount',
   addAccount: 'account:add',
+  loginMicrosoft: 'account:loginMicrosoft',
+  refreshMicrosoft: 'account:refreshMicrosoft',
+  logoutMicrosoft: 'account:logoutMicrosoft',
   selectAccount: 'account:select',
   renameAccount: 'account:rename',
   deleteAccount: 'account:delete',
@@ -105,12 +108,20 @@ export const IPC = {
   analyzeCrash: 'logs:analyzeCrash',
 
   // Dropping files onto an instance card
-  importDroppedFile: 'profile:importDroppedFile'
+  importDroppedFile: 'profile:importDroppedFile',
+
+  // Task center
+  listTasks: 'tasks:list',
+  cancelTask: 'tasks:cancel',
+  pauseTask: 'tasks:pause',
+  resumeTask: 'tasks:resume',
+  clearFinishedTasks: 'tasks:clearFinished'
 } as const
 
 export const EVENTS = {
   progress: 'event:progress',
   log: 'event:log',
   gameStatus: 'event:gameStatus',
-  toast: 'event:toast'
+  toast: 'event:toast',
+  tasks: 'event:tasks'
 } as const

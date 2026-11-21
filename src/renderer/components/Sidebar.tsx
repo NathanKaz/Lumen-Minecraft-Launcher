@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Camera, ChevronRight, Gamepad2, Globe2, Image as ImageIcon, LayoutDashboard,
+  ArrowLeft, Camera, ChevronRight, Download, Gamepad2, Globe2, Image as ImageIcon, LayoutDashboard,
   Library, Loader2, Package, Play, ScrollText, Settings, ShieldCheck, Shirt, Square, Wrench
 } from 'lucide-react'
 import { t } from '../lib/i18n'
@@ -19,6 +19,7 @@ const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
   { id: 'skins', label: t("Скины"), icon: Shirt },
   { id: 'modpacks', label: t("Модпаки"), icon: Package },
   { id: 'logs', label: t("Логи"), icon: ScrollText },
+  { id: 'tasks', label: t("Загрузки"), icon: Download },
   { id: 'settings', label: t("Настройки"), icon: Settings }
 ]
 
@@ -43,7 +44,9 @@ function AccountButton({ onAccount }: { onAccount: () => void }): JSX.Element {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-semibold text-slate-200">{state?.account.name ?? t("Игрок")}</div>
-        <div className="text-[10px] text-slate-500">{state?.account.type === 'offline' ? t("Офлайн-аккаунт") : 'Microsoft'}</div>
+        <div className="text-[10px] text-slate-500">
+          {state?.account.type === 'offline' ? t("Офлайн-аккаунт") : t('Microsoft-аккаунт')}
+        </div>
       </div>
       <ChevronRight size={14} className="text-slate-600" />
     </button>
@@ -138,9 +141,10 @@ function ProfileNavigation({
 }
 
 export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
-  const { page, setPage, state, openProfile, openedProfileId } = useLauncher()
+  const { page, setPage, state, openProfile, openedProfileId, tasks } = useLauncher()
   const profile = selectedProfile(state)
   const openedProfile = findProfile(state, openedProfileId)
+  const activeTasks = tasks.filter((task) => task.status === 'running' || task.status === 'queued' || task.status === 'paused').length
 
   if (openedProfile) return <ProfileNavigation profile={openedProfile} onAccount={onAccount} />
 
@@ -169,7 +173,11 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
                 )}
                 <Icon size={17} className="relative z-10" />
                 <span className="relative z-10">{item.label}</span>
-                {active && <span className="relative z-10 ml-auto h-1.5 w-1.5 rounded-full bg-mint-400 shadow-glow" />}
+                {item.id === 'tasks' && activeTasks > 0 ? (
+                  <span className="relative z-10 ml-auto rounded-full bg-mint-400/15 px-1.5 py-0.5 text-[10px] font-bold text-mint-300">{activeTasks}</span>
+                ) : active ? (
+                  <span className="relative z-10 ml-auto h-1.5 w-1.5 rounded-full bg-mint-400 shadow-glow" />
+                ) : null}
               </button>
             )
           })}

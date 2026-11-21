@@ -170,6 +170,17 @@ export async function setSkinModel(id: string, model: SkinModel): Promise<void> 
   emitToast('success', msg('Модель скина обновлена'))
 }
 
+const DEFAULT_SKIN_NAMES = ['alex', 'ari', 'efe', 'kai', 'makena', 'noor', 'steve', 'sunny', 'zuri'] as const
+
+function parseJsonStringArray(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
+}
+
 /** Generates a resource pack that overrides the local player texture. */
 export async function applySkinResourcePack(profileId: string): Promise<void> {
   const activeId = getState()?.settings.activeSkinId
@@ -188,16 +199,20 @@ export async function applySkinResourcePack(profileId: string): Promise<void> {
   const zip = new AdmZip()
   zip.addFile('pack.mcmeta', Buffer.from(JSON.stringify({
     pack: {
+      // Keep both old and new metadata keys for broad MC compatibility.
       pack_format: 15,
-      supported_formats: [4, 48],
+      supported_formats: [15, 999],
+      min_format: [15, 0],
+      max_format: [999, 0],
       description: 'Lumen Launcher skin'
     }
   }, null, 2)))
-  // Modern layouts (1.20.2+) and legacy layouts are both written so the skin
-  // overrides the player texture across supported Minecraft versions.
+  // 1.20.2+ assigns offline players one of 9 default skins; override all of them.
+  // Legacy steve/alex paths are kept for older versions.
   for (const model of ['wide', 'slim']) {
-    zip.addFile(`assets/minecraft/textures/entity/player/${model}/steve.png`, texture)
-    zip.addFile(`assets/minecraft/textures/entity/player/${model}/alex.png`, texture)
+    for (const name of DEFAULT_SKIN_NAMES) {
+      zip.addFile(`assets/minecraft/textures/entity/player/${model}/${name}.png`, texture)
+    }
   }
   zip.addFile('assets/minecraft/textures/entity/steve.png', texture)
   zip.addFile('assets/minecraft/textures/entity/alex.png', texture)
@@ -211,28 +226,34 @@ export async function setPackEnabled(profileId: string, kind: 'resource' | 'shad
   const optionsPath = path.join(instanceDir(profileId), 'options.txt')
   if (!(await fs.pathExists(optionsPath))) {
     if (!enabled) return
-    await fs.writeFile(optionsPath, `${kind === 'resource' ? 'resourcePacks' : 'shaderPack'}:${kind === 'resource' ? JSON.stringify([`file/${fileName}`]) : fileName}\n`)
+    const line = kind === 'resource'
+      ? `resourcePacks:${JSON.stringify(['vanilla', `file/${fileName}`])}`
+      : `shaderPack:${fileName}`
+    await fs.writeFile(optionsPath, `${line}\n`)
     return
   }
   const lines = (await fs.readFile(optionsPath, 'utf8')).split(/\r?\n/)
   if (kind === 'resource') {
     const key = 'resourcePacks:'
+    const incompatibleKey = 'incompatibleResourcePacks:'
     const index = lines.findIndex((line) => line.startsWith(key))
-    let packs: string[] = []
-    if (index >= 0) {
-      try {
-        const parsed = JSON.parse(lines[index].slice(key.length))
-        packs = Array.isArray(parsed) ? parsed.map(String) : []
-      } catch {
-        packs = []
-      }
-    }
+    let packs = index >= 0 ? parseJsonStringArray(lines[index].slice(key.length)) : ['vanilla']
     const entry = `file/${fileName}`
     packs = packs.filter((item) => item !== entry)
-    if (enabled) packs.unshift(entry)
+    if (enabled) {
+      if (!packs.includes('vanilla')) packs.unshift('vanilla')
+      packs.push(entry) // highest priority in MC resource pack order
+    }
     const updated = `${key}${JSON.stringify(packs)}`
     if (index >= 0) lines[index] = updated
     else lines.push(updated)
+
+    const incompatibleIndex = lines.findIndex((line) => line.startsWith(incompatibleKey))
+    if (incompatibleIndex >= 0) {
+      const incompatible = parseJsonStringArray(lines[incompatibleIndex].slice(incompatibleKey.length))
+        .filter((item) => item !== entry)
+      lines[incompatibleIndex] = `${incompatibleKey}${JSON.stringify(incompatible)}`
+    }
   } else {
     const key = 'shaderPack:'
     const index = lines.findIndex((line) => line.startsWith(key))

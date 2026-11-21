@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { setLocale, t } from './lib/i18n'
 import { motion } from 'framer-motion'
-import { Check, Loader2, Pencil, Plus, Trash2, UserRound, Users, X } from 'lucide-react'
+import { Check, Loader2, LogOut, Pencil, Plus, RefreshCw, Trash2, UserRound, Users, X } from 'lucide-react'
 import { api } from './lib/api'
 import { findProfile, useLauncher } from './store'
 import { Titlebar } from './components/Titlebar'
@@ -19,7 +19,19 @@ import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
 import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
+import { TasksPage } from './pages/Tasks'
 import type { AccountRecord } from '@shared/types'
+
+function MicrosoftMark(): JSX.Element {
+  return (
+    <span className="grid h-3.5 w-3.5 grid-cols-2 gap-[1px]" aria-hidden="true">
+      <span className="bg-[#f25022]" />
+      <span className="bg-[#7fba00]" />
+      <span className="bg-[#00a4ef]" />
+      <span className="bg-[#ffb900]" />
+    </span>
+  )
+}
 
 export default function App(): JSX.Element {
   const {
@@ -33,6 +45,7 @@ export default function App(): JSX.Element {
   const [newAccountName, setNewAccountName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [msaBusy, setMsaBusy] = useState(false)
   const openedProfile = findProfile(state, openedProfileId)
 
   // Keep translations in sync before children render; all consumers re-render with state.
@@ -87,6 +100,44 @@ export default function App(): JSX.Element {
     pushToast('success', t('Профиль добавлен'))
   }
 
+  const loginWithMicrosoft = async () => {
+    if (!state || msaBusy) return
+    setMsaBusy(true)
+    setPage('library')
+    backToInstances()
+    try {
+      await api.loginMicrosoft()
+      await refresh()
+      pushToast('success', t('Профиль Microsoft добавлен'))
+    } finally {
+      setMsaBusy(false)
+    }
+  }
+
+  const refreshMicrosoftToken = async (id: string) => {
+    if (msaBusy) return
+    setMsaBusy(true)
+    try {
+      await api.refreshMicrosoft(id)
+      await refresh()
+      pushToast('success', t('Токен Microsoft обновлён'))
+    } finally {
+      setMsaBusy(false)
+    }
+  }
+
+  const logoutMicrosoftAccount = async (id: string) => {
+    if (msaBusy) return
+    setMsaBusy(true)
+    try {
+      await api.logoutMicrosoft(id)
+      await refresh()
+      pushToast('success', t('Выполнен выход из Microsoft'))
+    } finally {
+      setMsaBusy(false)
+    }
+  }
+
   const saveRename = async (id: string) => {
     const name = renameValue.trim()
     if (!name) return
@@ -138,6 +189,7 @@ export default function App(): JSX.Element {
                     {page === 'skins' && <SkinsPanel accountId={state.activeAccountId} />}
                     {page === 'modpacks' && <Modpacks />}
                     {page === 'logs' && <Logs />}
+                    {page === 'tasks' && <TasksPage />}
                     {page === 'settings' && <Settings />}
                   </>
                 )}
@@ -165,10 +217,38 @@ export default function App(): JSX.Element {
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white">
                   <UserRound size={22} />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-bold text-white">{state.account.name}</div>
-                  <div className="text-[11px] text-slate-500">{t("Офлайн-профиль · без лицензии")}</div>
+                  <div className="text-[11px] text-slate-500">
+                    {state.account.type === 'microsoft'
+                      ? t('Лицензированный профиль Minecraft')
+                      : t('Офлайн-профиль · без лицензии')}
+                  </div>
                 </div>
+                {state.account.type === 'microsoft' && (
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      aria-label={t('Проверить токен')}
+                      title={t('Проверить токен')}
+                      disabled={msaBusy || gameBusy}
+                      onClick={() => void refreshMicrosoftToken(state.activeAccountId)}
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {msaBusy ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('Выйти из Microsoft')}
+                      title={t('Выйти из Microsoft')}
+                      disabled={msaBusy || gameBusy}
+                      onClick={() => void logoutMicrosoftAccount(state.activeAccountId)}
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <LogOut size={15} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -237,17 +317,22 @@ export default function App(): JSX.Element {
                                   {active && <Badge tone="mint">{t('Активный')}</Badge>}
                                 </div>
                                 <div className="truncate text-[10px] text-slate-500">
-                                  {t('Сборок: {count}', { count: account.profiles.length })} · {t('Офлайн-аккаунт')}
+                                  {t('Сборок: {count}', { count: account.profiles.length })} ·{' '}
+                                  {account.type === 'microsoft'
+                                    ? t('Microsoft-аккаунт')
+                                    : t('Офлайн-аккаунт')}
                                 </div>
                               </div>
                             </button>
-                            <button
-                              aria-label={t('Переименовать')}
-                              onClick={() => { setRenamingId(account.id); setRenameValue(account.name) }}
-                              className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
-                            >
-                              <Pencil size={14} />
-                            </button>
+                            {account.type === 'offline' && (
+                              <button
+                                aria-label={t('Переименовать')}
+                                onClick={() => { setRenamingId(account.id); setRenameValue(account.name) }}
+                                className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            )}
                             <button
                               aria-label={t('Удалить профиль игрока')}
                               disabled={state.accounts.length <= 1 || gameBusy}
@@ -278,8 +363,30 @@ export default function App(): JSX.Element {
                 </div>
               </div>
 
+              <div className="space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                      <MicrosoftMark /> {t('Вход через Microsoft')}
+                      <Badge tone="amber">{t('Скоро')}</Badge>
+                    </div>
+                    <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      {t('Вход через Microsoft будет добавлен позже.')}
+                    </div>
+                  </div>
+                  <Button
+                    variant="primary"
+                    disabled
+                    title={t('Вход через Microsoft будет добавлен позже.')}
+                    onClick={() => void loginWithMicrosoft()}
+                  >
+                    <MicrosoftMark /> {t('Войти через Microsoft')}
+                  </Button>
+                </div>
+              </div>
+
               <p className="text-[11px] leading-relaxed text-slate-500">
-                {t("Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.")}
+                {t('Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен позже.')}
               </p>
             </section>
           </div>

@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { EVENTS } from '@shared/ipc'
-import type { GameStatus, LogPayload, ProgressPayload, ToastPayload } from '@shared/types'
+import type { GameStatus, LogPayload, ProgressPayload, TaskInfo, ToastPayload } from '@shared/types'
 
 const logs: LogPayload[] = []
 const LOG_LIMIT = 800
@@ -31,6 +31,10 @@ export function emitGameStatus(status: GameStatus): void {
 export function emitToast(type: ToastPayload['type'], message: string): void {
   const payload: ToastPayload = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, message }
   send(EVENTS.toast, payload)
+}
+
+export function emitTasks(tasks: TaskInfo[]): void {
+  send(EVENTS.tasks, tasks)
 }
 
 export function getLogs(): LogPayload[] {

@@ -16,6 +16,9 @@ const api: LauncherAPI = {
   setState: (patch) => invoke(IPC.setState, patch),
   setAccount: (name) => invoke(IPC.setAccount, name),
   addAccount: (name) => invoke(IPC.addAccount, name),
+  loginMicrosoft: () => invoke(IPC.loginMicrosoft),
+  refreshMicrosoft: (id) => invoke(IPC.refreshMicrosoft, id),
+  logoutMicrosoft: (id) => invoke(IPC.logoutMicrosoft, id),
   selectAccount: (id) => invoke(IPC.selectAccount, id),
   renameAccount: (id, name) => invoke(IPC.renameAccount, id, name),
   deleteAccount: (id) => invoke(IPC.deleteAccount, id),
@@ -56,6 +59,7 @@ const api: LauncherAPI = {
   onLog: (cb) => subscribe(EVENTS.log, cb),
   onGameStatus: (cb) => subscribe(EVENTS.gameStatus, cb),
   onToast: (cb) => subscribe(EVENTS.toast, cb),
+  onTasks: (cb) => subscribe(EVENTS.tasks, cb),
 
   listSkins: () => invoke(IPC.listSkins),
   importSkin: () => invoke(IPC.importSkin),
@@ -105,7 +109,13 @@ const api: LauncherAPI = {
   importDroppedFile: (profileId, filePath) => invoke(IPC.importDroppedFile, profileId, filePath),
 
   detectImportSources: () => invoke(IPC.detectImportSources),
-  importLauncherProfile: (candidate) => invoke(IPC.importLauncherProfile, candidate)
+  importLauncherProfile: (candidate) => invoke(IPC.importLauncherProfile, candidate),
+
+  listTasks: () => invoke(IPC.listTasks),
+  cancelTask: (id) => invoke(IPC.cancelTask, id),
+  pauseTask: (id) => invoke(IPC.pauseTask, id),
+  resumeTask: (id) => invoke(IPC.resumeTask, id),
+  clearFinishedTasks: () => invoke(IPC.clearFinishedTasks)
 }
 
 contextBridge.exposeInMainWorld('launcher', api)

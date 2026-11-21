@@ -37,7 +37,7 @@ async function checkFile(
   if (task) task.skip = true
 }
 
-export async function verifyProfile(profileId: string, repair = false): Promise<VerifyReport> {
+export async function verifyProfile(profileId: string, repair = false, opts?: { signal?: AbortSignal; taskId?: string }): Promise<VerifyReport> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg('Сборка не найдена'))
 
@@ -124,10 +124,11 @@ export async function verifyProfile(profileId: string, repair = false): Promise<
   }
 
   if (repair && tasks.length) {
-    await downloadMany(tasks, 'version', msg('Восстановление файлов'), 4)
+    await downloadMany(tasks, 'version', msg('Восстановление файлов'), 4, opts)
     emitProgress({
       phase: 'version', message: msg('Файлы восстановлены'), percent: 100,
-      current: tasks.length, total: tasks.length, bytes: 0, totalBytes: 0, speed: 0
+      current: tasks.length, total: tasks.length, bytes: 0, totalBytes: 0, speed: 0,
+      taskId: opts?.taskId
     })
   }
 
@@ -139,6 +140,6 @@ function libraryUrlFor(lib: { name: string; url?: string }, relative: string): s
   return `https://libraries.minecraft.net/${relative}`
 }
 
-export async function repairProfile(profileId: string): Promise<VerifyReport> {
-  return verifyProfile(profileId, true)
+export async function repairProfile(profileId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<VerifyReport> {
+  return verifyProfile(profileId, true, opts)
 }
