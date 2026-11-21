@@ -12,7 +12,9 @@ import { GlobalSearch } from './components/GlobalSearch'
 import { CrashAssistant } from './components/CrashAssistant'
 import { Badge, Button, Modal } from './components/ui'
 import { SkinsPanel } from './components/SkinsPanel'
+import { Home } from './pages/Home'
 import { Instances } from './pages/Instances'
+import { Logs } from './pages/Logs'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
 import { Screenshots } from './pages/Screenshots'
@@ -65,7 +67,7 @@ export default function App(): JSX.Element {
       pushToast('error', t('Сначала выключите игру, чтобы переключить профиль.'))
       return
     }
-    setPage('home')
+    setPage('library')
     backToInstances()
     setRenamingId(null)
     await api.selectAccount(id)
@@ -76,7 +78,7 @@ export default function App(): JSX.Element {
   const addAccount = async () => {
     const name = newAccountName.trim()
     if (!name) return
-    setPage('home')
+    setPage('library')
     backToInstances()
     await api.addAccount(name)
     setNewAccountName('')
@@ -98,7 +100,7 @@ export default function App(): JSX.Element {
     if (!state || state.accounts.length <= 1) return
     const confirmed = await api.confirmDeleteAccount(account.id)
     if (!confirmed) return
-    setPage('home')
+    setPage('library')
     backToInstances()
     await api.deleteAccount(account.id)
     if (renamingId === account.id) setRenamingId(null)
@@ -130,10 +132,12 @@ export default function App(): JSX.Element {
                   <InstanceDetail profile={openedProfile} />
                 ) : (
                   <>
-                    {page === 'home' && <Instances />}
+                    {page === 'home' && <Home />}
+                    {page === 'library' && <Instances />}
                     {page === 'screenshots' && <Screenshots />}
                     {page === 'skins' && <SkinsPanel accountId={state.activeAccountId} />}
                     {page === 'modpacks' && <Modpacks />}
+                    {page === 'logs' && <Logs />}
                     {page === 'settings' && <Settings />}
                   </>
                 )}

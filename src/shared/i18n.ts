@@ -53,6 +53,8 @@ const en: Record<string, string> = {
   // Navigation / shell
   'Навигация': 'Navigation',
   'Главная': 'Home',
+  'Библиотека': 'Library',
+  'Логи': 'Logs',
   'Скриншоты': 'Screenshots',
   'Модпаки': 'Modpacks',
   'Настройки': 'Settings',
@@ -84,7 +86,12 @@ const en: Record<string, string> = {
   'Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен в следующем обновлении.':
     'An offline account works for single-player and servers without license checks. Microsoft sign-in will be added in a future update.',
 
-  // Instances
+  // Instances / home
+  'Последняя запущенная сборка': 'Last launched instance',
+  'Последняя сборка и быстрые действия.': 'Latest instance and quick actions.',
+  'Открыть библиотеку': 'Open library',
+  'Библиотека сборок': 'Instance library',
+  'Журналы лаунчера и отчёты о сбоях.': 'Launcher logs and crash reports.',
   'Мои сборки': 'My instances',
   'Все сборки': 'All instances',
   'Группы сборок': 'Instance groups',
@@ -213,6 +220,7 @@ const en: Record<string, string> = {
   'Скачать': 'Download',
 
   // Settings
+  'Пути, память и Java.': 'Paths, memory and Java.',
   'Пути, память, Java и журналы лаунчера.': 'Paths, memory, Java and launcher logs.',
   'Путь к Java': 'Java path',
   'Для Minecraft 1.18+ нужна Java 17, для 1.20.5+ — Java 21. Лаунчер подберёт установленную версию автоматически.':

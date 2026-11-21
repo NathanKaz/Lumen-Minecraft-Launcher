@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Camera, ChevronRight, Gamepad2, Globe2, Image as ImageIcon, LayoutDashboard,
-  Loader2, Package, Play, Settings, ShieldCheck, Shirt, Square, Wrench
+  Library, Loader2, Package, Play, ScrollText, Settings, ShieldCheck, Shirt, Square, Wrench
 } from 'lucide-react'
 import { t } from '../lib/i18n'
 import {
@@ -14,9 +14,11 @@ import type { Profile } from '@shared/types'
 // updates the navigation immediately.
 const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> => [
   { id: 'home', label: t("Главная"), icon: LayoutDashboard },
+  { id: 'library', label: t("Библиотека"), icon: Library },
   { id: 'screenshots', label: t("Скриншоты"), icon: ImageIcon },
   { id: 'skins', label: t("Скины"), icon: Shirt },
   { id: 'modpacks', label: t("Модпаки"), icon: Package },
+  { id: 'logs', label: t("Логи"), icon: ScrollText },
   { id: 'settings', label: t("Настройки"), icon: Settings }
 ]
 

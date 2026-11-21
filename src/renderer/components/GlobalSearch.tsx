@@ -11,15 +11,16 @@ import {
   HardDriveDownload,
   Image as ImageIcon,
   LayoutDashboard,
+  Library,
   Map,
   Package,
   Puzzle,
+  ScrollText,
   Search,
   SearchX,
   Settings as SettingsIcon,
   Shirt,
   SlidersHorizontal,
-  Terminal,
   Wrench,
   X
 } from 'lucide-react'
@@ -159,7 +160,7 @@ export function GlobalSearch(): JSX.Element {
         hint: `${profile.versionId} · ${profile.loader}`,
         icon: Gamepad2,
         run: () => {
-          setPage('home')
+          setPage('library')
           void openProfile(profile.id)
         }
       })
@@ -188,7 +189,7 @@ export function GlobalSearch(): JSX.Element {
     }
 
     const openInstance = (profileId: string) => {
-      setPage('home')
+      setPage('library')
       void openProfile(profileId)
     }
 
@@ -223,8 +224,7 @@ export function GlobalSearch(): JSX.Element {
       { id: 'performance', label: t('Производительность'), keywords: 'performance memory ram fps', icon: SlidersHorizontal },
       { id: 'folders', label: t('Каталоги'), keywords: 'folders paths directories', icon: FolderOpen },
       { id: 'general', label: t('Общее'), keywords: 'general language updates', icon: SettingsIcon },
-      { id: 'backups', label: t('Бэкапы по расписанию'), keywords: 'backup scheduled autosave', icon: CalendarClock },
-      { id: 'logs', label: t('Журналы'), keywords: 'logs crash reports', icon: Terminal }
+      { id: 'backups', label: t('Бэкапы по расписанию'), keywords: 'backup scheduled autosave', icon: CalendarClock }
     ]
     for (const section of settingsSections) {
       if (!matches(section.label, section.keywords)) continue
@@ -238,10 +238,12 @@ export function GlobalSearch(): JSX.Element {
     }
 
     const navigation: Array<{ id: Page; label: string; keywords: string; icon: LucideIcon }> = [
-      { id: 'home', label: t('Главная'), keywords: 'home main instances', icon: LayoutDashboard },
+      { id: 'home', label: t('Главная'), keywords: 'home main', icon: LayoutDashboard },
+      { id: 'library', label: t('Библиотека'), keywords: 'library builds instances сборки', icon: Library },
       { id: 'screenshots', label: t('Скриншоты'), keywords: 'screenshots f2', icon: ImageIcon },
       { id: 'skins', label: t('Скины'), keywords: 'skins player', icon: Shirt },
       { id: 'modpacks', label: t('Модпаки'), keywords: 'modpacks modrinth', icon: Package },
+      { id: 'logs', label: t('Логи'), keywords: 'logs журналы crash reports', icon: ScrollText },
       { id: 'settings', label: t('Настройки'), keywords: 'settings preferences', icon: SettingsIcon }
     ]
     for (const nav of navigation) {

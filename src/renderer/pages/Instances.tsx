@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
-import { getLocale, t } from '../lib/i18n'
+import { t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
-  ArrowRight, Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
+  Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
   LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Upload, Users, Wrench
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
-import { selectedProfile, useLauncher } from '../store'
+import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../components/ui'
 import { InstallProgress } from '../components/InstallProgress'
 import { ProfileFields } from '../components/ProfileFields'
@@ -86,8 +86,8 @@ function RenameField({ value, onCommit, onCancel }: {
 
 export function Instances(): JSX.Element {
   const {
-    state, versions, busy, gameStatus, logs, setBusy, refresh, pushToast,
-    openProfile, setPage, removeProfile
+    state, versions, busy, gameStatus, setBusy, refresh, pushToast,
+    openProfile, removeProfile
   } = useLauncher()
   const [editing, setEditing] = useState<Profile | null>(null)
   const [creating, setCreating] = useState(false)
@@ -114,7 +114,6 @@ export function Instances(): JSX.Element {
 
   const view = state.settings.instancesView
   const groupsById = new Map(state.groups.map((group) => [group.id, group]))
-  const activeProfile = selectedProfile(state)
 
   const visibleProfiles = state.profiles.filter((profile) => {
     const matchesGroup =
@@ -788,44 +787,6 @@ export function Instances(): JSX.Element {
           ))}
         </div>
       )}
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="panel p-5">
-          <h3 className="mb-4 text-sm font-bold text-white">{t("Быстрые действия")}</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              { icon: ArrowRight, label: t("Открыть активную сборку"), action: () => activeProfile && void openProfile(activeProfile.id) },
-              { icon: FolderOpen, label: t("Папка сборок"), action: () => void api.openFolder('instances') },
-              { icon: Download, label: t("Найти модпак"), action: () => setPage('modpacks') },
-              { icon: Settings, label: t("Настройки лаунчера"), action: () => setPage('settings') }
-            ].map((action) => (
-              <button
-                key={action.label}
-                onClick={action.action}
-                className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-left text-xs font-semibold text-slate-300 transition hover:border-mint-400/25 hover:bg-mint-400/[0.06] hover:text-mint-300"
-              >
-                <action.icon size={16} /> {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white">{t("Последние события")}</h3>
-            <button onClick={() => setPage('settings')} className="text-[11px] text-slate-500 transition hover:text-mint-400">{t("Все логи →")}</button>
-          </div>
-          <div className="space-y-2">
-            {logs.slice(-4).reverse().map((log, index) => (
-              <div key={`${log.time}-${index}`} className="flex gap-2 rounded-lg bg-white/[0.02] px-3 py-2">
-                <span className="shrink-0 font-mono text-[10px] text-slate-600">{new Date(log.time).toLocaleTimeString(getLocale() === 'ru' ? 'ru-RU' : 'en-US')}</span>
-                <span className={`truncate text-[11px] ${log.level === 'error' ? 'text-rose-400' : 'text-slate-400'}`}>{log.message}</span>
-              </div>
-            ))}
-            {!logs.length && <p className="py-6 text-center text-xs text-slate-600">{t("Событий пока нет")}</p>}
-          </div>
-        </div>
-      </div>
 
       <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={creating ? t("Новая сборка") : t("Редактирование сборки")}>
         {editing && (
