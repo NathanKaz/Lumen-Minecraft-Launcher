@@ -62,11 +62,28 @@ ELECTRON_OZONE_PLATFORM_HINT=wayland ./release/linux-unpacked/lumen-launcher
 
 Build artifacts are not needed for development and can be removed to reclaim space: `node_modules/` (~570 MB, restore with `npm install`), `release/` (~1.2 GB, restore with `npm run dist`), `out/` and `dist/`. All of them are gitignored.
 
-## Authentication strategy
+## Authentication
 
-Currently uses one or more offline profiles (player name, local UUID, token), suitable for single-player and servers without license verification. Each profile owns its own builds, groups, and skin library.
+The launcher supports two account types, each with its own builds, groups and skin library:
 
-Microsoft sign-in is **not implemented**. It is substantially more complex than the rest of the launcher: it requires an Azure app registration, a PKCE browser flow, exchanging the code for an Xbox Live token, then XSTS, then a Minecraft profile/token, plus secure token storage and refresh. Online skins additionally require uploading a signed skin through the Minecraft profile API. The current offline skins are local-only and are not visible to other players.
+- **Offline profile** — a player name and a locally generated UUID/token. Works for single-player and servers without license checks.
+- **Microsoft account** — a licensed Minecraft profile obtained through the full MSA → Xbox Live → XSTS → Minecraft chain. The Minecraft access token is used for `auth_access_token` and refreshed automatically before launch.
+
+### Setting up Microsoft sign-in
+
+> **Currently unavailable in the UI.** The **Sign in with Microsoft** button is disabled and Azure Client ID fields are hidden for now; the authentication backend is kept in the codebase and will be re-enabled in a later release. Use an offline profile for now — the first-run wizard lets you create one.
+
+Microsoft requires every third-party launcher to use its own Azure application, so a one-time setup is needed when the feature is enabled:
+
+1. Open [App registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) in the Azure portal and create a new registration.
+2. Set **Supported account types** to **Personal Microsoft accounts only** (the consumer `consumers` tenant).
+3. Add a **Mobile and desktop applications** platform with the redirect URI `http://localhost`. The launcher starts a temporary loopback server on a free port, so any port is accepted.
+4. Copy the **Application (client) ID** into **Settings → General → Azure application (client) ID** (or into the Account dialog).
+5. New Azure applications must be approved for the Minecraft API via the [Minecraft API access request form](https://aka.ms/mce-reviewappid). Without that approval `api.minecraftservices.com` returns HTTP 403.
+
+Afterwards click **Sign in with Microsoft** in the Account dialog: the system browser opens the Microsoft login page, and the launcher receives the authorization code on the loopback address. Sign-in uses PKCE and a random `state` value. The long-lived refresh token is stored in `msa-tokens.json` and encrypted with Electron `safeStorage` (OS keychain/DPAPI) when available. If the platform has no keyring, the file is created with owner-only permissions and a plaintext fallback so the launcher still works.
+
+Signing out removes the stored refresh token and converts the record back into an offline profile while keeping its instances. Uploading skins to other players additionally requires the signed Minecraft profile API; the built-in skin library is still local-only.
 
 ## Sources
 

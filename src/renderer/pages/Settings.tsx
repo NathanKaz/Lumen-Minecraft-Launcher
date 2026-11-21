@@ -39,7 +39,7 @@ export function Settings(): JSX.Element {
   )
   const showGeneral = matchesSection(
     t('Общее'),
-    `${t('Проверять обновления')} ${t('Язык интерфейса')} ${t('Повторить мастер первого запуска')} general language обновления язык setup wizard`
+    `${t('Проверять обновления')} ${t('Язык интерфейса')} ${t('Повторить мастер первого запуска')} ${t('Client ID приложения Azure')} general language обновления язык setup wizard microsoft msa client id azure`
   )
   const showBackups = matchesSection(
     t('Бэкапы по расписанию'),

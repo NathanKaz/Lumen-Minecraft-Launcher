@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Coffee, Download, XCircle } from 'lucide-react'
+import { CheckCircle2, Coffee, Download, UserRound, XCircle } from 'lucide-react'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, Modal, ProgressBar, Spinner } from './ui'
 import type { JavaInfo, Profile, Settings } from '@shared/types'
 
-type WizardStep = 1 | 2 | 3
+type WizardStep = 1 | 2 | 3 | 4
 
-/** Three-step onboarding shown while `settings.onboardingCompleted` is false. */
+/** Four-step onboarding shown while `settings.onboardingCompleted` is false. */
 export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
   const { state, versions, progress, refresh, pushToast } = useLauncher()
   const [step, setStep] = useState<WizardStep>(1)
   const [language, setLanguage] = useState<'ru' | 'en'>('ru')
+  const [playerName, setPlayerName] = useState('')
   const [javaInfo, setJavaInfo] = useState<JavaInfo | null>(null)
   const [javaLoading, setJavaLoading] = useState(false)
   const [javaError, setJavaError] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     if (!open) return
     setStep(1)
     setLanguage(state?.settings.language ?? 'ru')
+    setPlayerName(state?.account.name ?? '')
     setJavaInfo(null)
     setJavaError(null)
     setJavaLoading(false)
@@ -56,7 +58,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
   }
 
   useEffect(() => {
-    if (!open || step !== 2) return
+    if (!open || step !== 3) return
     let cancelled = false
     setJavaLoading(true)
     setJavaError(null)
@@ -92,6 +94,19 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     finishingRef.current = true
     setFinishing(true)
 
+    // The placeholder offline account from defaultState becomes the player's own profile.
+    if (state && state.account.type === 'offline') {
+      const cleanName = playerName.trim().slice(0, 16)
+      if (cleanName && cleanName !== state.account.name) {
+        try {
+          await api.setAccount(cleanName)
+          pushToast('success', t('Профиль игрока создан'))
+        } catch (error) {
+          pushToast('error', error instanceof Error ? error.message : String(error))
+        }
+      }
+    }
+
     if (withInstance && createInstance && state) {
       const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -121,7 +136,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     setFinishing(false)
     finishingRef.current = false
     onClose()
-  }, [createInstance, instanceName, state, versions, patchSettings, pushToast, onClose])
+  }, [createInstance, instanceName, playerName, state, versions, patchSettings, pushToast, onClose])
 
   useEffect(() => {
     if (!open) return
@@ -141,7 +156,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     <Modal open={open} onClose={() => void finish(false)} title={t('Мастер первого запуска')} width="max-w-xl">
       <div className="space-y-5">
         <div className="flex items-center gap-2">
-          {([1, 2, 3] as WizardStep[]).map((value) => (
+          {([1, 2, 3, 4] as WizardStep[]).map((value) => (
             <button
               key={value}
               type="button"
@@ -158,14 +173,14 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
               {value}
             </button>
           ))}
-          <span className="ml-auto font-mono text-[11px] text-slate-600">{step} / 3</span>
+          <span className="ml-auto font-mono text-[11px] text-slate-600">{step} / 4</span>
         </div>
 
         {step === 1 && (
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-bold text-white">{t('Добро пожаловать в Lumen Launcher')}</h4>
-              <p className="mt-1 text-[11px] text-slate-500">{t('Настроим лаунчер за три шага')}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{t('Настроим лаунчер за четыре шага')}</p>
             </div>
             <div>
               <label className="label">{t('Язык интерфейса')}</label>
@@ -191,6 +206,44 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
         )}
 
         {step === 2 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <UserRound size={17} className="text-mint-400" />
+              <h4 className="text-sm font-bold text-white">{t('Создание аккаунта')}</h4>
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {t('Создайте офлайн-профиль игрока. У него будут свои сборки и скины.')}
+            </p>
+            {state?.account.type === 'microsoft' ? (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="text-xs font-semibold text-slate-200">{state.account.name}</div>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                  {t('Имя Microsoft-аккаунта берётся из профиля Minecraft и не меняется здесь.')}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="label" htmlFor="wizard-player-name">{t('Имя игрока')}</label>
+                  <input
+                    id="wizard-player-name"
+                    className="input"
+                    placeholder="Steve"
+                    maxLength={16}
+                    value={playerName}
+                    autoFocus
+                    onChange={(event) => setPlayerName(event.target.value)}
+                  />
+                </div>
+                <p className="text-[10px] leading-relaxed text-slate-500">
+                  {t('Это офлайн-аккаунт. Вход через Microsoft будет добавлен позже; имя можно изменить в окне аккаунта.')}
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {step === 3 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Coffee size={17} className="text-mint-400" />
@@ -226,7 +279,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-white">{t('Первая сборка')}</h4>
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
@@ -255,7 +308,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
             {finishing && (
               <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                 <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                  <Spinner size={14} /> {t('Создание сборки...')}
+                  <Spinner size={14} /> {t('Создание профиля и сборки...')}
                   {progress && <span className="ml-auto font-mono">{Math.round(progress.percent)}%</span>}
                 </div>
                 {progress && <ProgressBar value={progress.percent} />}
@@ -272,8 +325,12 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
                 {t('Назад')}
               </Button>
             )}
-            {step < 3 ? (
-              <Button variant="primary" onClick={() => setStep((current) => (current + 1) as WizardStep)}>
+            {step < 4 ? (
+              <Button
+                variant="primary"
+                disabled={step === 2 && state?.account.type !== 'microsoft' && !playerName.trim()}
+                onClick={() => setStep((current) => (current + 1) as WizardStep)}
+              >
                 {t('Далее')}
               </Button>
             ) : (

@@ -3,7 +3,7 @@ import { msg } from './i18n'
 import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { clearDirNames, dirs, registerAccountDir, registerProfileDir, root, safeDirName } from './paths'
-import type { Account, AccountRecord, AppState, BuildGroup, Profile, Settings } from '@shared/types'
+import type { Account, AccountRecord, AppState, BuildGroup, MicrosoftCredentials, Profile, Settings } from '@shared/types'
 
 const statePath = path.join(root, 'launcher-state.json')
 const currentSchemaVersion = 3
@@ -64,7 +64,10 @@ function toAccount(record: AccountRecord): Account {
     uuid: record.uuid,
     token: record.token,
     type: record.type,
-    createdAt: record.createdAt ?? Date.now()
+    createdAt: record.createdAt ?? Date.now(),
+    expiresAt: record.expiresAt,
+    xuid: record.xuid,
+    userHash: record.userHash
   }
 }
 
@@ -159,7 +162,10 @@ export function initStore(): AppState {
         uuid: legacyAccount.uuid || offlineUuid(legacyAccount.name || 'Steve'),
         token: legacyAccount.token || crypto.randomUUID(),
         type: legacyAccount.type ?? 'offline',
-        createdAt: legacyAccount.createdAt ?? Date.now()
+        createdAt: legacyAccount.createdAt ?? Date.now(),
+        expiresAt: legacyAccount.expiresAt,
+        xuid: legacyAccount.xuid,
+        userHash: legacyAccount.userHash
       }
       const accounts: AccountRecord[] = saved.accounts?.length
         ? saved.accounts.map((account) => ({
@@ -335,6 +341,88 @@ export function addAccount(name: string): AppState {
   return state
 }
 
+export function addMicrosoftAccount(credentials: MicrosoftCredentials): AppState {
+  const synced = snapshotActive(state!)
+  // Re-signing in after a logout reuses the old record so its instances stay put.
+  const previous = synced.accounts.find((entry) => entry.uuid === credentials.uuid)
+  if (previous) {
+    const updated: AccountRecord = {
+      ...previous,
+      name: cleanName(credentials.name),
+      token: credentials.token,
+      type: 'microsoft',
+      expiresAt: credentials.expiresAt,
+      xuid: credentials.xuid,
+      userHash: credentials.userHash
+    }
+    state = { ...synced, accounts: synced.accounts.map((entry) => (entry.id === previous.id ? updated : entry)) }
+    if (synced.activeAccountId === previous.id) state = loadAccount(state, updated)
+    saveState()
+    return state
+  }
+  const account: Account = {
+    id: crypto.randomUUID(),
+    name: cleanName(credentials.name),
+    uuid: credentials.uuid,
+    token: credentials.token,
+    type: 'microsoft',
+    createdAt: Date.now(),
+    expiresAt: credentials.expiresAt,
+    xuid: credentials.xuid,
+    userHash: credentials.userHash
+  }
+  const profile = defaultProfile()
+  const record = accountRecord(account, [profile], [], profile.id)
+  state = loadAccount({ ...synced, accounts: [...synced.accounts, record] }, record)
+  saveState()
+  return state
+}
+
+/** Updates short-lived Microsoft credentials without touching instances or skins. */
+export function updateMicrosoftAccount(
+  id: string,
+  patch: Pick<MicrosoftCredentials, 'name' | 'uuid' | 'token' | 'expiresAt'> &
+    Partial<Pick<MicrosoftCredentials, 'xuid' | 'userHash'>>
+): AppState {
+  const synced = snapshotActive(state!)
+  const target = synced.accounts.find((account) => account.id === id)
+  if (!target || target.type !== 'microsoft') throw new Error(msg('Профиль не найден'))
+  const updated: AccountRecord = {
+    ...target,
+    name: cleanName(patch.name),
+    uuid: patch.uuid,
+    token: patch.token,
+    expiresAt: patch.expiresAt,
+    xuid: patch.xuid ?? target.xuid,
+    userHash: patch.userHash ?? target.userHash
+  }
+  state = { ...synced, accounts: synced.accounts.map((account) => (account.id === id ? updated : account)) }
+  if (synced.activeAccountId === id) state = loadAccount(state, updated)
+  saveState()
+  return state
+}
+
+/** Keeps the local instances but drops the Microsoft identity after sign-out. */
+export function signOutMicrosoftAccount(id: string): AppState {
+  const synced = snapshotActive(state!)
+  const target = synced.accounts.find((account) => account.id === id)
+  if (!target || target.type !== 'microsoft') throw new Error(msg('Профиль не найден'))
+  const updated: AccountRecord = {
+    ...target,
+    name: cleanName(target.name),
+    uuid: offlineUuid(target.name),
+    token: crypto.randomUUID(),
+    type: 'offline',
+    expiresAt: undefined,
+    xuid: undefined,
+    userHash: undefined
+  }
+  state = { ...synced, accounts: synced.accounts.map((account) => (account.id === id ? updated : account)) }
+  if (synced.activeAccountId === id) state = loadAccount(state, updated)
+  saveState()
+  return state
+}
+
 export function selectAccount(id: string): AppState {
   const synced = snapshotActive(state!)
   const target = synced.accounts.find((account) => account.id === id)
@@ -349,11 +437,12 @@ export function renameAccount(id: string, name: string): AppState {
   const target = synced.accounts.find((account) => account.id === id)
   if (!target) throw new Error(msg('Профиль не найден'))
   const clean = cleanName(name)
+  // A Microsoft profile owns its UUID and access token; renaming only affects
+  // the local display name (the UI normally hides this action for such accounts).
   const updated: AccountRecord = {
     ...target,
     name: clean,
-    uuid: offlineUuid(clean),
-    token: crypto.randomUUID()
+    ...(target.type === 'microsoft' ? {} : { uuid: offlineUuid(clean), token: crypto.randomUUID() })
   }
   state = { ...synced, accounts: synced.accounts.map((account) => (account.id === id ? updated : account)) }
   if (synced.activeAccountId === id) state = loadAccount(state, updated)

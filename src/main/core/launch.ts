@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'fs-extra'
 import { dirs, instanceDir, versionDir } from './paths'
 import { getState, updateProfile } from './store'
+import { ensureFreshMicrosoftToken } from './msa'
 import { emitGameStatus, emitLog, emitProgress } from './events'
 import { findJava, inspectJava, requiredJavaMajor } from './java'
 import { ensureJava } from './javaInstall'
@@ -64,6 +65,8 @@ function splitJvmArgs(input: string): string[] {
 
 export async function launchGame(profileId: string): Promise<void> {
   if (child && !child.killed) throw new Error(msg("Игра уже запущена"))
+  // Refreshes silently when needed so the game always receives a valid token.
+  await ensureFreshMicrosoftToken()
   const state = getState()
   const profile = state.profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
@@ -131,7 +134,7 @@ export async function launchGame(profileId: string): Promise<void> {
     auth_access_token: state.account.token,
     auth_session: state.account.token,
     clientid: state.account.uuid,
-    auth_xuid: '',
+    auth_xuid: state.account.xuid ?? '',
     quickPlayPath: '',
     quickPlaySingleplayer: '',
     quickPlayMultiplayer: '',
