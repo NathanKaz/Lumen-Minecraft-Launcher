@@ -1,6 +1,6 @@
 {
   "name": "lumen-launcher",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A modern Minecraft launcher with mod and modpack management",
   "main": "./dist/main/index.js",
   "author": "NathanKaz",
