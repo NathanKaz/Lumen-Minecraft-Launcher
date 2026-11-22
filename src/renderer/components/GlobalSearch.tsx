@@ -10,10 +10,12 @@ import {
   Gamepad2,
   HardDriveDownload,
   Image as ImageIcon,
+  Keyboard,
   LayoutDashboard,
   Library,
   Map,
   Package,
+  Palette,
   Puzzle,
   ScrollText,
   Search,
@@ -68,7 +70,7 @@ const GROUP_LABEL: Record<GroupKey, () => string> = {
 export function GlobalSearch(): JSX.Element {
   const {
     state, globalSearchOpen, setGlobalSearchOpen, setPage, openProfile, pushToast,
-    openedProfileId, setProfileSection
+    openedProfileId, setProfileSection, setShortcutsOpen
   } = useLauncher()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
@@ -152,12 +154,13 @@ export function GlobalSearch(): JSX.Element {
     const items: SearchItem[] = []
 
     for (const profile of profiles) {
-      if (!matches(`${profile.name} ${profile.versionId} ${profile.loader}`)) continue
+      const tags = (profile.tags ?? []).join(' ')
+      if (!matches(`${profile.name} ${profile.versionId} ${profile.loader} ${tags} ${profile.notes ?? ''}`)) continue
       items.push({
         id: `instance:${profile.id}`,
         group: 'instances',
         label: profile.name,
-        hint: `${profile.versionId} · ${profile.loader}`,
+        hint: `${profile.versionId} · ${profile.loader}${tags ? ` · #${tags.split(' ').join(' #')}` : ''}`,
         icon: Gamepad2,
         run: () => {
           setPage('library')
@@ -224,7 +227,10 @@ export function GlobalSearch(): JSX.Element {
       { id: 'performance', label: t('Производительность'), keywords: 'performance memory ram fps', icon: SlidersHorizontal },
       { id: 'folders', label: t('Каталоги'), keywords: 'folders paths directories', icon: FolderOpen },
       { id: 'general', label: t('Общее'), keywords: 'general language updates', icon: SettingsIcon },
-      { id: 'backups', label: t('Бэкапы по расписанию'), keywords: 'backup scheduled autosave', icon: CalendarClock }
+      { id: 'backups', label: t('Бэкапы по расписанию'), keywords: 'backup scheduled autosave', icon: CalendarClock },
+      { id: 'hotkeys', label: t('Горячие клавиши'), keywords: 'hotkeys shortcuts keyboard bindings', icon: Keyboard },
+      { id: 'appearance', label: t('Тема и доступность'), keywords: 'theme accent light dark accessibility scale', icon: Palette },
+      { id: 'transfer', label: t('Перенос настроек'), keywords: 'export import settings json', icon: HardDriveDownload }
     ]
     for (const section of settingsSections) {
       if (!matches(section.label, section.keywords)) continue
@@ -280,6 +286,14 @@ export function GlobalSearch(): JSX.Element {
         run: () => {
           void api.openFolder('logs').catch(() => {})
         }
+      },
+      {
+        id: 'action:shortcuts',
+        group: 'actions',
+        label: t('Горячие клавиши'),
+        keywords: 'hotkeys shortcuts cheat sheet keyboard',
+        icon: Keyboard,
+        run: () => setShortcutsOpen(true)
       }
     ]
     for (const action of actions) {
@@ -288,7 +302,7 @@ export function GlobalSearch(): JSX.Element {
     }
 
     return items
-  }, [profiles, normalized, hits, setPage, openProfile, pushToast, state, openedProfileId, setProfileSection])
+  }, [profiles, normalized, hits, setPage, openProfile, pushToast, state, openedProfileId, setProfileSection, setShortcutsOpen])
 
   // Keep the highlighted row valid when the query or loaded results change.
   useEffect(() => {

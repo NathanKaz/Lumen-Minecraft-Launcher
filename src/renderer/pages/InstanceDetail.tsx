@@ -3,7 +3,7 @@ import { formatSize, getLocale, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
   ArrowUpRight, Box, Camera, Check, ChevronRight, Download, FolderOpen, Gamepad2, Globe2,
-  Image as ImageIcon, Layers3, Pencil, Play, ShieldCheck, Square, Trash2, Wrench, X
+  Image as ImageIcon, Layers3, Pencil, Play, Plus, ShieldCheck, Square, Trash2, Wrench, X
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { effectiveMemory } from '../lib/profiles'
@@ -21,6 +21,77 @@ function formatDate(value: number): string {
   return new Date(value).toLocaleString(getLocale() === 'ru' ? 'ru-RU' : 'en-US', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
+}
+
+/** Editable notes and labels for a build; saved straight to its profile. */
+function ProfileNotes({ profile }: { profile: Profile }): JSX.Element {
+  const { refresh, pushToast } = useLauncher()
+  const [notes, setNotes] = useState(profile.notes ?? '')
+  const [tags, setTags] = useState<string[]>(profile.tags ?? [])
+  const [tagDraft, setTagDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setNotes(profile.notes ?? '')
+    setTags(profile.tags ?? [])
+  }, [profile.id, profile.notes, profile.tags])
+
+  const addTag = () => {
+    const tag = tagDraft.trim().replace(/^#/, '')
+    setTagDraft('')
+    if (!tag || tags.includes(tag) || tags.length >= 20) return
+    setTags([...tags, tag])
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api.updateProfile(profile.id, { notes: notes.trim(), tags })
+      await refresh()
+      pushToast('success', t('Заметки сохранены'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="panel p-5">
+      <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">{t('Заметки и теги')}</div>
+      <textarea
+        className="input min-h-[88px] w-full resize-y text-xs leading-relaxed"
+        placeholder={t('Заметки')}
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {tags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => setTags(tags.filter((item) => item !== tag))}
+            className="flex items-center gap-1 rounded-lg border border-mint-400/25 bg-mint-400/10 px-2 py-1 text-[11px] font-semibold text-mint-300 transition hover:border-rose-400/40 hover:text-rose-300"
+            title={t('Удалить тег')}
+          >
+            #{tag} <X size={11} />
+          </button>
+        ))}
+        <input
+          className="input w-40 py-1.5 text-[11px]"
+          placeholder={t('Новый тег')}
+          value={tagDraft}
+          onChange={(event) => setTagDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') { event.preventDefault(); addTag() }
+          }}
+        />
+        <Button onClick={() => void addTag()}><Plus size={13} /> {t('Добавить тег')}</Button>
+        <Button variant="primary" className="ml-auto" onClick={() => void save()} disabled={saving}>
+          {saving ? <Spinner size={13} /> : <Check size={13} />} {t('Сохранить заметки')}
+        </Button>
+      </div>
+      <p className="mt-2 text-[10px] text-slate-600">{t('Нажмите Enter, чтобы добавить тег')}</p>
+    </section>
+  )
 }
 
 /** Full instance page: its own header, stats and section content driven by the instance sidebar. */
@@ -219,6 +290,8 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
               </div>
             ))}
           </div>
+
+          <ProfileNotes profile={current} />
 
           <div>
             <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">{t('Быстрые действия')}</div>

@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { setLocale, t } from './lib/i18n'
-import { motion } from 'framer-motion'
+import { MotionConfig, motion } from 'framer-motion'
+import { comboMatches, hotkeysFromSettings, type HotkeyAction } from '@shared/hotkeys'
 import { Check, Fingerprint, Loader2, LogOut, Pencil, Plus, RefreshCw, Trash2, UserRound, Users, X } from 'lucide-react'
 import { api } from './lib/api'
-import { findProfile, useLauncher } from './store'
+import { findProfile, selectedProfile, useLauncher } from './store'
+import { isProfileInstalled } from './lib/profiles'
 import { Titlebar } from './components/Titlebar'
 import { Sidebar } from './components/Sidebar'
 import { ToastHost } from './components/ToastHost'
 import { FirstRunWizard } from './components/FirstRunWizard'
 import { GlobalSearch } from './components/GlobalSearch'
+import { ShortcutsSheet } from './components/ShortcutsSheet'
 import { CrashAssistant } from './components/CrashAssistant'
 import { Badge, Button, Modal } from './components/ui'
 import { SkinsPanel } from './components/SkinsPanel'
@@ -36,9 +39,9 @@ function MicrosoftMark(): JSX.Element {
 export default function App(): JSX.Element {
   const {
     state, page, openedProfileId, gameStatus,
-    crashProfileId, globalSearchOpen,
-    init, refresh, setPage, backToInstances, pushToast,
-    setCrashProfileId, setGlobalSearchOpen
+    crashProfileId, globalSearchOpen, shortcutsOpen,
+    init, refresh, setPage, backToInstances, pushToast, setBusy,
+    setProfileSection, openProfile, setCrashProfileId, setGlobalSearchOpen, setShortcutsOpen
   } = useLauncher()
   const [accountOpen, setAccountOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -72,20 +75,75 @@ export default function App(): JSX.Element {
   }, [accountOpen, newAccountName])
 
   const clientIdConfigured = Boolean(state?.settings.msaClientId?.trim())
+  const hotkeys = hotkeysFromSettings(state?.settings)
+  const accessibility = state?.settings.accessibility
+  const gameBusy = gameStatus === 'running' || gameStatus === 'starting'
 
-  // Ctrl/Cmd+K opens the command palette from anywhere in the launcher.
+  const launchLast = useCallback(async () => {
+    if (!state || gameBusy) return
+    const target = [...state.profiles].sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))[0] ?? selectedProfile(state)
+    if (!target) return
+    setBusy(true)
+    try {
+      if (!isProfileInstalled(target, state)) {
+        await api.installProfile(target.id)
+        await refresh()
+      }
+      await api.launch(target.id)
+    } finally {
+      setBusy(false)
+    }
+  }, [state, gameBusy, refresh, setBusy])
+
+  // Theme, accent and accessibility options are applied at the document root.
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.theme = state?.settings.theme ?? 'dark'
+    root.dataset.accent = state?.settings.accent ?? 'mint'
+    root.dataset.compact = String(Boolean(accessibility?.compact))
+    root.dataset.reducedMotion = String(Boolean(accessibility?.reducedMotion))
+    root.style.zoom = String(accessibility?.uiScale ?? 1)
+    root.style.colorScheme = state?.settings.theme ?? 'dark'
+  }, [state?.settings.theme, state?.settings.accent, accessibility?.compact, accessibility?.reducedMotion, accessibility?.uiScale])
+
+  // Configurable global shortcuts. Typing in a field never triggers build actions.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setGlobalSearchOpen(!globalSearchOpen)
+      const entries = Object.entries(hotkeys) as Array<[HotkeyAction, string]>
+      const action = entries.find(([, combo]) => combo && comboMatches(combo, event))?.[0]
+      if (!action) return
+      const target = event.target
+      const typing = target instanceof Element &&
+        Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+      if (typing && action !== 'globalSearch' && action !== 'showShortcuts') return
+      if ((wizardOpen || accountOpen || shortcutsOpen || globalSearchOpen) && action !== 'globalSearch') return
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (action === 'globalSearch') setGlobalSearchOpen(!globalSearchOpen)
+      else if (action === 'showShortcuts') setShortcutsOpen(true)
+      else if (action === 'launchLast') void launchLast()
+      else if (action === 'stopGame') void api.stopGame()
+      else if (action === 'home' || action === 'library' || action === 'settings') setPage(action)
+      else if (action === 'mods') {
+        const targetProfile = selectedProfile(state)
+        if (targetProfile) void openProfile(targetProfile.id).then(() => setProfileSection('mods'))
+      } else if (action === 'backupAll') {
+        void api.backupAllProfiles()
+          .then((count) => pushToast('success', t('Создано бэкапов: {count}', { count })))
+          .catch(() => {})
+      } else if (action === 'toggleTheme' && state) {
+        void api.setState({ settings: { ...state.settings, theme: state.settings.theme === 'light' ? 'dark' : 'light' } })
+          .then(() => refresh())
       }
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [globalSearchOpen, setGlobalSearchOpen])
-
-  const gameBusy = gameStatus === 'running' || gameStatus === 'starting'
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [
+    hotkeys, state, wizardOpen, accountOpen, shortcutsOpen, globalSearchOpen,
+    setGlobalSearchOpen, setShortcutsOpen, setPage, launchLast, openProfile,
+    setProfileSection, pushToast, refresh
+  ])
 
   const switchAccount = async (id: string) => {
     if (!state || id === state.activeAccountId) return
@@ -177,6 +235,7 @@ export default function App(): JSX.Element {
   }
 
   return (
+    <MotionConfig reducedMotion={accessibility?.reducedMotion ? 'always' : 'never'}>
     <div className="app-bg relative flex h-full w-full flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 grid-overlay opacity-40" />
       <Titlebar />
@@ -218,6 +277,7 @@ export default function App(): JSX.Element {
 
       <ToastHost />
       <GlobalSearch />
+      <ShortcutsSheet />
       <FirstRunWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       {crashProfileId && (
         <CrashAssistant
@@ -432,5 +492,6 @@ export default function App(): JSX.Element {
         </div>
       </Modal>
     </div>
+    </MotionConfig>
   )
 }

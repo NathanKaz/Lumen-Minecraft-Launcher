@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
 import {
-  CheckCircle2, Clock, Coffee, Download, ExternalLink, FolderOpen, Github,
-  HelpCircle, Info, KeyRound, RefreshCw, Search, Terminal, XCircle
+  CheckCircle2, Clock, Coffee, Download, ExternalLink, FileDown, FileUp, FolderOpen, Github,
+  HelpCircle, Info, KeyRound, Keyboard, Palette, RefreshCw, Search, Terminal, Upload, XCircle
 } from 'lucide-react'
+import {
+  DEFAULT_HOTKEYS, HOTKEY_DEFINITIONS, comboFromEvent, formatShortcut, hotkeysFromSettings
+} from '@shared/hotkeys'
 import { api, isMock } from '../lib/api'
 import { APP_LICENSE, APP_REPOSITORY, APP_VERSION } from '@shared/version'
 import { useLauncher } from '../store'
@@ -14,6 +17,45 @@ import type { JavaInfo, LauncherInfo, ScheduledBackupSettings, UpdateDownload, U
 const AZURE_PORTAL = 'https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade'
 const CURSEFORGE_CONSOLE = 'https://console.curseforge.com/?#/api-keys'
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isMac(): boolean {
+  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+}
+
+/** Click, press a combination, and it replaces the shortcut (Escape cancels). */
+function HotkeyCapture({
+  value, onChange, onCancel
+}: { value: string; onChange: (combo: string) => void; onCancel: () => void }): JSX.Element {
+  const [capturing, setCapturing] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => setCapturing(true)}
+      onBlur={() => setCapturing(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setCapturing(false)
+          onCancel()
+          return
+        }
+        const combo = comboFromEvent(event)
+        if (!combo) return
+        event.preventDefault()
+        setCapturing(false)
+        onChange(combo)
+      }}
+      className={`min-w-[104px] shrink-0 rounded-lg border px-2.5 py-1.5 font-mono text-[11px] font-semibold outline-none transition ${
+        capturing
+          ? 'border-mint-400/70 bg-mint-400/10 text-mint-300 ring-2 ring-mint-400/15'
+          : 'border-white/10 bg-ink-900 text-slate-300 hover:border-mint-400/40 hover:text-mint-300'
+      }`}
+      title={t('Нажмите, чтобы изменить сочетание')}
+    >
+      {capturing ? t('Нажмите сочетание...') : formatShortcut(value, isMac())}
+    </button>
+  )
+}
 
 export function Settings(): JSX.Element {
   const { state, refresh, pushToast, progress } = useLauncher()
@@ -55,15 +97,53 @@ export function Settings(): JSX.Element {
     t('Бэкапы по расписанию'),
     `${t('Создавать копии автоматически')} ${t('Интервал, часы')} ${t('Хранить копий')} backup backups бэкап копии расписание interval`
   )
+  const showHotkeys = matchesSection(
+    t('Горячие клавиши'),
+    `${t('Сочетания клавиш')} ${t('Сбросить по умолчанию')} hotkeys shortcuts keyboard key combo клавиши сочетания сброс`
+  )
+  const showAppearance = matchesSection(
+    t('Тема и доступность'),
+    `${t('Тема')} ${t('Акцентный цвет')} ${t('Масштаб интерфейса')} ${t('Компактный режим')} ${t('Уменьшить анимацию')} theme light dark accent color accessibility scale zoom compact motion доступность светлая тёмная`
+  )
+  const showTransfer = matchesSection(
+    t('Перенос настроек'),
+    `${t('Экспорт настроек')} ${t('Импорт настроек')} export import json settings файл настройки перенос`
+  )
   const showAbout = matchesSection(
     t('О лаунчере'),
     `${t('Версия')} ${t('Лицензия')} ${t('Автор')} GitHub ${t('Каталог данных')} about version license author github ссылка repository`
   )
-  const anySectionVisible = showJava || showPerformance || showFolders || showGeneral || showBackups || showAbout
+  const anySectionVisible = showJava || showPerformance || showFolders || showGeneral ||
+    showBackups || showHotkeys || showAppearance || showTransfer || showAbout
 
   const update = async (patch: Partial<typeof settings>) => {
     await api.setState({ settings: { ...settings, ...patch } })
     await refresh()
+  }
+
+  const hotkeys = hotkeysFromSettings(settings)
+  const setHotkey = (action: keyof typeof hotkeys, combo: string) => {
+    const next = { ...hotkeys }
+    const conflict = (Object.keys(next) as Array<keyof typeof next>).find((key) => key !== action && next[key] === combo)
+    if (conflict) next[conflict] = hotkeys[action]
+    next[action] = combo
+    void update({ hotkeys: next })
+  }
+  const resetHotkeys = () => void update({ hotkeys: { ...DEFAULT_HOTKEYS } })
+
+  const transfer = async (direction: 'export' | 'import') => {
+    try {
+      if (direction === 'export') {
+        await api.exportSettings()
+        pushToast('success', t('Настройки экспортированы'))
+      } else {
+        await api.importSettings()
+        await refresh()
+        pushToast('success', t('Настройки импортированы'))
+      }
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    }
   }
 
   const updateScheduled = (patch: Partial<ScheduledBackupSettings>) => {
@@ -502,6 +582,145 @@ export function Settings(): JSX.Element {
             </p>
           </div>
         </div>
+        )}
+
+        {showHotkeys && (
+          <div className="panel p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Keyboard size={18} className="text-mint-400" />
+              <h3 className="text-sm font-bold text-white">{t('Горячие клавиши')}</h3>
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-slate-500">
+              {t('Сочетания работают в лаунчере. Нажмите на клавишу, затем новое сочетание; Escape отменяет.')}
+            </p>
+            <div className="space-y-1.5">
+              {HOTKEY_DEFINITIONS.map((definition) => (
+                <div key={definition.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-semibold text-slate-200">{t(definition.label)}</div>
+                    <div className="truncate text-[10px] text-slate-500">{t(definition.hint)}</div>
+                  </div>
+                  <HotkeyCapture
+                    value={hotkeys[definition.id]}
+                    onChange={(combo) => setHotkey(definition.id, combo)}
+                    onCancel={() => {}}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button className="mt-3 w-full justify-center" onClick={resetHotkeys}>
+              <RefreshCw size={14} /> {t('Сбросить по умолчанию')}
+            </Button>
+          </div>
+        )}
+
+        {showAppearance && (
+          <div className="panel p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Palette size={18} className="text-iris-400" />
+              <h3 className="text-sm font-bold text-white">{t('Тема и доступность')}</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">{t('Тема')}</label>
+                  <Select
+                    value={settings.theme ?? 'dark'}
+                    onChange={(theme) => void update({ theme: theme as 'dark' | 'light' })}
+                    options={[
+                      { value: 'dark', label: t('Тёмная') },
+                      { value: 'light', label: t('Светлая') }
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="label">{t('Акцентный цвет')}</label>
+                  <Select
+                    value={settings.accent ?? 'mint'}
+                    onChange={(accent) => void update({ accent: accent as 'mint' | 'violet' | 'sky' | 'amber' | 'rose' })}
+                    options={[
+                      { value: 'mint', label: t('Мятный') },
+                      { value: 'violet', label: t('Фиолетовый') },
+                      { value: 'sky', label: t('Небесный') },
+                      { value: 'amber', label: t('Янтарный') },
+                      { value: 'rose', label: t('Розовый') }
+                    ]}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">{t('Масштаб интерфейса: {scale}%', { scale: Math.round((settings.accessibility?.uiScale ?? 1) * 100) })}</label>
+                <input
+                  type="range"
+                  min={0.8}
+                  max={1.3}
+                  step={0.05}
+                  value={settings.accessibility?.uiScale ?? 1}
+                  onChange={(event) => void update({
+                    accessibility: {
+                      uiScale: Number(event.target.value),
+                      compact: settings.accessibility?.compact ?? false,
+                      reducedMotion: settings.accessibility?.reducedMotion ?? false
+                    }
+                  })}
+                  className="w-full"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-slate-600"><span>80%</span><span>130%</span></div>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div>
+                  <div className="text-xs font-semibold text-slate-200">{t('Компактный режим')}</div>
+                  <div className="text-[10px] text-slate-500">{t('Меньше отступов и плотнее карточки')}</div>
+                </div>
+                <Toggle
+                  checked={settings.accessibility?.compact ?? false}
+                  onChange={() => void update({
+                    accessibility: {
+                      uiScale: settings.accessibility?.uiScale ?? 1,
+                      compact: !settings.accessibility?.compact,
+                      reducedMotion: settings.accessibility?.reducedMotion ?? false
+                    }
+                  })}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div>
+                  <div className="text-xs font-semibold text-slate-200">{t('Уменьшить анимацию')}</div>
+                  <div className="text-[10px] text-slate-500">{t('Убирает движение и переходы интерфейса')}</div>
+                </div>
+                <Toggle
+                  checked={settings.accessibility?.reducedMotion ?? false}
+                  onChange={() => void update({
+                    accessibility: {
+                      uiScale: settings.accessibility?.uiScale ?? 1,
+                      compact: settings.accessibility?.compact ?? false,
+                      reducedMotion: !settings.accessibility?.reducedMotion
+                    }
+                  })}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showTransfer && (
+          <div className="panel p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Upload size={18} className="text-amber-400" />
+              <h3 className="text-sm font-bold text-white">{t('Перенос настроек')}</h3>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button onClick={() => void transfer('export')} className="justify-center">
+                <FileDown size={15} /> {t('Экспорт настроек')}
+              </Button>
+              <Button onClick={() => void transfer('import')} className="justify-center">
+                <FileUp size={15} /> {t('Импорт настроек')}
+              </Button>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+              {t('Файл содержит пути, память, тему и Hotkeys. Ключи API и токены не экспортируются и остаются на этом компьютере.')}
+            </p>
+          </div>
         )}
 
         {showAbout && (

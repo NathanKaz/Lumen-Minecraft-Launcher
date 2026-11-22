@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react'
 import { getLocale, t } from '../lib/i18n'
 import {
-  ArrowRight, Boxes, Clock, Download, FolderOpen, Gamepad2, Library, Loader2, Play, Settings, Square
+  ArrowRight, Boxes, Clock, Download, FolderOpen, Gamepad2, Library, Loader2, Map, Play, Settings, Square
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { selectedProfile, useLauncher } from '../store'
@@ -8,10 +9,50 @@ import { useProfileLaunch } from '../hooks/useProfileLaunch'
 import { Badge, Button, EmptyState, SectionHeader, Spinner } from '../components/ui'
 import type { Profile } from '@shared/types'
 
+/** Quick Play only exists in release versions 1.20.5 and newer. */
+function supportsQuickPlay(versionId: string): boolean {
+  const match = /^1\.(\d+)(?:\.(\d+))?$/.exec(versionId)
+  if (!match) return false
+  const minor = Number(match[1])
+  const patch = Number(match[2] ?? 0)
+  return minor > 20 || (minor === 20 && patch >= 5)
+}
+
 function LastPlayedCard({ profile }: { profile: Profile }): JSX.Element {
-  const { gameStatus, openProfile } = useLauncher()
-  const { current, installed, isPlaying, installing, play } = useProfileLaunch(profile)
+  const { gameStatus, openProfile, refresh } = useLauncher()
+  const { current, installed, isPlaying, installing, install, play } = useProfileLaunch(profile)
+  const [world, setWorld] = useState<string | null>(profile.lastWorld ?? null)
+  const [continuing, setContinuing] = useState(false)
   const starting = installing || gameStatus === 'starting'
+  const canContinue = Boolean(world) && supportsQuickPlay(current.versionId)
+
+  useEffect(() => {
+    let cancelled = false
+    void api.listWorlds(current.id).then((worlds) => {
+      if (cancelled) return
+      const preferred = worlds.find((entry) => entry.dirName === current.lastWorld)
+      const recent = [...worlds].sort((a, b) =>
+        (b.lastPlayed ?? b.modifiedAt) - (a.lastPlayed ?? a.modifiedAt)
+      )[0]
+      setWorld(preferred?.dirName ?? recent?.dirName ?? null)
+    }).catch(() => {
+      if (!cancelled) setWorld(current.lastWorld ?? null)
+    })
+    return () => { cancelled = true }
+  }, [current.id, current.lastWorld])
+
+  const continueGame = async () => {
+    if (!world || continuing) return
+    setContinuing(true)
+    try {
+      if (!installed) await install()
+      await api.launchIntoWorld(current.id, world)
+      await api.updateProfile(current.id, { lastWorld: world })
+      await refresh()
+    } finally {
+      setContinuing(false)
+    }
+  }
 
   return (
     <div className="panel relative overflow-hidden p-6">
@@ -50,9 +91,22 @@ function LastPlayedCard({ profile }: { profile: Profile }): JSX.Element {
                 minutes: current.playtimeMinutes % 60
               })}
             </span>
+            {world && (
+              <span className="flex items-center gap-1.5">
+                <Map size={13} /> {t('Последний мир')}: {world}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2">
+          <Button
+            onClick={() => void continueGame()}
+            disabled={starting || continuing || !canContinue}
+            title={!canContinue ? t('Quick Play доступен с версии 1.20.5 и требует сохранённого мира') : world ?? ''}
+          >
+            {continuing ? <Loader2 size={15} className="animate-spin" /> : <Map size={15} />}
+            {t('Продолжить игру')}
+          </Button>
           <Button variant="primary" onClick={() => void play()} disabled={starting}>
             {starting
               ? <Loader2 size={15} className="animate-spin" />

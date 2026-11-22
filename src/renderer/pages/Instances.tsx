@@ -2,24 +2,26 @@ import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 're
 import { t } from '../lib/i18n'
 import { motion } from 'framer-motion'
 import {
-  Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GripVertical,
-  LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Trash2, Upload, Users, Wrench
+  Boxes, Check, ChevronRight, Download, FolderOpen, Gamepad2, GitCompare, GripVertical,
+  LayoutGrid, Layers3, List, Pencil, Play, Plus, Search, Settings, Square, Star, Trash2, Upload, Users, Wrench
 } from 'lucide-react'
 import { api } from '../lib/api'
-import { effectiveMemory, isProfileInstalled } from '../lib/profiles'
+import { effectiveMemory, isProfileInstalled, profileTags, sortProfiles } from '../lib/profiles'
 import { useLauncher } from '../store'
-import { Badge, Button, EmptyState, Modal, SectionHeader, Spinner } from '../components/ui'
+import { Badge, Button, EmptyState, Modal, SectionHeader, Select, Spinner } from '../components/ui'
+import { InstanceCompare } from '../components/InstanceCompare'
 import { InstallProgress } from '../components/InstallProgress'
 import { ProfileFields } from '../components/ProfileFields'
 import { InstanceSignals } from '../components/InstanceSignals'
 import { ContextMenu, type ContextMenuState } from '../components/ContextMenu'
 import type { BuildGroup, ImportCandidate, ImportSource, Profile } from '@shared/types'
+import { defaultProfileName } from '@shared/naming'
 
 const DRAG_TYPE = 'application/x-lumen-profile'
 
 const emptyProfile = (version: string): Profile => ({
   id: crypto.randomUUID(),
-  name: t("Новая сборка"),
+  name: defaultProfileName(version, 'fabric'),
   versionId: version,
   loader: 'fabric',
   createdAt: Date.now(),
@@ -109,13 +111,16 @@ export function Instances(): JSX.Element {
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([])
   const [importScanning, setImportScanning] = useState(false)
   const [importingId, setImportingId] = useState<string | null>(null)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const autoName = useRef(false)
 
   if (!state) return <Spinner />
 
   const view = state.settings.instancesView
   const groupsById = new Map(state.groups.map((group) => [group.id, group]))
 
-  const visibleProfiles = state.profiles.filter((profile) => {
+  const visibleProfiles = sortProfiles(state.profiles.filter((profile) => {
     const matchesGroup =
       groupFilter === 'all' ||
       (groupFilter === 'ungrouped'
@@ -123,9 +128,11 @@ export function Instances(): JSX.Element {
         : profile.groupId === groupFilter)
     const normalized = query.trim().toLowerCase()
     const matchesQuery =
-      !normalized || `${profile.name} ${profile.versionId} ${profile.loader}`.toLowerCase().includes(normalized)
-    return matchesGroup && matchesQuery
-  })
+      !normalized || `${profile.name} ${profile.versionId} ${profile.loader} ${profileTags(profile).join(' ')} ${profile.notes ?? ''}`
+        .toLowerCase().includes(normalized)
+    const matchesFavorite = !favoritesOnly || Boolean(profile.favorite)
+    return matchesGroup && matchesQuery && matchesFavorite
+  }), state.settings.profileSort)
 
   // Every group is rendered, including empty ones — they are drop targets too.
   const allSections: Array<{
@@ -154,7 +161,21 @@ export function Instances(): JSX.Element {
   const openCreate = () => {
     const groupId = groupFilter !== 'all' && groupFilter !== 'ungrouped' ? groupFilter : undefined
     setEditing({ ...emptyProfile(versions?.latest.release ?? '1.20.1'), groupId })
+    autoName.current = true
     setCreating(true)
+  }
+
+  // Keep the suggested `version + loader` name in sync while the user changes
+  // those fields, but stop as soon as they type a custom name.
+  const changeEditing = (next: Profile) => {
+    if (creating && autoName.current && editing) {
+      if (next.name !== editing.name) autoName.current = false
+      else if (next.versionId !== editing.versionId || next.loader !== editing.loader) {
+        setEditing({ ...next, name: defaultProfileName(next.versionId, next.loader) })
+        return
+      }
+    }
+    setEditing(next)
   }
 
   const save = async () => {
@@ -374,6 +395,17 @@ export function Instances(): JSX.Element {
     await refresh()
   }
 
+  const setSort = async (sort: 'default' | 'name' | 'lastPlayed' | 'playtime') => {
+    await api.setState({ settings: { ...state.settings, profileSort: sort } })
+    await refresh()
+  }
+
+  const toggleFavorite = async (profile: Profile) => {
+    await api.updateProfile(profile.id, { favorite: !profile.favorite })
+    await refresh()
+    pushToast('success', profile.favorite ? t('Убрано из избранного') : t('Добавлено в избранное'))
+  }
+
   const openCardMenu = (event: MouseEvent, profile: Profile) => {
     event.preventDefault()
     event.stopPropagation()
@@ -382,8 +414,13 @@ export function Instances(): JSX.Element {
       y: event.clientY,
       items: [
         { label: t("Открыть сборку"), icon: <ChevronRight size={14} />, onClick: () => void openProfile(profile.id) },
+        {
+          label: profile.favorite ? t('Убрать из избранного') : t('Добавить в избранное'),
+          icon: <Star size={14} />,
+          onClick: () => void toggleFavorite(profile)
+        },
         { label: t("Переименовать"), icon: <Pencil size={14} />, onClick: () => setRenaming({ id: profile.id, value: profile.name }) },
-        { label: t("Изменить"), icon: <Settings size={14} />, onClick: () => { setEditing({ ...profile }); setCreating(false) } },
+        { label: t("Изменить"), icon: <Settings size={14} />, onClick: () => { setEditing({ ...profile }); autoName.current = false; setCreating(false) } },
         { label: t("Удалить сборку"), icon: <Trash2 size={14} />, tone: 'danger', onClick: () => void removeProfile(profile.id) }
       ]
     })
@@ -424,7 +461,7 @@ export function Instances(): JSX.Element {
     try {
       await api.importDroppedFile(profile.id, path)
       await refresh()
-      pushToast('success', t('Файл установлен в сборку'))
+      pushToast('success', /\.mrpack$/i.test(path) ? t('Сборка создана из модпака') : t('Файл установлен'))
     } catch (error) {
       pushToast('error', error instanceof Error ? error.message : String(error))
     } finally {
@@ -524,6 +561,19 @@ export function Instances(): JSX.Element {
           </button>
         )}
 
+        {!selectMode && (
+          <button
+            type="button"
+            aria-label={profile.favorite ? t('Убрать из избранного') : t('Добавить в избранное')}
+            onClick={(event) => { event.stopPropagation(); void toggleFavorite(profile) }}
+            className={`absolute right-3 top-3 z-10 rounded-lg p-1.5 transition ${
+              profile.favorite ? 'text-amber-300 hover:text-amber-200' : 'text-slate-600 hover:text-amber-300'
+            }`}
+          >
+            <Star size={15} fill={profile.favorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
+
         <div className={`flex min-w-0 items-start gap-3 ${view === 'list' ? 'flex-1' : ''}`}>
           <div
             onClick={(event) => event.stopPropagation()}
@@ -560,6 +610,7 @@ export function Instances(): JSX.Element {
               <Badge tone={installed ? 'mint' : 'slate'}>{installed ? t("Установлен") : t("Не установлен")}</Badge>
               {group && <Badge tone={groupTone(group.color)}>{group.name}</Badge>}
               {profile.modpack && <Badge tone="amber">{profile.modpack.name}</Badge>}
+              {profileTags(profile).map((tag) => <Badge key={tag} tone="slate">#{tag}</Badge>)}
             </div>
             <div className="mt-2"><InstanceSignals profile={profile} /></div>
           </div>
@@ -628,6 +679,35 @@ export function Instances(): JSX.Element {
               title={t("Управление группами")}
             >
               <Users size={14} /> {t("Группы")}
+            </button>
+            <button
+              onClick={() => setFavoritesOnly((current) => !current)}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                favoritesOnly
+                  ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                  : 'border-white/[0.07] bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200'
+              }`}
+              title={t('Избранное')}
+            >
+              <Star size={14} /> {t('Избранное')}
+            </button>
+            <Select
+              className="w-36"
+              value={state.settings.profileSort ?? 'default'}
+              onChange={(value) => void setSort(value as 'default' | 'name' | 'lastPlayed' | 'playtime')}
+              options={[
+                { value: 'default', label: t('По умолчанию') },
+                { value: 'name', label: t('По имени') },
+                { value: 'lastPlayed', label: t('Недавно играли') },
+                { value: 'playtime', label: t('По времени игры') }
+              ]}
+            />
+            <button
+              onClick={() => setCompareOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-mint-400/25 bg-mint-400/[0.06] px-3 py-1.5 text-xs font-semibold text-mint-300 transition hover:border-mint-400/50 hover:text-mint-200"
+              title={t('Сравнение сборок')}
+            >
+              <GitCompare size={14} /> {t('Сравнить')}
             </button>
             <button
               onClick={() => {
@@ -793,7 +873,7 @@ export function Instances(): JSX.Element {
           <div className="space-y-5">
             <ProfileFields
               profile={editing}
-              onChange={setEditing}
+              onChange={changeEditing}
               versions={versions}
               groups={state.groups}
               settingsMemory={state.settings.memory}
@@ -932,6 +1012,11 @@ export function Instances(): JSX.Element {
       </Modal>
 
       <ContextMenu menu={menu} onClose={() => setMenu(null)} />
+      <InstanceCompare
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        initialIds={state.profiles.slice(0, 2).map((profile) => profile.id)}
+      />
 
       <div className="mt-5 flex items-center justify-between text-[11px] text-slate-600">
         <span className="flex items-center gap-1.5"><Wrench size={12} /> {t("Моды хранятся внутри каждой сборки · правый клик по карточке — меню")}</span>

@@ -480,6 +480,11 @@ const en: Record<string, string> = {
   'Версии игры:': 'Game versions:',
   'Версия Minecraft': 'Minecraft version',
   'Версия {version}': 'Version {version}',
+  'Версия мода': 'Mod version',
+  'Авто · совместимая версия': 'Auto · compatible version',
+  'Мод уже установлен в эту сборку': 'Mod is already installed in this instance',
+  'Мод удалён из сборки': 'Mod removed from the instance',
+  'Попробуйте другой запрос или отключите фильтр версии.': 'Try another query or disable the version filter.',
   'Релиз': 'Release',
   'Снапшот': 'Snapshot',
   'Бета': 'Beta',
@@ -518,7 +523,8 @@ const en: Record<string, string> = {
   'Перетащите файл модпака сюда': 'Drop a modpack file here',
   'Поддерживаются файлы .mrpack и .zip из Modrinth. Модпак установится в сборку «{name}».':
     '.mrpack and .zip files from Modrinth are supported. The modpack will be installed into "{name}".',
-  'Показано {count} · фильтры версии и загрузчика выключены по умолчанию': 'Showing {count} · version and loader filters are off by default',
+  'Показано {count} · только для Minecraft {version}': 'Showing {count} · Minecraft {version} only',
+  'Показано {count} · все версии Minecraft': 'Showing {count} · all Minecraft versions',
   'Показать ещё': 'Show more',
   'Популярные модпаки': 'Popular modpacks',
   'Последние события': 'Recent activity',
@@ -1158,6 +1164,13 @@ const en: Record<string, string> = {
   'Готовые миры': 'Ready-made worlds',
   'Открыть на CurseForge': 'Open on CurseForge',
   'Мир «{name}» добавлен в сборку': 'World “{name}” added to the instance',
+  'Модпак «{name}» установлен в новую сборку': 'Modpack “{name}” installed as a new instance',
+  'Создать сборку из модпака': 'Create instance from modpack',
+  'Поддерживаются файлы .mrpack и .zip из Modrinth. Будет создана новая сборка.':
+    'Supports .mrpack and .zip files from Modrinth. A new instance will be created.',
+  'Сборка создана из модпака': 'Instance created from modpack',
+  'Файл установлен': 'File installed',
+  'Установка создаёт отдельную сборку': 'Installation creates a separate instance',
   'Сортировка': 'Sort',
   'По популярности': 'Popularity',
   'По соответствию': 'Relevance',
@@ -1172,7 +1185,136 @@ const en: Record<string, string> = {
   '{name} ({index})': '{name} ({index})',
   'Обновление модов': 'Updating mods',
   'Установка Java {version}': 'Installing Java {version}',
-  'Установка мира': 'Installing world'
+  'Установка мира': 'Installing world',
+
+  // Hotkeys, appearance and settings transfer
+  'Горячие клавиши': 'Keyboard shortcuts',
+  'Сочетания клавиш': 'Key combinations',
+  'Открыть палитру команд': 'Open the command palette',
+  'Список горячих клавиш': 'Shortcut cheat sheet',
+  'Показать шпаргалку': 'Show the cheat sheet',
+  'Продолжить игру': 'Continue game',
+  'Запустить последнюю сборку': 'Launch the most recent instance',
+  'Завершить запущенную игру': 'Terminate the running game',
+  'Открыть главную страницу': 'Open the home page',
+  'Открыть список сборок': 'Open the instance list',
+  'Открыть вкладку модов': 'Open the mods tab',
+  'Открыть настройки лаунчера': 'Open launcher settings',
+  'Бэкап всех миров': 'Back up all worlds',
+  'Создать копии миров всех сборок': 'Back up worlds of every instance',
+  'Сменить тему': 'Toggle theme',
+  'Переключить светлую и тёмную тему': 'Switch between light and dark themes',
+  'Сочетания работают в лаунчере. Переназначить их можно в Настройки → Горячие клавиши.':
+    'Shortcuts work inside the launcher. Rebind them in Settings → Keyboard shortcuts.',
+  'Сочетания работают в лаунчере. Нажмите на клавишу, затем новое сочетание; Escape отменяет.':
+    'Shortcuts work inside the launcher. Click a shortcut, press a new combination; Escape cancels.',
+  'Нажмите, чтобы изменить сочетание': 'Click to change this shortcut',
+  'Нажмите сочетание...': 'Press combination...',
+  'Сбросить по умолчанию': 'Reset to defaults',
+  'Тема и доступность': 'Theme and accessibility',
+  'Тема': 'Theme',
+  'Тёмная': 'Dark',
+  'Светлая': 'Light',
+  'Акцентный цвет': 'Accent color',
+  'Мятный': 'Mint',
+  'Фиолетовый': 'Violet',
+  'Небесный': 'Sky',
+  'Янтарный': 'Amber',
+  'Розовый': 'Rose',
+  'Масштаб интерфейса': 'UI scale',
+  'Масштаб интерфейса: {scale}%': 'UI scale: {scale}%',
+  'Компактный режим': 'Compact mode',
+  'Меньше отступов и плотнее карточки': 'Tighter spacing and denser cards',
+  'Уменьшить анимацию': 'Reduce motion',
+  'Убирает движение и переходы интерфейса': 'Removes UI movement and transitions',
+  'Перенос настроек': 'Settings transfer',
+  'Экспорт настроек': 'Export settings',
+  'Импорт настроек': 'Import settings',
+  'Экспорт настроек лаунчера': 'Export launcher settings',
+  'Импорт настроек лаунчера': 'Import launcher settings',
+  'Файл настроек JSON': 'JSON settings file',
+  'Настройки экспортированы': 'Settings exported',
+  'Настройки импортированы': 'Settings imported',
+  'Настройки экспортированы: {path}': 'Settings exported: {path}',
+  'Настройки импортированы из файла: {path}': 'Settings imported from: {path}',
+  'Файл содержит пути, память, тему и Hotkeys. Ключи API и токены не экспортируются и остаются на этом компьютере.':
+    'The file contains paths, memory, theme and shortcuts. API keys and tokens are never exported and stay on this computer.',
+  'Файл настроек повреждён или не является JSON': 'The settings file is corrupt or not JSON',
+  'Неверный формат файла настроек': 'Invalid settings file format',
+  'Это не файл настроек Lumen Launcher': 'This is not a Lumen Launcher settings file',
+  'В файле нет настроек': 'The file contains no settings',
+  'Файл не выбран': 'No file selected',
+  'Не удалось прочитать файл настроек': 'Could not read the settings file',
+
+  // Quick Play
+  'Быстрый запуск недоступен в версии {version} — открывается обычная игра':
+    'Quick Play is unavailable in {version} — launching the game normally',
+  'Демо-режим: быстрый запуск мира {world}': 'Demo mode: quick launch into world {world}',
+  'Демо-режим: мир {world} сборки {name} был бы открыт':
+    'Demo mode: world {world} of instance {name} would be opened',
+  'Последний мир': 'Last world',
+
+  // Installing modpacks from URLs
+  'Установка модпака по ссылке': 'Installing modpack from URL',
+  'Введите ссылку на модпак Modrinth или прямую ссылку на файл .mrpack':
+    'Enter a Modrinth modpack link or a direct .mrpack URL',
+  'Поддерживаются только ссылки http и https': 'Only http and https links are supported',
+  'Ссылка должна вести на страницу модпака Modrinth (/modpack/...)':
+    'The link must point to a Modrinth modpack page (/modpack/...)',
+  'Модпаки CurseForge пока устанавливаются только из файла .mrpack':
+    'CurseForge modpacks can only be installed from a .mrpack file',
+  'Неизвестный источник ссылки. Поддерживаются Modrinth и прямые ссылки на .mrpack':
+    'Unknown link source. Modrinth and direct .mrpack links are supported',
+  'Этот проект Modrinth не является модпаком': 'This Modrinth project is not a modpack',
+  'Модпак не найден в демо-каталоге. Проверьте ссылку.': 'Modpack not found in the demo catalog. Check the link.',
+
+  // Favorites, sorting and comparison
+  'Избранное': 'Favorites',
+  'Добавить в избранное': 'Add to favorites',
+  'Убрать из избранного': 'Remove from favorites',
+  'Сортировка сборок': 'Instance sorting',
+  'По умолчанию': 'Default',
+  'По имени': 'By name',
+  'Недавно играли': 'Recently played',
+  'По времени игры': 'By playtime',
+  'Сравнить': 'Compare',
+  'Сравнение сборок': 'Instance comparison',
+  'Сравнение двух сборок по модам': 'Compare mods of two instances',
+  'Выберите сборку': 'Select an instance',
+  'Сборка A': 'Instance A',
+  'Сборка B': 'Instance B',
+  'Только в сборке A': 'Only in instance A',
+  'Только в сборке B': 'Only in instance B',
+  'Общие моды': 'Shared mods',
+  'Всего модов': 'Total mods',
+  'Отличий нет': 'No differences',
+  'Не удалось загрузить список модов': 'Could not load the mod list',
+  'Две сборки нужны для сравнения': 'Two instances are required for comparison',
+
+  // Notes and tags
+  'Заметки и теги': 'Notes and tags',
+  'Заметки': 'Notes',
+  'Теги': 'Tags',
+  'Добавить тег': 'Add tag',
+  'Новый тег': 'New tag',
+  'Сохранить заметки': 'Save notes',
+  'Заметки сохранены': 'Notes saved',
+  'Нажмите Enter, чтобы добавить тег': 'Press Enter to add a tag',
+  'Тег удалён': 'Tag removed',
+  'Удалить тег': 'Remove tag',
+  'Добавлено в избранное': 'Added to favorites',
+  'Убрано из избранного': 'Removed from favorites',
+  'Quick Play доступен с версии 1.20.5 и требует сохранённого мира':
+    'Quick Play requires a saved world and Minecraft 1.20.5 or newer',
+
+  // Modpack URL installation UI
+  'Установить по ссылке': 'Install from URL',
+  'По ссылке': 'From URL',
+  'Ссылка на модпак': 'Modpack link',
+  'Вставьте ссылку на страницу модпака Modrinth (/modpack/...) или прямую ссылку на файл .mrpack':
+    'Paste a Modrinth modpack page URL (/modpack/...) or a direct .mrpack file URL',
+  'Установить модпак по ссылке': 'Install modpack from URL',
+  'Модпак установлен по ссылке': 'Modpack installed from URL'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {

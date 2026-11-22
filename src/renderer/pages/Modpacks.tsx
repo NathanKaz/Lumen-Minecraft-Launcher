@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, FileArchive, Layers3, Loader2, Package, Search, Upload } from 'lucide-react'
+import { ChevronDown, Download, FileArchive, Layers3, Link2, Loader2, Package, Search, Upload } from 'lucide-react'
 import { api } from '../lib/api'
-import { selectedProfile, useLauncher } from '../store'
-import { Badge, Button, EmptyState, SectionHeader, Select, Spinner } from '../components/ui'
+import { useLauncher } from '../store'
+import { Badge, Button, EmptyState, Modal, SectionHeader, Select, Spinner } from '../components/ui'
 import { ProjectDetailPanel } from '../components/ProjectDetailPanel'
 import type { ModpackSort, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 24
 
-export function Modpacks({ profileId, embedded = false }: { profileId?: string; embedded?: boolean }): JSX.Element {
+export function Modpacks({ embedded = false }: { embedded?: boolean }): JSX.Element {
   const { state, busy, setBusy, refresh, pushToast } = useLauncher()
-  const targetId = profileId ?? selectedProfile(state)?.id
-  const target = state?.profiles.find((item) => item.id === targetId)
   const [packs, setPacks] = useState<ModrinthProject[]>([])
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ModpackSort>('relevance')
@@ -24,6 +22,9 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
   const [installing, setInstalling] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [urlOpen, setUrlOpen] = useState(false)
+  const [urlDraft, setUrlDraft] = useState('')
+  const [urlInstalling, setUrlInstalling] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -62,14 +63,12 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
     }
   }
 
-  const install = async (projectId: string, title: string) => {
-    if (!targetId) return
+  const install = async (projectId: string) => {
     setInstalling(projectId)
     setBusy(true)
     try {
-      await api.installModpackFromModrinth(targetId, projectId)
+      await api.installModpackFromModrinth(projectId)
       await refresh()
-      pushToast('success', t('Модпак «{name}» установлен', { name: title }))
     } finally {
       setInstalling(null)
       setBusy(false)
@@ -77,12 +76,30 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
   }
 
   const installLocal = async () => {
-    if (!targetId) return
     setBusy(true)
     try {
-      await api.installModpack(targetId)
+      await api.installModpack()
       await refresh()
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const installFromUrl = async () => {
+    const url = urlDraft.trim()
+    if (!url) return
+    setUrlInstalling(true)
+    setBusy(true)
+    try {
+      await api.installModpackFromUrl(url)
+      await refresh()
+      setUrlOpen(false)
+      setUrlDraft('')
+      pushToast('success', t('Модпак установлен по ссылке'))
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    } finally {
+      setUrlInstalling(false)
       setBusy(false)
     }
   }
@@ -95,7 +112,12 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
         <SectionHeader
           title={t("Модпаки")}
           subtitle={t("Готовые модпаки из Modrinth или установка из файла .mrpack.")}
-          action={<Button onClick={() => void installLocal()} disabled={busy}><FileArchive size={16} /> {t("Установить .mrpack")}</Button>}
+          action={(
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setUrlOpen(true)} disabled={busy}><Link2 size={16} /> {t('Установить по ссылке')}</Button>
+              <Button onClick={() => void installLocal()} disabled={busy}><FileArchive size={16} /> {t("Установить .mrpack")}</Button>
+            </div>
+          )}
         />
       )}
 
@@ -106,11 +128,10 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
           event.preventDefault()
           setDragging(false)
           const file = event.dataTransfer.files[0]
-          if (!file || !targetId) return
+          if (!file) return
           setBusy(true)
-          void api.installModpackFilePath(targetId, file.path).then(async () => {
+          void api.installModpackFilePath(file.path).then(async () => {
             await refresh()
-            pushToast('success', t("Модпак добавлен"))
           }).finally(() => setBusy(false))
         }}
         className={`panel mb-6 flex items-center gap-5 border-2 border-dashed p-6 transition ${dragging ? 'border-mint-400/60 bg-mint-400/[0.06]' : 'border-white/[0.08]'}`}
@@ -120,9 +141,12 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-white">{t("Перетащите файл модпака сюда")}</div>
-          <p className="mt-1 text-xs text-slate-500">{t('Поддерживаются файлы .mrpack и .zip из Modrinth. Модпак установится в сборку «{name}».', { name: target?.name ?? '—' })}</p>
+          <p className="mt-1 text-xs text-slate-500">{t('Поддерживаются файлы .mrpack и .zip из Modrinth. Будет создана новая сборка.')}</p>
         </div>
-        <Button onClick={() => void installLocal()} disabled={busy}>{t("Выбрать файл")}</Button>
+        <div className="flex shrink-0 flex-col gap-2">
+          <Button onClick={() => void installLocal()} disabled={busy}>{t("Выбрать файл")}</Button>
+          <Button onClick={() => setUrlOpen(true)} disabled={busy}><Link2 size={14} /> {t('По ссылке')}</Button>
+        </div>
       </div>
 
       {!embedded && installedPacks.length > 0 && (
@@ -165,12 +189,14 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
         </div>
       </div>
 
-      {loading && !packs.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          {loading && !packs.length ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => <div key={index} className="panel shimmer h-52 animate-shimmer" />)}
         </div>
-      ) : packs.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          ) : packs.length ? (
+            <div className={`grid gap-4 sm:grid-cols-2 ${selectedProjectId ? 'xl:grid-cols-2' : 'lg:grid-cols-3'}`}>
           {packs.map((pack, index) => (
             <motion.div
               key={pack.project_id}
@@ -206,7 +232,7 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
                   disabled={busy}
                   onClick={(event) => {
                     event.stopPropagation()
-                    void install(pack.project_id, pack.title)
+                    void install(pack.project_id)
                   }}
                 >
                   {installing === pack.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
@@ -216,33 +242,58 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
             </motion.div>
           ))}
         </div>
-      ) : (
-        <EmptyState icon={<Package size={22} />} title={t("Модпаки не найдены")} description={t("Попробуйте изменить запрос.")} />
-      )}
+          ) : (
+            <EmptyState icon={<Package size={22} />} title={t("Модпаки не найдены")} description={t("Попробуйте изменить запрос.")} />
+          )}
 
-      {packs.length > 0 && (
-        <div className="mt-5 flex flex-col items-center gap-2">
-          {loadingMore && <Spinner size={18} />}
-          {hasMore && !loadingMore && (
-            <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
+          {packs.length > 0 && (
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {loadingMore && <Spinner size={18} />}
+              {hasMore && !loadingMore && (
+                <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
+              )}
+            </div>
           )}
         </div>
-      )}
 
-      <ProjectDetailPanel
-        projectId={selectedProjectId}
-        kind="modpack"
-        onClose={() => setSelectedProjectId(null)}
-        action={selectedProjectId ? {
-          label: target ? t('Установить в «{name}»', { name: target.name }) : t("Установить модпак"),
-          onClick: () => {
-            const pack = packs.find((item) => item.project_id === selectedProjectId)
-            if (pack) void install(pack.project_id, pack.title)
-          },
-          disabled: busy || !targetId,
-          loading: installing === selectedProjectId
-        } : undefined}
-      />
+        <ProjectDetailPanel
+          projectId={selectedProjectId}
+          kind="modpack"
+          onClose={() => setSelectedProjectId(null)}
+          action={selectedProjectId ? {
+            label: t('Создать сборку из модпака'),
+            onClick: () => {
+              const pack = packs.find((item) => item.project_id === selectedProjectId)
+              if (pack) void install(pack.project_id)
+            },
+            disabled: busy,
+            loading: installing === selectedProjectId
+          } : undefined}
+        />
+      </div>
+
+      <Modal open={urlOpen} onClose={() => setUrlOpen(false)} title={t('Установить модпак по ссылке')}>
+        <div className="space-y-3">
+          <label className="label" htmlFor="modpack-url">{t('Ссылка на модпак')}</label>
+          <input
+            id="modpack-url"
+            className="input font-mono text-xs"
+            placeholder="https://modrinth.com/modpack/slug"
+            value={urlDraft}
+            onChange={(event) => setUrlDraft(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') void installFromUrl() }}
+          />
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            {t('Вставьте ссылку на страницу модпака Modrinth (/modpack/...) или прямую ссылку на файл .mrpack')}
+          </p>
+          <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-4">
+            <Button onClick={() => setUrlOpen(false)}>{t('Отмена')}</Button>
+            <Button variant="primary" onClick={() => void installFromUrl()} disabled={urlInstalling || !urlDraft.trim()}>
+              {urlInstalling ? <Spinner size={14} /> : <Download size={14} />} {t('Установить')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

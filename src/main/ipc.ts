@@ -21,6 +21,7 @@ import { emitToast, emitLog, getLogs, clearLogs, uid } from './core/events'
 import { cancelTask, clearFinishedTasks, listTasks, pauseTask, resumeTask, runTaskAndWait } from './core/tasks'
 import { getVersionList, installProfile } from './core/versions'
 import { getStatus, launchGame, stopGame } from './core/launch'
+import { exportLauncherSettings, importLauncherSettings } from './core/settingsTransfer'
 import {
   analyzeMods,
   copyModFile,
@@ -31,7 +32,7 @@ import {
   setModsEnabled,
   toggleMod
 } from './core/mods'
-import { getProjectDetails, installMod, searchMods, searchModpacks } from './core/modrinth'
+import { getProjectDetails, getProjectVersions, installMod, searchMods, searchModpacks } from './core/modrinth'
 import {
   copyWorld,
   deleteWorld,
@@ -42,7 +43,12 @@ import {
   renameWorld,
   searchWorlds
 } from './core/worlds'
-import { installModpackFromFile, installModpackFromModrinth, installModpackFromPath } from './core/modpacks'
+import {
+  installModpackFromFile,
+  installModpackFromModrinth,
+  installModpackFromPath,
+  installModpackFromUrl
+} from './core/modpacks'
 import { deletionSummary, deleteScreenshot, listScreenshots } from './core/screenshots'
 import { detectJava, getJavaInfo } from './core/java'
 import { ensureJava } from './core/javaInstall'
@@ -168,6 +174,7 @@ export function registerIpc(): void {
     })
   })
   handle(IPC.launch, (id: string) => launchGame(id))
+  handle(IPC.launchIntoWorld, (id: string, world: string) => launchGame(id, { world }))
   handle(IPC.stopGame, () => stopGame())
   handle(IPC.getGameStatus, () => getStatus())
   handle(IPC.listMods, (id: string) => listMods(id))
@@ -177,11 +184,11 @@ export function registerIpc(): void {
   handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string, offset?: number) =>
     searchMods(query, gameVersion, loader, offset)
   )
-  handle(IPC.installMod, (id: string, projectId: string) =>
+  handle(IPC.installMod, (id: string, projectId: string, versionId?: string) =>
     runTaskAndWait({
       label: msg('Установка мода'),
       phase: 'mod',
-      run: ({ signal, taskId }) => installMod(id, projectId, { signal, taskId })
+      run: ({ signal, taskId }) => installMod(id, projectId, versionId, { signal, taskId })
     })
   )
   handle(IPC.searchModpacks, (query: string, offset?: number, sort?: Parameters<typeof searchModpacks>[2]) =>
@@ -196,25 +203,33 @@ export function registerIpc(): void {
     })
   )
   handle(IPC.getProjectDetails, (projectId: string) => getProjectDetails(projectId))
-  handle(IPC.installModpack, (id: string) =>
+  handle(IPC.getProjectVersions, (projectId: string) => getProjectVersions(projectId))
+  handle(IPC.installModpack, () =>
     runTaskAndWait({
       label: msg('Установка модпака'),
       phase: 'modpack',
-      run: ({ signal, taskId }) => installModpackFromFile(id, { signal, taskId })
+      run: ({ signal, taskId }) => installModpackFromFile({ signal, taskId })
     })
   )
-  handle(IPC.installModpackFilePath, (id: string, filePath: string) =>
+  handle(IPC.installModpackFilePath, (filePath: string) =>
     runTaskAndWait({
       label: msg('Установка модпака'),
       phase: 'modpack',
-      run: ({ signal, taskId }) => installModpackFromPath(id, filePath, { signal, taskId })
+      run: ({ signal, taskId }) => installModpackFromPath(filePath, { signal, taskId })
     })
   )
-  handle(IPC.installModpackFromModrinth, (id: string, projectId: string) =>
+  handle(IPC.installModpackFromModrinth, (projectId: string) =>
     runTaskAndWait({
       label: msg('Установка модпака'),
       phase: 'modpack',
-      run: ({ signal, taskId }) => installModpackFromModrinth(id, projectId, { signal, taskId })
+      run: ({ signal, taskId }) => installModpackFromModrinth(projectId, { signal, taskId })
+    })
+  )
+  handle(IPC.installModpackFromUrl, (url: string) =>
+    runTaskAndWait({
+      label: msg('Установка модпака по ссылке'),
+      phase: 'modpack',
+      run: ({ signal, taskId }) => installModpackFromUrl(url, { signal, taskId })
     })
   )
   handle(IPC.listScreenshots, (profileId?: string) => listScreenshots(profileId))
@@ -243,6 +258,8 @@ export function registerIpc(): void {
   handle(IPC.downloadUpdate, () => downloadUpdate())
   handle(IPC.installUpdate, (download: Parameters<typeof installUpdate>[0]) => installUpdate(download))
   handle(IPC.getLauncherInfo, () => getLauncherInfo())
+  handle(IPC.exportSettings, () => exportLauncherSettings())
+  handle(IPC.importSettings, () => importLauncherSettings())
   handle(IPC.openExternal, (url: string) => openExternal(url))
   handle(IPC.offlineUuid, (name: string) => offlineUuid(name.trim().slice(0, 16) || 'Steve'))
   handle(IPC.verifyProfile, (id: string, repair?: boolean) =>

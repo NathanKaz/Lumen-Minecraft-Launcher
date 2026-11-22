@@ -6,23 +6,23 @@ module.exports = {
     extend: {
       colors: {
         ink: {
-          950: '#070910',
-          900: '#0B0E14',
-          850: '#0F131C',
-          800: '#151A24',
-          700: '#1C2230',
-          600: '#262E40'
+          950: 'rgb(var(--ink-950) / <alpha-value>)',
+          900: 'rgb(var(--ink-900) / <alpha-value>)',
+          850: 'rgb(var(--ink-850) / <alpha-value>)',
+          800: 'rgb(var(--ink-800) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)',
+          600: 'rgb(var(--ink-600) / <alpha-value>)'
         },
         mint: {
-          300: '#A7F3D0',
-          400: '#6EE7A8',
-          500: '#34D399',
-          600: '#10B981'
+          300: 'rgb(var(--accent-300) / <alpha-value>)',
+          400: 'rgb(var(--accent-400) / <alpha-value>)',
+          500: 'rgb(var(--accent-500) / <alpha-value>)',
+          600: 'rgb(var(--accent-600) / <alpha-value>)'
         },
         iris: {
-          400: '#A78BFA',
-          500: '#8B5CF6',
-          600: '#7C3AED'
+          400: 'rgb(var(--iris-400) / <alpha-value>)',
+          500: 'rgb(var(--iris-500) / <alpha-value>)',
+          600: 'rgb(var(--iris-600) / <alpha-value>)'
         }
       },
       fontFamily: {

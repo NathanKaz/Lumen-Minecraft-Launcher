@@ -19,6 +19,7 @@ import type {
   ModInfo,
   ModIssue,
   ModUpdateInfo,
+  ModVersionInfo,
   ModrinthProject,
   ModrinthProjectDetails,
   PackInfo,
@@ -38,6 +39,9 @@ import type {
   WorldProject
 } from '@shared/types'
 import { offlineUuid } from '@shared/uuid'
+import { defaultProfileName } from '@shared/naming'
+import { DEFAULT_HOTKEYS } from '@shared/hotkeys'
+import { buildSettingsExport, parseSettingsImport } from '@shared/settingsTransfer'
 
 declare global {
   interface Window {
@@ -68,10 +72,10 @@ const mockVersions = {
 } as unknown as VersionManifest
 
 const mockMods: ModInfo[] = [
-  { fileName: 'jei-1.20.1-fabric-15.2.0.jar', name: 'Just Enough Items', version: '15.2.0', description: 'Просмотр рецептов и предметов', loader: 'fabric', enabled: true, size: 3_200_000 },
-  { fileName: 'sodium-fabric-mc1.20.1-0.5.3.jar', name: 'Sodium', version: '0.5.3', description: 'Оптимизация производительности', loader: 'fabric', enabled: true, size: 1_800_000 },
-  { fileName: 'iris-mc1.20.1-1.6.4.jar', name: 'Iris Shaders', version: '1.6.4', description: 'Шейдеры для Fabric', loader: 'fabric', enabled: true, size: 2_400_000 },
-  { fileName: 'journeymap-1.20.1.jar', name: 'JourneyMap', version: '5.9.0', description: 'Интерактивная карта', loader: 'fabric', enabled: false, size: 8_100_000 }
+  { fileName: 'jei-1.20.1-fabric-15.2.0.jar', name: 'Just Enough Items', version: '15.2.0', description: 'Просмотр рецептов и предметов', loader: 'fabric', enabled: true, size: 3_200_000, projectId: 'jei', versionId: 'jei-15.2.0' },
+  { fileName: 'sodium-fabric-mc1.20.1-0.5.3.jar', name: 'Sodium', version: '0.5.3', description: 'Оптимизация производительности', loader: 'fabric', enabled: true, size: 1_800_000, projectId: 'sodium', versionId: 'sodium-0.5.3' },
+  { fileName: 'iris-mc1.20.1-1.6.4.jar', name: 'Iris Shaders', version: '1.6.4', description: 'Шейдеры для Fabric', loader: 'fabric', enabled: true, size: 2_400_000, projectId: 'iris', versionId: 'iris-1.6.4' },
+  { fileName: 'journeymap-1.20.1.jar', name: 'JourneyMap', version: '5.9.0', description: 'Интерактивная карта', loader: 'fabric', enabled: false, size: 8_100_000, projectId: 'journeymap', versionId: 'journeymap-5.9.0' }
 ]
 
 const icon = (letter: string, color: string): string =>
@@ -180,6 +184,12 @@ const mockCatalog: ModrinthProject[] = [
   { project_id: 'pack-medieval', slug: 'pack-medieval', title: 'Medieval Pack', description: 'Средневековые текстуры для всего мира.', icon_url: icon('M', '#b45309'), downloads: 2_200_000, follow_count: 9_300, categories: ['resourcepack'], project_type: 'resourcepack', versions: ['1.20.1'] }
 ]
 
+const mockModpacks: ModrinthProject[] = [
+  { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] },
+  { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
+  { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
+]
+
 const WORLD_PAGE_SIZE = 18
 
 const mockWorlds: WorldProject[] = [
@@ -193,8 +203,8 @@ function mockState(): AppState {
   const steve: Account = { id: 'steve', name: 'Steve', uuid: '00000000-0000-0000-0000-000000000000', token: 'mock', type: 'offline', createdAt: now - 86_400_000 }
   const alex: Account = { id: 'alex', name: 'Alex', uuid: '11111111-1111-1111-1111-111111111111', token: 'mock', type: 'offline', createdAt: now - 43_200_000 }
   const profiles = [
-    { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric' as const, groupId: 'survival', createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
-    { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge' as const, groupId: 'modpacks', createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' as const } }
+    { id: 'default', name: 'Мой Minecraft', versionId: '1.20.1', loader: 'fabric' as const, groupId: 'survival', createdAt: now - 8_640_000_00, lastPlayed: now - 3_600_000, playtimeMinutes: 184, favorite: true, tags: ['основная', 'выживание'], notes: 'Основной мир для игры с друзьями.', loaderVersionId: 'fabric-loader-0.15.11-1.20.1' },
+    { id: 'adventuria', name: 'Adventuria', versionId: '1.20.1', loader: 'forge' as const, groupId: 'modpacks', createdAt: now - 1_728_000_00, lastPlayed: now - 86_400_000, playtimeMinutes: 512, tags: ['модпак'], modpack: { name: 'Adventuria', version: '3.2.1', source: 'mrpack' as const } }
   ]
   const groups = [
     { id: 'survival', name: 'Выживание' },
@@ -208,7 +218,7 @@ function mockState(): AppState {
     profiles,
     groups,
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, onboardingCompleted: true, activeSkinId: 'skin-steve', curseforgeApiKey: '' },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, onboardingCompleted: true, activeSkinId: 'skin-steve', curseforgeApiKey: '', hotkeys: { ...DEFAULT_HOTKEYS }, theme: 'dark', accent: 'mint', accessibility: { uiScale: 1, compact: false, reducedMotion: false }, profileSort: 'default' },
     account: steve,
     accounts: [
       { ...steve, profiles, groups, selectedProfileId: 'default', activeSkinId: 'skin-steve' },
@@ -221,18 +231,47 @@ function mockState(): AppState {
 
 type MockBus = {
   progress: Handler<ProgressPayload>[]
+  progressDone: Handler<void>[]
   log: Handler<LogPayload>[]
   gameStatus: Handler<GameStatus>[]
   toast: Handler<ToastPayload>[]
   tasks: Handler<TaskInfo[]>[]
 }
 
-const bus: MockBus = { progress: [], log: [], gameStatus: [], toast: [], tasks: [] }
+const bus: MockBus = { progress: [], progressDone: [], log: [], gameStatus: [], toast: [], tasks: [] }
 function emit<K extends keyof MockBus>(key: K, payload: Parameters<MockBus[K][number]>[0]): void {
   for (const handler of bus[key]) handler(payload as never)
 }
 
+/** Unique IDs are required: React keys and X-to-close both rely on them. */
+function nextToastId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `toast-${crypto.randomUUID()}`
+    : `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function mockProjectVersions(projectId: string): ModVersionInfo[] {
+  const project = mockProjects.find((entry) => entry.project_id === projectId)
+  const pack = mockModpacks.find((entry) => entry.project_id === projectId)
+  const versions = project?.versions ?? pack?.versions ?? ['1.20.1']
+  return versions.flatMap((gameVersion, gameIndex) => [0, 1].map((minor) => ({
+    id: `${projectId}-${gameVersion}-${minor}`,
+    project_id: projectId,
+    version_number: `${1 + minor}.${gameIndex}.0`,
+    name: `${project?.title ?? pack?.title ?? projectId} ${1 + minor}.${gameIndex}.0`,
+    game_versions: [gameVersion],
+    loaders: project?.categories.filter((category) => ['fabric', 'forge', 'neoforge'].includes(category)) ?? ['fabric'],
+    files: [{
+      hashes: { sha1: '', sha512: '' },
+      url: '#',
+      primary: true,
+      filename: `${projectId}-${gameVersion}-${1 + minor}.${gameIndex}.0.jar`,
+      size: 2_000_000
+    }]
+  })))
+}
 
 function mockProgress(label: string, phase: ProgressPayload['phase']): Promise<void> {
   let value = 0
@@ -252,7 +291,10 @@ function mockProgress(label: string, phase: ProgressPayload['phase']): Promise<v
       })
       if (value >= total) {
         clearInterval(timer)
-        setTimeout(resolve, 200)
+        setTimeout(() => {
+          emit('progressDone', undefined)
+          resolve()
+        }, 200)
       }
     }, 90)
   })
@@ -334,6 +376,27 @@ function createMock(): LauncherAPI {
     }
     const next = { ...current, accounts: current.accounts.map((account) => (account.id === id ? updated : account)) }
     return current.activeAccountId === id ? load(next, id) : next
+  }
+  const addMockModpackInstance = (title: string, project?: ModrinthProject): Profile => {
+    const category = project?.categories.find((entry) => ['fabric', 'forge', 'neoforge'].includes(entry))
+    const loader: Profile['loader'] = category === 'forge' || category === 'neoforge' ? category : 'fabric'
+    const versionId = project?.versions?.[0] ?? '1.20.1'
+    const profile: Profile = {
+      id: crypto.randomUUID(),
+      name: title,
+      versionId,
+      loader,
+      createdAt: Date.now(),
+      playtimeMinutes: 0,
+      modpack: { name: title, version: '1.0.0', source: 'mrpack' }
+    }
+    commit({ ...state, profiles: [...state.profiles, profile], selectedProfileId: profile.id })
+    emit('toast', {
+      id: nextToastId(),
+      type: 'success',
+      message: t('Модпак «{name}» установлен в новую сборку', { name: title })
+    })
+    return profile
   }
 
   const api: LauncherAPI = {
@@ -457,7 +520,7 @@ function createMock(): LauncherAPI {
         installedVersions: [...installed],
         profiles: state.profiles.map((entry) => (entry.id === id ? { ...entry, loaderVersionId } : entry))
       })
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Версия установлена (демо-режим)') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Версия установлена (демо-режим)') })
     },
     launch: async () => {
       status = 'starting'
@@ -467,6 +530,18 @@ function createMock(): LauncherAPI {
       emit('gameStatus', status)
       emit('log', { level: 'game', message: t('[info] Демо-режим: игра не запускается по-настоящему'), time: Date.now() })
       emit('log', { level: 'game', message: t('[info] Переключитесь на Electron-приложение для реального запуска'), time: Date.now() })
+    },
+    launchIntoWorld: async (profileId, world) => {
+      emit('log', { level: 'info', message: t('Демо-режим: быстрый запуск мира {world}', { world }), time: Date.now() })
+      emit('toast', {
+        id: nextToastId(),
+        type: 'info',
+        message: t('Демо-режим: мир {world} сборки {name} был бы открыт', {
+          world,
+          name: state.profiles.find((profile) => profile.id === profileId)?.name ?? profileId
+        })
+      })
+      await api.launch(profileId)
     },
     stopGame: async () => {
       status = 'stopped'
@@ -501,26 +576,35 @@ function createMock(): LauncherAPI {
       if (loader && loader !== 'vanilla') result = result.filter((project) => project.categories.includes(loader))
       return result.slice(offset, offset + 24)
     },
-    installMod: async (id, projectId) => {
+    installMod: async (id, projectId, versionId) => {
       const project = mockProjects.find((entry) => entry.project_id === projectId)
       await mockProgress(t('Установка {name}', { name: project?.title ?? t('мод') }), 'mod')
+      const selectedVersion = versionId ? mockProjectVersions(projectId).find((item) => item.id === versionId) : null
       modsByProfile[id] = [
         ...modsFor(id),
-        { fileName: `${projectId}-1.0.0-${Date.now()}.jar`, name: project?.title ?? projectId, version: '1.0.0', loader: 'fabric', enabled: true, size: 2_000_000 }
+        {
+          fileName: `${projectId}-${versionId ?? 'latest'}-${Date.now()}.jar`,
+          name: project?.title ?? projectId,
+          version: selectedVersion?.version_number ?? '1.0.0',
+          loader: 'fabric',
+          enabled: true,
+          size: 2_000_000,
+          projectId,
+          versionId
+        }
       ]
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('{name} установлен', { name: project?.title ?? t('Мод') }) })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('{name} установлен', { name: project?.title ?? t('Мод') }) })
+    },
+    getProjectVersions: async (projectId): Promise<ModVersionInfo[]> => {
+      await wait(180)
+      return mockProjectVersions(projectId)
     },
     searchModpacks: async (query, offset = 0, sort = 'relevance') => {
       await wait(220)
-      const packs: ModrinthProject[] = [
-        { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] },
-        { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
-        { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
-      ]
       const normalized = query.trim().toLowerCase()
       const filtered = normalized
-        ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized))
-        : packs
+        ? mockModpacks.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized))
+        : mockModpacks
       const ordered = sort === 'downloads' || sort === 'relevance'
         ? [...filtered].sort((a, b) => b.downloads - a.downloads)
         : filtered
@@ -538,7 +622,7 @@ function createMock(): LauncherAPI {
       const world = mockWorlds.find((entry) => entry.project_id === projectId)
       await mockProgress(t('Скачивание мира'), 'world')
       emit('toast', {
-        id: String(Date.now()),
+        id: nextToastId(),
         type: 'success',
         message: t('Мир «{name}» установлен (демо-режим)', { name: world?.title ?? projectId })
       })
@@ -546,11 +630,7 @@ function createMock(): LauncherAPI {
     getProjectDetails: async (projectId): Promise<ModrinthProjectDetails> => {
       await wait(220)
       const base = mockProjects.find((project) => project.project_id === projectId)
-      const pack = !base ? [
-        { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] },
-        { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
-        { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
-      ].find((item) => item.project_id === projectId) : null
+      const pack = !base ? mockModpacks.find((item) => item.project_id === projectId) : null
       const world = !base && !pack ? mockWorlds.find((item) => item.project_id === projectId) : null
       const project = base ?? pack ?? world
       if (!project) throw new Error(t('Проект не найден'))
@@ -563,7 +643,7 @@ function createMock(): LauncherAPI {
           '',
           '### ' + t('Возможности'),
           '- ' + t('Подробное описание и скриншоты прямо в лаунчере'),
-          '- ' + t('Быстрая установка в выбранную сборку'),
+          '- ' + t('Установка создаёт отдельную сборку'),
           '- ' + t('Совместимость и версии отображаются в панели деталей'),
           '',
           '### ' + t('Примечание'),
@@ -583,14 +663,28 @@ function createMock(): LauncherAPI {
     },
     installModpack: async () => {
       await mockProgress(t('Установка модпака'), 'modpack')
+      addMockModpackInstance('Локальный модпак')
     },
-    installModpackFilePath: async () => {
+    installModpackFilePath: async (filePath) => {
       await mockProgress(t('Установка модпака'), 'modpack')
+      addMockModpackInstance(filePath.split(/[\\/]/).pop()?.replace(/\.(mrpack|zip)$/i, '') || 'Локальный модпак')
     },
-    installModpackFromModrinth: async (profileId, projectId) => {
+    installModpackFromModrinth: async (projectId) => {
       await mockProgress(t('Скачивание модпака'), 'modpack')
       await mockProgress(t('Установка модов'), 'mod')
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Модпак установлен (демо-режим)') })
+      const project = mockModpacks.find((entry) => entry.project_id === projectId)
+      addMockModpackInstance(project?.title ?? projectId, project)
+    },
+    installModpackFromUrl: async (url) => {
+      const parsed = new URL(url)
+      const segments = parsed.pathname.split('/').filter(Boolean)
+      const index = segments.indexOf('modpack')
+      const slug = index >= 0 ? decodeURIComponent(segments[index + 1] ?? '') : ''
+      const project = mockModpacks.find((entry) => entry.slug === slug || entry.project_id === slug)
+      if (parsed.hostname.includes('modrinth.com') && !project) {
+        throw new Error(t('Модпак не найден в демо-каталоге. Проверьте ссылку.'))
+      }
+      await api.installModpackFromModrinth(project?.project_id ?? (slug || parsed.pathname.split('/').pop() || 'Модпак'))
     },
     listScreenshots: async (profileId) => {
       const result = profileId ? screenshots.filter((shot) => shot.profileId === profileId) : screenshots
@@ -616,7 +710,7 @@ function createMock(): LauncherAPI {
       if (profileId) {
         state = commit({ ...state, profiles: state.profiles.map((entry) => entry.id === profileId ? { ...entry, javaPath: info.path } : entry) })
       }
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Java {version} установлена: {path}', { version: major, path: info.path }) })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Java {version} установлена: {path}', { version: major, path: info.path }) })
       return info
     },
     openFolder: async () => undefined,
@@ -628,6 +722,13 @@ function createMock(): LauncherAPI {
       bus.progress.push(cb)
       return () => {
         bus.progress = bus.progress.filter((handler) => handler !== cb)
+      }
+    },
+    onProgressDone: (cb) => {
+      const handler = () => cb()
+      bus.progressDone.push(handler)
+      return () => {
+        bus.progressDone = bus.progressDone.filter((entry) => entry !== handler)
       }
     },
     onLog: (cb) => {
@@ -674,7 +775,7 @@ function createMock(): LauncherAPI {
         active: false
       }
       skinsByAccount[state.activeAccountId] = [skin, ...skinsFor(state.activeAccountId)]
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Скин загружен') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Скин загружен') })
       return skin
     },
     deleteSkin: async (id) => {
@@ -702,7 +803,7 @@ function createMock(): LauncherAPI {
     },
     installUpdate: async () => {
       emit('toast', {
-        id: String(Date.now()),
+        id: nextToastId(),
         type: 'info',
         message: t('Демо-режим: установка обновлений недоступна.')
       })
@@ -722,6 +823,44 @@ function createMock(): LauncherAPI {
       dataDir: '—',
       packaged: false
     }),
+    exportSettings: async () => {
+      const json = buildSettingsExport(state.settings)
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'lumen-settings.json'
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      return json
+    },
+    importSettings: async () => {
+      const text = await new Promise<string>((resolve, reject) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json,application/json'
+        input.onchange = () => {
+          const file = input.files?.[0]
+          if (!file) return reject(new Error(t('Файл не выбран')))
+          const reader = new FileReader()
+          reader.onload = () => resolve(String(reader.result ?? ''))
+          reader.onerror = () => reject(new Error(t('Не удалось прочитать файл настроек')))
+          reader.readAsText(file)
+        }
+        input.click()
+      })
+      const safe = parseSettingsImport(text)
+      state = commit({
+        ...state,
+        settings: {
+          ...state.settings,
+          ...safe,
+          msaClientId: state.settings.msaClientId,
+          curseforgeApiKey: state.settings.curseforgeApiKey
+        }
+      })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Настройки импортированы') })
+      return state
+    },
     openExternal: async (url) => {
       window.open(url, '_blank', 'noopener,noreferrer')
     },
@@ -740,12 +879,12 @@ function createMock(): LauncherAPI {
         createdAt: Date.now()
       }
       backupsByProfile[profileId] = [backup, ...(backupsByProfile[profileId] ?? [])]
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Резервная копия создана') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Резервная копия создана') })
       return backup
     },
     restoreBackup: async () => {
       await wait(300)
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Миры восстановлены') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Миры восстановлены') })
     },
     deleteBackup: async (profileId, fileName) => {
       backupsByProfile[profileId] = (backupsByProfile[profileId] ?? []).filter((backup) => backup.fileName !== fileName)
@@ -781,7 +920,7 @@ function createMock(): LauncherAPI {
         size: 3_200_000
       }
       packsByProfile[profileId] = [...(packsByProfile[profileId] ?? []), pack]
-      emit('toast', { id: String(Date.now()), type: 'success', message: t(kind === 'resource' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t(kind === 'resource' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен') })
     },
     togglePack: async (profileId, kind, fileName, enabled) => {
       packsByProfile[profileId] = (packsByProfile[profileId] ?? []).map((pack) =>
@@ -809,18 +948,18 @@ function createMock(): LauncherAPI {
       modsByProfile[profileId] = modsFor(profileId).map((mod) =>
         mod.fileName === fileName ? { ...mod, version: versionId, fileName: `${mod.name.replace(/\s+/g, '-').toLowerCase()}-${versionId}.jar` } : mod
       )
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мод обновлён') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Мод обновлён') })
     },
 
     listWorlds: async () => mockLocalWorlds.map((world) => ({ ...world })),
     importWorldFile: async () => {
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир установлен') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Мир установлен') })
     },
     exportWorld: async () => {
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир экспортирован') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Мир экспортирован') })
     },
     copyWorld: async () => {
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Мир скопирован') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Мир скопирован') })
     },
     renameWorld: async (profileId, dirName, name) => {
       const index = mockLocalWorlds.findIndex((world) => world.dirName === dirName)
@@ -843,7 +982,12 @@ function createMock(): LauncherAPI {
     },
     installCatalogProject: async (_profileId, kind, projectId) => {
       await mockProgress(t(kind === 'datapack' ? 'Установка набора данных' : 'Установка проекта'), kind === 'shader' ? 'mod' : 'modpack')
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Проект установлен') })
+      if (kind === 'modpack') {
+        const project = mockModpacks.find((entry) => entry.project_id === projectId)
+        addMockModpackInstance(project?.title ?? projectId, project)
+        return
+      }
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Проект установлен') })
     },
 
     setModsEnabled: async (profileId, fileNames, enabled) => {
@@ -852,14 +996,14 @@ function createMock(): LauncherAPI {
       )
     },
     exportModList: async () => {
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Список модов экспортирован') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Список модов экспортирован') })
     },
     importModList: async (profileId) => {
       await wait(200)
       modsByProfile[profileId] = [...modsFor(profileId), {
         fileName: 'imported-mod.jar', name: 'Imported Mod', version: '1.0.0', loader: 'fabric', enabled: true, size: 120_000
       }]
-      emit('toast', { id: String(Date.now()), type: 'success', message: t('Список модов импортирован') })
+      emit('toast', { id: nextToastId(), type: 'success', message: t('Список модов импортирован') })
     },
     analyzeMods: async (): Promise<ModIssue[]> => [],
     updateAllMods: async (): Promise<UpdateAllResult> => ({ updated: [], failed: [] }),
@@ -878,7 +1022,7 @@ function createMock(): LauncherAPI {
     importLauncherProfile: async () => false,
 
     importDroppedFile: async () => {
-      emit('toast', { id: String(Date.now()), type: 'info', message: t('Файл принят (демо)') })
+      emit('toast', { id: nextToastId(), type: 'info', message: t('Файл принят (демо)') })
     },
 
     analyzeCrash: async (profileId): Promise<CrashAnalysis> => ({

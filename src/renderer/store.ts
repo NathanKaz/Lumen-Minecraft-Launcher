@@ -24,6 +24,16 @@ export interface NotificationRecord extends ToastPayload {
 const NOTIFICATIONS_KEY = 'lumen-notifications'
 const NOTIFICATION_LIMIT = 100
 
+/** Auto-hide a progress payload that reports completion but has no owner to clear it. */
+let progressHideTimer: ReturnType<typeof setTimeout> | null = null
+/** React StrictMode calls effects twice in dev; subscriptions must stay single. */
+let subscriptionsReady = false
+
+function clearProgressHideTimer(): void {
+  if (progressHideTimer) clearTimeout(progressHideTimer)
+  progressHideTimer = null
+}
+
 function loadNotifications(): NotificationRecord[] {
   if (typeof localStorage === 'undefined') return []
   try {
@@ -62,6 +72,7 @@ interface LauncherStore {
   notifications: NotificationRecord[]
   crashProfileId: string | null
   globalSearchOpen: boolean
+  shortcutsOpen: boolean
   busy: boolean
   init: () => Promise<void>
   refresh: () => Promise<void>
@@ -73,13 +84,17 @@ interface LauncherStore {
   removeProfile: (id: string) => Promise<boolean>
   setBusy: (busy: boolean) => void
   setGameStatus: (status: GameStatus) => void
+  /** Hides the popup only (used by the auto-dismiss timer). */
   dismissToast: (id: string) => void
+  /** Hides the popup and removes its saved notification (used by the X button). */
+  closeToast: (id: string) => void
   pushToast: (type: ToastPayload['type'], message: string) => void
-  recordNotification: (type: ToastPayload['type'], message: string) => void
+  recordNotification: (type: ToastPayload['type'], message: string, id?: string) => void
   markNotificationsRead: () => void
   clearNotifications: () => void
   setCrashProfileId: (id: string | null) => void
   setGlobalSearchOpen: (open: boolean) => void
+  setShortcutsOpen: (open: boolean) => void
   cancelTask: (id: string) => Promise<void>
   pauseTask: (id: string) => Promise<void>
   resumeTask: (id: string) => Promise<void>
@@ -100,17 +115,35 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
   notifications: [],
   crashProfileId: null,
   globalSearchOpen: false,
+  shortcutsOpen: false,
   busy: false,
 
   init: async () => {
-    api.onProgress((progress) => set({ progress }))
-    api.onLog((log) => set({ logs: [...get().logs, log].slice(-400) }))
-    api.onGameStatus((status) => get().setGameStatus(status))
-    api.onToast((toast) => {
-      set({ toasts: [...get().toasts, toast] })
-      get().recordNotification(toast.type, toast.message)
-    })
-    api.onTasks((tasks) => set({ tasks }))
+    if (!subscriptionsReady) {
+      subscriptionsReady = true
+      api.onProgress((progress) => {
+        clearProgressHideTimer()
+        set({ progress })
+        if (progress.percent >= 100) {
+          // Some emitters only report 100% and never send a completion event.
+          progressHideTimer = setTimeout(() => {
+            if ((get().progress?.percent ?? 0) >= 100) set({ progress: null })
+            progressHideTimer = null
+          }, 900)
+        }
+      })
+      api.onProgressDone(() => {
+        clearProgressHideTimer()
+        set({ progress: null })
+      })
+      api.onLog((log) => set({ logs: [...get().logs, log].slice(-400) }))
+      api.onGameStatus((status) => get().setGameStatus(status))
+      api.onToast((toast) => {
+        set({ toasts: [...get().toasts, toast] })
+        get().recordNotification(toast.type, toast.message, toast.id)
+      })
+      api.onTasks((tasks) => set({ tasks }))
+    }
 
     const [state, versions, gameStatus, logs, tasks] = await Promise.all([
       api.getState(),
@@ -161,14 +194,19 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
     }
   },
   dismissToast: (id) => set({ toasts: get().toasts.filter((toast) => toast.id !== id) }),
+  closeToast: (id) => {
+    const notifications = get().notifications.filter((item) => item.id !== id)
+    saveNotifications(notifications)
+    set({ toasts: get().toasts.filter((toast) => toast.id !== id), notifications })
+  },
   pushToast: (type, message) => {
     const toast: ToastPayload = { id: `${Date.now()}-${Math.random()}`, type, message }
     set({ toasts: [...get().toasts, toast] })
-    get().recordNotification(type, message)
+    get().recordNotification(type, message, toast.id)
   },
-  recordNotification: (type, message) => {
+  recordNotification: (type, message, id) => {
     const notification: NotificationRecord = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type,
       message,
       time: Date.now(),
@@ -189,6 +227,7 @@ export const useLauncher = create<LauncherStore>((set, get) => ({
   },
   setCrashProfileId: (id) => set({ crashProfileId: id }),
   setGlobalSearchOpen: (open) => set({ globalSearchOpen: open }),
+  setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   cancelTask: async (id) => { await api.cancelTask(id) },
   pauseTask: async (id) => { await api.pauseTask(id) },
   resumeTask: async (id) => { await api.resumeTask(id) },

@@ -1,5 +1,33 @@
 export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
+/** Actions that can be bound to a configurable launcher shortcut. */
+export type HotkeyAction =
+  | 'globalSearch'
+  | 'showShortcuts'
+  | 'launchLast'
+  | 'stopGame'
+  | 'home'
+  | 'library'
+  | 'mods'
+  | 'settings'
+  | 'backupAll'
+  | 'toggleTheme'
+
+export type Hotkeys = Record<HotkeyAction, string>
+
+export type ProfileSort = 'default' | 'name' | 'lastPlayed' | 'playtime'
+export type ThemeMode = 'dark' | 'light'
+export type AccentColor = 'mint' | 'violet' | 'sky' | 'amber' | 'rose'
+
+export interface AccessibilitySettings {
+  /** Browser zoom applied to the whole launcher UI (0.8–1.3). */
+  uiScale: number
+  /** Tighter paddings and gaps for small screens. */
+  compact: boolean
+  /** Disables animations and framer-motion transitions. */
+  reducedMotion: boolean
+}
+
 export interface BuildGroup {
   id: string
   name: string
@@ -24,6 +52,14 @@ export interface Profile {
   playtimeMinutes: number
   /** Filesystem folder name derived from the display name; legacy builds omit it. */
   dirName?: string
+  /** Pinned builds are shown first and can be filtered in the library. */
+  favorite?: boolean
+  /** Free-form labels used for search and grouping. */
+  tags?: string[]
+  /** User notes shown on the instance overview and in global search. */
+  notes?: string
+  /** Most recently opened world folder, used by “Continue game”. */
+  lastWorld?: string
   modpack?: {
     name: string
     version: string
@@ -56,6 +92,13 @@ export interface Settings {
   msaClientId?: string
   /** CurseForge API key used by the ready-made world catalog. */
   curseforgeApiKey?: string
+  /** User-defined shortcuts; missing actions fall back to built-in defaults. */
+  hotkeys?: Partial<Hotkeys>
+  theme?: ThemeMode
+  accent?: AccentColor
+  accessibility?: AccessibilitySettings
+  /** Sorting of instance cards (favorites are always shown first). */
+  profileSort?: ProfileSort
 }
 
 export interface ScheduledBackupSettings {
@@ -194,6 +237,27 @@ export interface ModInfo {
   enabled: boolean
   size: number
   source?: string
+  /** Modrinth project this file was installed from, when known. */
+  projectId?: string
+  /** Exact Modrinth version this file was installed from, when known. */
+  versionId?: string
+}
+
+/** Compact Modrinth version info used by the mod version selector. */
+export interface ModVersionInfo {
+  id: string
+  project_id: string
+  version_number: string
+  name: string
+  game_versions: string[]
+  loaders: string[]
+  files: Array<{
+    hashes: { sha1?: string; sha512?: string }
+    url: string
+    primary: boolean
+    filename: string
+    size: number
+  }>
 }
 
 export interface ModrinthProject {
@@ -494,6 +558,8 @@ export interface LauncherAPI {
   getVersions(): Promise<VersionManifest>
   installProfile(id: string): Promise<void>
   launch(id: string): Promise<void>
+  /** Launches a build straight into its most recently played world (Quick Play). */
+  launchIntoWorld(id: string, world: string): Promise<void>
   stopGame(): Promise<void>
   getGameStatus(): Promise<GameStatus>
   listMods(profileId: string): Promise<ModInfo[]>
@@ -502,14 +568,20 @@ export interface LauncherAPI {
   toggleMod(profileId: string, fileName: string): Promise<void>
   deleteMod(profileId: string, fileName: string): Promise<void>
   searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
-  installMod(profileId: string, projectId: string): Promise<void>
+  /** Installs a mod, optionally pinning one exact Modrinth version. */
+  installMod(profileId: string, projectId: string, versionId?: string): Promise<void>
+  /** All published versions of a Modrinth project, for the version selector. */
+  getProjectVersions(projectId: string): Promise<ModVersionInfo[]>
   searchModpacks(query: string, offset?: number, sort?: ModpackSort): Promise<ModrinthProject[]>
   /** Searches ready-made worlds; requires a CurseForge API key for real results. */
   searchWorlds(query: string, offset?: number): Promise<WorldProject[]>
   getProjectDetails(projectId: string): Promise<ModrinthProjectDetails>
-  installModpack(profileId: string): Promise<void>
-  installModpackFilePath(profileId: string, filePath: string): Promise<void>
-  installModpackFromModrinth(profileId: string, projectId: string): Promise<void>
+  /** Installs a .mrpack as a new instance; existing builds are not modified. */
+  installModpack(): Promise<void>
+  installModpackFilePath(filePath: string): Promise<void>
+  installModpackFromModrinth(projectId: string): Promise<void>
+  /** Installs a modpack from a Modrinth project URL or a direct .mrpack link. */
+  installModpackFromUrl(url: string): Promise<void>
   installWorld(profileId: string, projectId: string, gameVersion?: string): Promise<void>
   listScreenshots(profileId?: string): Promise<ScreenshotInfo[]>
   deleteScreenshot(profileId: string, fileName: string): Promise<void>
@@ -530,6 +602,8 @@ export interface LauncherAPI {
   getLogs(): Promise<LogPayload[]>
   clearLogs(): Promise<void>
   onProgress(cb: (payload: ProgressPayload) => void): () => void
+  /** Fired when a download/task finishes so transient progress UI can be hidden. */
+  onProgressDone(cb: () => void): () => void
   onLog(cb: (payload: LogPayload) => void): () => void
   onGameStatus(cb: (status: GameStatus) => void): () => void
   onToast(cb: (payload: ToastPayload) => void): () => void
@@ -546,6 +620,10 @@ export interface LauncherAPI {
   /** Applies a downloaded update; manual installs are opened for the user. */
   installUpdate(download: UpdateDownload): Promise<void>
   getLauncherInfo(): Promise<LauncherInfo>
+  /** Returns launcher settings as a shareable JSON string (secrets removed). */
+  exportSettings(): Promise<string | null>
+  /** Reads an exported JSON file and applies its safe settings. */
+  importSettings(): Promise<AppState | null>
   /** Opens an https link in the system browser. */
   openExternal(url: string): Promise<void>
   /** Deterministic offline-player UUID for the given nickname. */

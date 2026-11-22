@@ -4,7 +4,9 @@ import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { clearDirNames, dirs, registerAccountDir, registerProfileDir, root, safeDirName } from './paths'
 import type { Account, AccountRecord, AppState, BuildGroup, MicrosoftCredentials, Profile, Settings } from '@shared/types'
+import { defaultProfileName } from '@shared/naming'
 import { offlineUuid } from '@shared/uuid'
+import { DEFAULT_HOTKEYS } from '@shared/hotkeys'
 
 const statePath = path.join(root, 'launcher-state.json')
 const currentSchemaVersion = 3
@@ -28,7 +30,7 @@ function makeAccount(name: string): Account {
 function defaultProfile(): Profile {
   return {
     id: crypto.randomUUID(),
-    name: msg("Мой Minecraft"),
+    name: defaultProfileName('1.20.1', 'fabric'),
     versionId: '1.20.1',
     loader: 'fabric',
     createdAt: Date.now(),
@@ -79,7 +81,12 @@ const defaultSettings: Settings = {
   autoBackupBeforeUpdates: true,
   autoInstallJava: true,
   onboardingCompleted: false,
-  curseforgeApiKey: ''
+  curseforgeApiKey: '',
+  hotkeys: { ...DEFAULT_HOTKEYS },
+  theme: 'dark',
+  accent: 'mint',
+  accessibility: { uiScale: 1, compact: false, reducedMotion: false },
+  profileSort: 'default'
 }
 
 const defaultGroups: BuildGroup[] = []
@@ -230,10 +237,21 @@ function moveFolder(source: string, target: string): boolean {
   }
 }
 
+function folderExists(root: string, name: string, except?: string): boolean {
+  try {
+    const lower = name.toLowerCase()
+    const skip = except?.toLowerCase()
+    return fs.readdirSync(root).some((entry) => entry.toLowerCase() === lower && entry.toLowerCase() !== skip)
+  } catch {
+    return false
+  }
+}
+
 function assignDirNames<T extends { id: string; name: string; dirName?: string }>(
   records: T[],
   register: (id: string, name: string) => void,
-  roots: string[]
+  roots: string[],
+  syncDisplayName = false
 ): void {
   const byId = new Map<string, T[]>()
   for (const record of records) {
@@ -243,33 +261,43 @@ function assignDirNames<T extends { id: string; name: string; dirName?: string }
   }
 
   const used = new Set<string>()
+  const primaryRoot = roots[0]
   for (const [id, group] of byId) {
     const oldName = group[0].dirName ?? id
-    const base = safeDirName(group[0].name)
+    const originalName = group[0].name
+    const base = safeDirName(originalName)
     let candidate = base
     let index = 2
-    while (used.has(candidate.toLowerCase()) ||
-      roots.some((dir) => fs.existsSync(path.join(dir, candidate)) && candidate !== oldName)) {
-      candidate = `${base}-${index++}`.slice(0, 80)
+    // Only the primary root (instances/skins) decides which names are taken.
+    // An old backup folder must not force the visible instance folder to -2.
+    while (used.has(candidate.toLowerCase()) || folderExists(primaryRoot, candidate, oldName)) {
+      const suffix = `-${index++}`
+      candidate = `${base.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`
     }
     used.add(candidate.toLowerCase())
 
-    // Move every root, then roll back if any failed so the registry and the
-    // filesystem always agree about where a profile's data lives.
-    const moves = roots.map((dir) => {
-      const from = path.join(dir, oldName)
-      const to = path.join(dir, candidate)
-      return { from, to, changed: from !== to && fs.existsSync(from) }
-    })
-    const moved = moves.every(({ from, to }) => moveFolder(from, to))
-    if (!moved) {
-      for (const { from, to, changed } of moves) {
-        if (changed) moveFolder(to, from)
+    const from = path.join(primaryRoot, oldName)
+    const to = path.join(primaryRoot, candidate)
+    let finalName = oldName
+    if (moveFolder(from, to)) {
+      finalName = candidate
+      // Keep secondary roots (backups) aligned on a best-effort basis. A stale
+      // backup folder is preserved rather than blocking the readable name.
+      for (const root of roots.slice(1)) {
+        moveFolder(path.join(root, oldName), path.join(root, candidate))
       }
+    } else {
+      used.delete(candidate.toLowerCase())
     }
-    const finalName = moved ? candidate : oldName
+
     register(id, finalName)
-    for (const record of group) record.dirName = finalName
+    const derivedFromName = finalName === base || finalName.startsWith(`${base}-`)
+    for (const record of group) {
+      record.dirName = finalName
+      // When a suffix is needed, show it in the UI too so the instance name
+      // and its folder stay identical.
+      if (syncDisplayName && derivedFromName && finalName !== originalName) record.name = finalName
+    }
   }
 }
 
@@ -280,7 +308,7 @@ function syncDirNames(): void {
     ...state.profiles,
     ...(state.accounts ?? []).flatMap((account) => account.profiles ?? [])
   ]
-  assignDirNames(profiles, registerProfileDir, [dirs.instances, dirs.backups])
+  assignDirNames(profiles, registerProfileDir, [dirs.instances, dirs.backups], true)
   assignDirNames(state.accounts ?? [], registerAccountDir, [dirs.skins])
 }
 

@@ -63,13 +63,36 @@ function splitJvmArgs(input: string): string[] {
   return result
 }
 
-export async function launchGame(profileId: string): Promise<void> {
+export interface LaunchOptions {
+  /** Folder name of a local save to open immediately (Quick Play). */
+  world?: string
+  /** Server address to connect to immediately (Quick Play). */
+  server?: string
+}
+
+/** Quick Play arguments only exist in 1.20.5+ and are ignored by older clients. */
+function supportsQuickPlay(versionId: string): boolean {
+  const match = /^1\.(\d+)(?:\.(\d+))?$/.exec(versionId)
+  if (!match) return false
+  const minor = Number(match[1])
+  const patch = Number(match[2] ?? 0)
+  return minor > 20 || (minor === 20 && patch >= 5)
+}
+
+export async function launchGame(profileId: string, options: LaunchOptions = {}): Promise<void> {
   if (child && !child.killed) throw new Error(msg("Игра уже запущена"))
   // Refreshes silently when needed so the game always receives a valid token.
   await ensureFreshMicrosoftToken()
   const state = getState()
   const profile = state.profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
+
+  const quickPlay = supportsQuickPlay(profile.versionId)
+    ? { world: options.world?.trim() || undefined, server: options.server?.trim() || undefined }
+    : { world: undefined, server: undefined }
+  if ((options.world || options.server) && !quickPlay.world && !quickPlay.server) {
+    emitLog('warn', msg('Быстрый запуск недоступен в версии {version} — открывается обычная игра', { version: profile.versionId }))
+  }
 
   const versionId = profile.loaderVersionId ?? profile.versionId
   const version = await resolveVersion(versionId)
@@ -127,7 +150,12 @@ export async function launchGame(profileId: string): Promise<void> {
 
   extractNatives({ ...version, id: version.id })
 
-  const features = { has_custom_resolution: !state.settings.fullscreen }
+  const features = {
+    has_custom_resolution: !state.settings.fullscreen,
+    has_quick_play_singleplayer: Boolean(quickPlay.world),
+    has_quick_play_multiplayer: Boolean(quickPlay.server),
+    has_quick_play_realms: false
+  }
   const replacements: Record<string, string> = {
     auth_player_name: state.account.name,
     auth_uuid: state.account.uuid,
@@ -136,8 +164,8 @@ export async function launchGame(profileId: string): Promise<void> {
     clientid: state.account.uuid,
     auth_xuid: state.account.xuid ?? '',
     quickPlayPath: '',
-    quickPlaySingleplayer: '',
-    quickPlayMultiplayer: '',
+    quickPlaySingleplayer: quickPlay.world ?? '',
+    quickPlayMultiplayer: quickPlay.server ?? '',
     quickPlayRealms: '',
     user_properties: '{}',
     user_type: state.account.type === 'microsoft' ? 'mojang' : 'legacy',
