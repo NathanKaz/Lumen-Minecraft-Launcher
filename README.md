@@ -7,9 +7,9 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Launch Minecraft** — official Mojang versions with automatic download of client, libraries, assets, and natives, plus SHA-1 verification. Instance creation supports a multi-select type filter (release / snapshot / beta / alpha) and version search; non-release versions are marked as unstable and loader compatibility warnings are shown.
 - **Mod loaders** — Fabric, Forge, and NeoForge installation via official installers.
 - **Instances (builds)** — all instances on the home screen with groups (including empty groups), grid/list views, and search. Cards can be dragged between groups; right-click opens context actions (Open / Rename / Edit / Delete). Renaming is available via double-click and group management supports inline rename. Memory is global by default and can be overridden per instance. Opening an instance shows a dedicated full page with its own sidebar, overview dashboard, quick actions, a persistent launch control, and separate sections for mods, worlds, screenshots, tools and settings.
-- **Mods** — per-instance mod management: Modrinth catalog search with "Load more" pagination, optional version/loader filters, dependency installation, local `.jar`/`.zip` import, enable/disable, and removal. Clicking a mod in the catalog opens a separate detail panel on the right with screenshots/gallery, description, compatibility info, and links. Bulk actions cover select-all/selected enable/disable/delete, JSON mod-list export/import, `Update all` with a single auto-backup before the batch, and a diagnostics panel that flags duplicate IDs, loader mismatches, unknown and disabled mods.
-- **Worlds** — a hybrid worlds tab: local `saves` are read with `level.dat` metadata (name, Minecraft version, last played, size, icon) and support import from `.zip`/`.mcworld`, export, copy between instances, rename and delete. The "World generation" catalog lists worldgen datapacks (`datapack` + `worldgen`), not ready-made worlds: Modrinth has no `world` project type, and modpacks filtered by `adventure` are regular modpacks, so they are not shown here. Local saves remain in the "My worlds" section.
-- **Modpacks** — install `.mrpack` files via dialog or drag & drop, or install modpacks from Modrinth. Clicking a modpack in the catalog opens a detail panel with screenshots, description, and metadata.
+- **Mods** — per-instance mod management: Modrinth catalog search with "Load more" pagination, optional version/loader filters, dependency installation, local `.jar`/`.zip` import, enable/disable, and removal. Clicking a mod in the catalog opens a separate detail panel on the right with screenshots/gallery, description, compatibility info, and links. Bulk actions cover select-all/selected enable/disable/delete, JSON mod-list export/import, `Update all` with a single auto-backup before the batch, and a diagnostics panel that flags duplicate IDs, loader mismatches, unknown and disabled mods. Loader detection reads all metadata in a JAR, so universal Fabric/Forge mods and NeoForge mods are not reported as incompatible; diagnostics refresh immediately after a loader change.
+- **Worlds** — a worlds tab with three sections: local `saves` (name, Minecraft version, last played, size, icon from `level.dat`; import from `.zip`/`.mcworld`, export, copy, rename, delete), **Ready-made worlds** from CurseForge (requires your own API key in Settings; supports search, pagination and one-click install into `saves`), and **World generation** datapacks from Modrinth. CurseForge is used for real worlds because Modrinth has no `world` project type; datapacks remain available in their own section instead of pretending to be worlds.
+- **Modpacks** — install `.mrpack` files via dialog or drag & drop, or browse the Modrinth modpack catalog with "Load more" pagination and sorting by relevance, popularity, update date or release date. Clicking a modpack opens a detail panel with screenshots, description, and metadata.
 - **Screenshots** — dedicated screenshots page with per-instance filtering and an in-instance screenshots section on the instance page; open, download, and delete screenshots from `<instance>/screenshots`.
 - **Skins (Account window)** — offline skin library in the Account modal with PNG import (64×64 / 64×32), an interactive 3D model preview (drag to rotate), active skin selection, and wide/slim model switching. The chosen skin is applied to every offline instance through a generated resource pack on launch. Skins are visible only to you: offline mode does not provide a Mojang signature, so other players will not see them.
 - **File verification** — compare an instance's client, libraries, and assets against Mojang checksums and optionally repair missing/corrupted files.
@@ -47,6 +47,9 @@ Ideas for future releases, in no particular order:
 - **Skin library improvements** — tags/search, multiple skin models per profile, and Mojang skin upload for licensed accounts.
 - **Insights and recovery** — per-instance playtime charts, crash-history comparison, and suggested fixes applied with one click from the crash assistant.
 - **Release engineering** — code signing/notarization, unit and end-to-end tests, and CI that publishes release notes with asset checksums automatically.
+- **Unified catalogs** — reuse the CurseForge key for mods/modpacks, show one combined search across CurseForge and Modrinth, and cache metadata for offline browsing with favorite lists.
+- **Loader migration assistant** — preview which installed mods are compatible before switching Fabric/Forge/NeoForge, offer compatible replacements, and create a world backup automatically.
+- **Safer world installs** — preview world screenshots/description before download, detect required mods/datapacks, and offer an automatic backup before replacing an existing save.
 
 ## Development
 
@@ -99,12 +102,17 @@ Afterwards click **Sign in with Microsoft** in the Account dialog: the system br
 
 Signing out removes the stored refresh token and converts the record back into an offline profile while keeping its instances. Uploading skins to other players additionally requires the signed Minecraft profile API; the built-in skin library is still local-only.
 
+### Setting up the CurseForge world catalog
+
+The **Ready-made worlds** section uses CurseForge because Modrinth does not have a `world` project type. Create a personal API key in the [CurseForge developer console](https://console.curseforge.com/?#/api-keys) and paste it into **Settings → General → CurseForge API key**. The key is stored locally in launcher state and sent only to `api.curseforge.com`; without it the tab shows a setup notice (demo mode uses mock worlds). World generation datapacks remain available separately in **World generation**.
+
 ## Sources
 
 - Mojang version manifest — version list and client metadata.
 - Fabric Meta API — Fabric loader profiles.
 - Forge promotions/Maven and NeoForge Maven — loader installers.
-- Modrinth API v2 — mods, modpacks, resource packs, shaders, and datapacks (used by the worlds, packs and shader catalogs).
+- Modrinth API v2 — mods, modpacks, resource packs, shaders, and worldgen datapacks (used by the packs, shader and world-generation catalogs).
+- CurseForge API — ready-made world catalog (requires a personal API key; Modrinth has no `world` project type).
 - `prismarine-nbt` — reads and rewrites `level.dat` metadata for local worlds.
 - Adoptium API — managed JRE downloads for automatic Java installation.
 

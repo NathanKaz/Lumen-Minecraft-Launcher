@@ -8,13 +8,14 @@ import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Spinner } from '../components/ui'
 import { CatalogPanel } from '../components/CatalogPanel'
+import { WorldCatalog } from '../components/WorldCatalog'
 import type { WorldInfo } from '@shared/types'
 
-/** Worlds tab: local saves manager plus a Modrinth worldgen datapack catalog. */
+/** Worlds tab: local saves, a real-world catalog and a separate worldgen datapack catalog. */
 export function Worlds({ profileId }: { profileId: string }): JSX.Element {
   const { state, busy, setBusy, pushToast } = useLauncher()
   const target = state?.profiles.find((item) => item.id === profileId)
-  const [section, setSection] = useState<'local' | 'catalog'>('local')
+  const [section, setSection] = useState<'local' | 'worlds' | 'generator'>('local')
   const [worlds, setWorlds] = useState<WorldInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
@@ -59,7 +60,8 @@ export function Worlds({ profileId }: { profileId: string }): JSX.Element {
         <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.03] p-1">
           {([
             { id: 'local', label: t('Мои миры'), icon: Globe2 },
-            { id: 'catalog', label: t('Генерация мира'), icon: Layers }
+            { id: 'worlds', label: t('Готовые миры'), icon: Download },
+            { id: 'generator', label: t('Генерация мира'), icon: Layers }
           ] as const).map((item) => (
             <button
               key={item.id}
@@ -92,7 +94,9 @@ export function Worlds({ profileId }: { profileId: string }): JSX.Element {
         )}
       </div>
 
-      {section === 'catalog' ? (
+      {section === 'worlds' ? (
+        <WorldCatalog profileId={profileId} gameVersion={target?.versionId} />
+      ) : section === 'generator' ? (
         <div>
           <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] leading-snug text-slate-500">
             <Info size={15} className="mt-0.5 shrink-0 text-iris-400" />

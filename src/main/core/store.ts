@@ -78,7 +78,8 @@ const defaultSettings: Settings = {
   instancesView: 'grid',
   autoBackupBeforeUpdates: true,
   autoInstallJava: true,
-  onboardingCompleted: false
+  onboardingCompleted: false,
+  curseforgeApiKey: ''
 }
 
 const defaultGroups: BuildGroup[] = []

@@ -184,13 +184,15 @@ export function registerIpc(): void {
       run: ({ signal, taskId }) => installMod(id, projectId, { signal, taskId })
     })
   )
-  handle(IPC.searchModpacks, (query: string) => searchModpacks(query))
-  handle(IPC.searchWorlds, (query: string) => searchWorlds(query))
-  handle(IPC.installWorld, (profileId: string, projectId: string) =>
+  handle(IPC.searchModpacks, (query: string, offset?: number, sort?: Parameters<typeof searchModpacks>[2]) =>
+    searchModpacks(query, offset, sort)
+  )
+  handle(IPC.searchWorlds, (query: string, offset?: number) => searchWorlds(query, offset))
+  handle(IPC.installWorld, (profileId: string, projectId: string, gameVersion?: string) =>
     runTaskAndWait({
       label: msg('Установка мира'),
       phase: 'world',
-      run: ({ signal, taskId }) => installWorld(profileId, projectId, { signal, taskId })
+      run: ({ signal, taskId }) => installWorld(profileId, projectId, { signal, taskId }, gameVersion)
     })
   )
   handle(IPC.getProjectDetails, (projectId: string) => getProjectDetails(projectId))

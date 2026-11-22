@@ -120,9 +120,9 @@ export async function withRetry<T>(label: string, fn: () => Promise<T>, attempts
   throw new Error(msg('{label}: {error}', { label, error: lastError?.message ?? msg("неизвестная ошибка") }))
 }
 
-export async function requestText(url: string, timeout = 30000): Promise<string> {
+export async function requestText(url: string, timeout = 30000, headers: Record<string, string> = {}): Promise<string> {
   return withRetry(msg('Запрос {url}', { url }), async () => {
-    const { response } = await request(url, timeout, { Accept: 'application/json' })
+    const { response } = await request(url, timeout, { Accept: 'application/json', ...headers })
     const chunks: Buffer[] = []
     for await (const chunk of response) chunks.push(Buffer.from(chunk))
     return Buffer.concat(chunks).toString('utf8')

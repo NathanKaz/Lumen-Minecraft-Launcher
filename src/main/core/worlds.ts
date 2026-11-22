@@ -11,22 +11,87 @@ import { getProjectVersions } from './modrinth'
 import { fetchJson } from './http'
 import { emitToast, uid } from './events'
 import { getState } from './store'
-import type { ModrinthProject, WorldInfo } from '@shared/types'
+import type { WorldInfo, WorldProject } from '@shared/types'
 
-/** Search Modrinth for datapacks that actually generate worlds. */
-export async function searchWorlds(query: string): Promise<ModrinthProject[]> {
-  const params = new URLSearchParams({
-    query,
-    limit: '18',
-    index: 'downloads',
-    facets: JSON.stringify([['project_type:datapack'], ['categories:worldgen']])
+const CF_API = 'https://api.curseforge.com/v1'
+const CF_MINECRAFT_GAME_ID = 432
+/** CurseForge class for ready-made Minecraft worlds. */
+const CF_WORLDS_CLASS_ID = 17
+const WORLD_PAGE_SIZE = 18
+
+interface CfCategory {
+  id: number
+  name: string
+}
+
+interface CfFile {
+  id: number
+  fileName: string
+  releaseType: number
+  gameVersions?: string[]
+  fileLength?: number
+  downloadUrl?: string
+  hashes?: Array<{ algo: number; value: string }>
+}
+
+interface CfMod {
+  id: number
+  name: string
+  slug: string
+  summary: string
+  thumbnailUrl?: string
+  logo?: { thumbnailUrl?: string }
+  links?: { websiteUrl?: string }
+  downloadCount?: number
+  categories?: CfCategory[]
+  mainFileId?: number
+  latestFiles?: CfFile[]
+}
+
+interface CfListResponse<T> {
+  data: T[]
+}
+
+function curseforgeKey(): string {
+  const key = getState()?.settings.curseforgeApiKey?.trim()
+  if (!key) throw new Error(msg('Укажите ключ API CurseForge в настройках лаунчера.'))
+  return key
+}
+
+async function cfFetch<T>(endpoint: string, params: Record<string, string | number> = {}): Promise<T> {
+  const url = new URL(`${CF_API}${endpoint}`)
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value))
+  return fetchJson<T>(url.toString(), 30000, { 'x-api-key': curseforgeKey() })
+}
+
+/** Real worlds live on CurseForge: Modrinth has no `world` project type. */
+export async function searchWorlds(query: string, offset = 0): Promise<WorldProject[]> {
+  const result = await cfFetch<CfListResponse<CfMod>>('/mods/search', {
+    gameId: CF_MINECRAFT_GAME_ID,
+    classId: CF_WORLDS_CLASS_ID,
+    searchFilter: query,
+    sortField: 2,
+    sortOrder: 'desc',
+    pageSize: WORLD_PAGE_SIZE,
+    index: Math.max(0, offset)
   })
-  try {
-    const result = await fetchJson<{ hits: ModrinthProject[] }>(`https://api.modrinth.com/v2/search?${params}`)
-    return result.hits
-  } catch {
-    return []
-  }
+  return result.data.map((mod) => {
+    const versions = [...new Set(mod.latestFiles?.flatMap((file) => file.gameVersions ?? []) ?? [])].slice(0, 4)
+    return {
+      project_id: String(mod.id),
+      slug: mod.slug,
+      title: mod.name,
+      description: mod.summary,
+      icon_url: mod.thumbnailUrl ?? mod.logo?.thumbnailUrl ?? null,
+      downloads: mod.downloadCount ?? 0,
+      categories: mod.categories?.map((category) => category.name) ?? [],
+      project_type: 'world',
+      versions,
+      source: 'curseforge',
+      websiteUrl: mod.links?.websiteUrl,
+      fileId: mod.mainFileId
+    }
+  })
 }
 
 function safeName(value: string): string {
@@ -264,26 +329,10 @@ export async function deleteWorld(profileId: string, dirName: string): Promise<v
   emitToast('success', msg('Мир удалён'))
 }
 
-/** Downloads a Modrinth project and installs it into the active instance's `saves`. */
-export async function installWorld(profileId: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
+/** Validates and copies a downloaded world archive into the instance's `saves`. */
+async function installWorldArchive(profileId: string, archive: string, fallbackName: string): Promise<void> {
   const profile = getState().profiles.find((entry) => entry.id === profileId)
   if (!profile) throw new Error(msg("Сборка не найдена"))
-
-  const versions = await getProjectVersions(projectId)
-  const version = versions.find((entry) => !entry.version_number.toLowerCase().includes('beta')) ?? versions[0]
-  const file = version?.files.find((entry) => entry.primary && /\.(zip|mcworld)$/i.test(entry.filename))
-    ?? version?.files.find((entry) => /\.(zip|mcworld)$/i.test(entry.filename))
-  if (!file) throw new Error(msg('У мира нет файла для установки'))
-
-  const extension = path.extname(file.filename).toLowerCase() || '.zip'
-  const archive = path.join(dirs.cache, `world-${uid()}${extension}`)
-  await downloadMany(
-    [{ url: file.url, dest: archive, sha1: file.hashes?.sha1, size: file.size, label: file.filename }],
-    'world',
-    msg('Скачивание мира'),
-    1,
-    opts
-  )
 
   const temp = path.join(dirs.cache, `world-extract-${uid()}`)
   await fs.ensureDir(temp)
@@ -310,8 +359,7 @@ export async function installWorld(profileId: string, projectId: string, opts?: 
     }
     const saves = savesDir(profileId)
     await fs.ensureDir(saves)
-    const fallback = file.filename.replace(/\.(zip|mcworld)$/i, '')
-    const destination = await uniqueDir(saves, safeName(folder ? path.basename(folder) : fallback))
+    const destination = await uniqueDir(saves, safeName(folder ? path.basename(folder) : fallbackName))
     await fs.copy(source, destination, { overwrite: true })
     emitToast('success', msg('Мир «{name}» установлен в сборку «{profile}»', {
       name: path.basename(destination),
@@ -319,6 +367,77 @@ export async function installWorld(profileId: string, projectId: string, opts?: 
     }))
   } finally {
     await fs.remove(temp)
+  }
+}
+
+async function installCurseWorld(
+  profileId: string,
+  modId: string,
+  opts?: { signal?: AbortSignal; taskId?: string },
+  gameVersion?: string
+): Promise<void> {
+  const listing = await cfFetch<CfListResponse<CfFile>>(`/mods/${encodeURIComponent(modId)}/files`, { pageSize: 50 })
+  const candidates = listing.data.filter((file) => /\.(zip|mcworld)$/i.test(file.fileName))
+  const file = candidates.find((entry) => gameVersion && entry.gameVersions?.includes(gameVersion)) ?? candidates[0]
+  if (!file) throw new Error(msg('У мира нет файла для установки'))
+
+  let url = file.downloadUrl
+  if (!url) {
+    const response = await cfFetch<{ data: string }>(`/mods/${encodeURIComponent(modId)}/files/${file.id}/download-url`)
+    url = response.data
+  }
+  const extension = path.extname(file.fileName).toLowerCase() || '.zip'
+  const archive = path.join(dirs.cache, `world-${uid()}${extension}`)
+  await downloadMany(
+    [{
+      url,
+      dest: archive,
+      sha1: file.hashes?.find((hash) => hash.algo === 1)?.value,
+      size: file.fileLength,
+      label: file.fileName
+    }],
+    'world',
+    msg('Скачивание мира'),
+    1,
+    opts
+  )
+  try {
+    await installWorldArchive(profileId, archive, path.basename(file.fileName).replace(/\.(zip|mcworld)$/i, ''))
+  } finally {
+    await fs.remove(archive)
+  }
+}
+
+/** Downloads a world project (CurseForge numeric id or Modrinth id) into `saves`. */
+export async function installWorld(
+  profileId: string,
+  projectId: string,
+  opts?: { signal?: AbortSignal; taskId?: string },
+  gameVersion?: string
+): Promise<void> {
+  if (/^\d+$/.test(projectId)) {
+    await installCurseWorld(profileId, projectId, opts, gameVersion)
+    return
+  }
+
+  const versions = await getProjectVersions(projectId)
+  const version = versions.find((entry) => !entry.version_number.toLowerCase().includes('beta')) ?? versions[0]
+  const file = version?.files.find((entry) => entry.primary && /\.(zip|mcworld)$/i.test(entry.filename))
+    ?? version?.files.find((entry) => /\.(zip|mcworld)$/i.test(entry.filename))
+  if (!file) throw new Error(msg('У мира нет файла для установки'))
+
+  const extension = path.extname(file.filename).toLowerCase() || '.zip'
+  const archive = path.join(dirs.cache, `world-${uid()}${extension}`)
+  await downloadMany(
+    [{ url: file.url, dest: archive, sha1: file.hashes?.sha1, size: file.size, label: file.filename }],
+    'world',
+    msg('Скачивание мира'),
+    1,
+    opts
+  )
+  try {
+    await installWorldArchive(profileId, archive, file.filename.replace(/\.(zip|mcworld)$/i, ''))
+  } finally {
     await fs.remove(archive)
   }
 }

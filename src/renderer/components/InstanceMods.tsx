@@ -79,9 +79,12 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     setShowUpdatePreview(false)
   }, [profileId, state?.installedVersions.length])
 
+  // Diagnostics depend on the instance loader and the installed files. Re-run when
+  // either changes so switching from Forge to Fabric does not leave a stale warning.
+  const modSignature = mods.map((mod) => `${mod.fileName}:${mod.enabled ? 1 : 0}`).join('|')
   useEffect(() => {
     if (tab === 'installed') void loadIssues()
-  }, [tab, profileId])
+  }, [tab, profileId, profile?.loader, modSignature])
 
   useEffect(() => {
     let cancelled = false
@@ -558,7 +561,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                     <div className="flex items-center gap-2">
                       <span className={`truncate text-sm font-semibold ${mod.enabled ? 'text-slate-100' : 'text-slate-500 line-through'}`}>{mod.name}</span>
                       {mod.version && <Badge>v{mod.version}</Badge>}
-                      <Badge tone="iris">{mod.loader}</Badge>
+                      <Badge tone="iris">{(mod.loaders ?? [mod.loader]).join(' / ')}</Badge>
                     </div>
                     <div className="mt-1 truncate text-[11px] text-slate-500">{mod.description ? t(mod.description) : mod.fileName}</div>
                   </div>

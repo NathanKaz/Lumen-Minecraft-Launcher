@@ -822,6 +822,8 @@ const en: Record<string, string> = {
   'Не удалось определить метаданные мода {fileName}': 'Could not read metadata of mod {fileName}',
   'Мод {name} рассчитан на {loader}, а сборка использует {profileLoader}':
     'Mod {name} targets {loader}, but the instance uses {profileLoader}',
+  'Мод {name} поддерживает {loaders}, а сборка использует {profileLoader}':
+    'Mod {name} supports {loaders}, but the instance uses {profileLoader}',
   'Мод {name} отключён': 'Mod {name} is disabled',
   'Обновление модов: {current}/{total}': 'Updating mods: {current}/{total}',
   'Обновление мода {name}': 'Updating mod {name}',
@@ -1144,6 +1146,23 @@ const en: Record<string, string> = {
   'Платформа': 'Platform',
   'Технологии': 'Built with',
   'Каталог данных': 'Data directory',
+
+  // CurseForge world catalog and modpack pagination
+  'Ключ API CurseForge': 'CurseForge API key',
+  'Нужен для каталога готовых миров CurseForge. Получите ключ в консоли разработчика CurseForge.':
+    'Required for the CurseForge ready-made world catalog. Get a key from the CurseForge developer console.',
+  'Укажите ключ API CurseForge в настройках лаунчера.': 'Set the CurseForge API key in launcher Settings.',
+  'Ключ не задан': 'No key configured',
+  'Настроить': 'Configure',
+  'Каталог миров CurseForge': 'CurseForge world catalog',
+  'Готовые миры': 'Ready-made worlds',
+  'Открыть на CurseForge': 'Open on CurseForge',
+  'Мир «{name}» добавлен в сборку': 'World “{name}” added to the instance',
+  'Сортировка': 'Sort',
+  'По популярности': 'Popularity',
+  'По соответствию': 'Relevance',
+  'Недавно обновлённые': 'Recently updated',
+  'Новые': 'Newest',
 
   // Existing untranslated runtime strings
   'CurseForge': 'CurseForge',

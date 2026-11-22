@@ -34,7 +34,8 @@ import type {
   UpdateDownload,
   VerifyReport,
   VersionManifest,
-  WorldInfo
+  WorldInfo,
+  WorldProject
 } from '@shared/types'
 import { offlineUuid } from '@shared/uuid'
 
@@ -179,10 +180,12 @@ const mockCatalog: ModrinthProject[] = [
   { project_id: 'pack-medieval', slug: 'pack-medieval', title: 'Medieval Pack', description: 'Средневековые текстуры для всего мира.', icon_url: icon('M', '#b45309'), downloads: 2_200_000, follow_count: 9_300, categories: ['resourcepack'], project_type: 'resourcepack', versions: ['1.20.1'] }
 ]
 
-const mockWorlds: ModrinthProject[] = [
-  { project_id: 'wild-village', slug: 'wild-village', title: 'Дикая деревня', description: 'Большая деревня с лесом поблизости и готовыми домами для заселения.', icon_url: icon('Д', '#16a34a'), downloads: 840_000, follow_count: 4_200, categories: ['survival'], project_type: 'world', versions: ['1.20.1'] },
-  { project_id: 'skyblock-islands', slug: 'skyblock-islands', title: 'Skyblock Islands', description: 'Архипелаг островов с шахтами и заданиями на выживание.', icon_url: icon('S', '#2563eb'), downloads: 1_250_000, follow_count: 7_800, categories: ['skyblock'], project_type: 'world', versions: ['1.20.1'] },
-  { project_id: 'ancient-temple', slug: 'ancient-temple', title: 'Храм древних', description: 'Приключенческая карта с подземельями, ловушками и сокровищами.', icon_url: icon('Х', '#b45309'), downloads: 460_000, follow_count: 2_100, categories: ['adventure'], project_type: 'world', versions: ['1.20.1'] }
+const WORLD_PAGE_SIZE = 18
+
+const mockWorlds: WorldProject[] = [
+  { project_id: 'wild-village', slug: 'wild-village', title: 'Дикая деревня', description: 'Большая деревня с лесом поблизости и готовыми домами для заселения.', icon_url: icon('Д', '#16a34a'), downloads: 840_000, follow_count: 4_200, categories: ['survival'], project_type: 'world', versions: ['1.20.1'], source: 'curseforge', websiteUrl: 'https://www.curseforge.com/minecraft/worlds' },
+  { project_id: 'skyblock-islands', slug: 'skyblock-islands', title: 'Skyblock Islands', description: 'Архипелаг островов с шахтами и заданиями на выживание.', icon_url: icon('S', '#2563eb'), downloads: 1_250_000, follow_count: 7_800, categories: ['skyblock'], project_type: 'world', versions: ['1.20.1'], source: 'curseforge', websiteUrl: 'https://www.curseforge.com/minecraft/worlds' },
+  { project_id: 'ancient-temple', slug: 'ancient-temple', title: 'Храм древних', description: 'Приключенческая карта с подземельями, ловушками и сокровищами.', icon_url: icon('Х', '#b45309'), downloads: 460_000, follow_count: 2_100, categories: ['adventure'], project_type: 'world', versions: ['1.20.1'], source: 'curseforge', websiteUrl: 'https://www.curseforge.com/minecraft/worlds' }
 ]
 
 function mockState(): AppState {
@@ -205,7 +208,7 @@ function mockState(): AppState {
     profiles,
     groups,
     selectedProfileId: 'default',
-    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, onboardingCompleted: true, activeSkinId: 'skin-steve' },
+    settings: { javaPath: '', memory: 2048, width: 1280, height: 720, fullscreen: false, language: 'ru', closeBehavior: 'exit', checkUpdates: true, instancesView: 'grid', autoBackupBeforeUpdates: true, autoInstallJava: true, onboardingCompleted: true, activeSkinId: 'skin-steve', curseforgeApiKey: '' },
     account: steve,
     accounts: [
       { ...steve, profiles, groups, selectedProfileId: 'default', activeSkinId: 'skin-steve' },
@@ -507,22 +510,29 @@ function createMock(): LauncherAPI {
       ]
       emit('toast', { id: String(Date.now()), type: 'success', message: t('{name} установлен', { name: project?.title ?? t('Мод') }) })
     },
-    searchModpacks: async (query) => {
+    searchModpacks: async (query, offset = 0, sort = 'relevance') => {
       await wait(220)
-      const packs = [
-        { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack' },
-        { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack' },
-        { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack' }
+      const packs: ModrinthProject[] = [
+        { project_id: 'adventuria', slug: 'adventuria', title: 'Adventuria', description: 'Большое приключение с магией, research и исследованием мира.', icon_url: icon('A', '#059669'), downloads: 2_400_000, follow_count: 12_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] },
+        { project_id: 'create-astral', slug: 'create-astral', title: 'Create: Astral', description: 'Инженерный модпак с автоматизацией и космосом.', icon_url: icon('C', '#2563eb'), downloads: 1_800_000, follow_count: 9_300, categories: ['fabric'], project_type: 'modpack', versions: ['1.20.1'] },
+        { project_id: 'vl-reforged', slug: 'vl-reforged', title: 'Vault Hunters Reforged', description: 'Модпак с подземельями, задачами и RPG-прогрессией.', icon_url: icon('V', '#dc2626'), downloads: 3_600_000, follow_count: 18_000, categories: ['forge'], project_type: 'modpack', versions: ['1.20.1'] }
       ]
       const normalized = query.trim().toLowerCase()
-      return normalized ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized)) : packs
+      const filtered = normalized
+        ? packs.filter((pack) => `${pack.title} ${pack.description}`.toLowerCase().includes(normalized))
+        : packs
+      const ordered = sort === 'downloads' || sort === 'relevance'
+        ? [...filtered].sort((a, b) => b.downloads - a.downloads)
+        : filtered
+      return ordered.slice(Math.max(0, offset), Math.max(0, offset) + 24)
     },
-    searchWorlds: async (query) => {
+    searchWorlds: async (query, offset = 0) => {
       await wait(220)
       const normalized = query.trim().toLowerCase()
-      return normalized
+      const filtered = normalized
         ? mockWorlds.filter((world) => `${world.title} ${world.description}`.toLowerCase().includes(normalized))
         : mockWorlds
+      return filtered.slice(Math.max(0, offset), Math.max(0, offset) + WORLD_PAGE_SIZE)
     },
     installWorld: async (_profileId, projectId) => {
       const world = mockWorlds.find((entry) => entry.project_id === projectId)

@@ -12,6 +12,7 @@ import { Tooltip } from '../components/Tooltip'
 import type { JavaInfo, LauncherInfo, ScheduledBackupSettings, UpdateDownload, UpdateInfo } from '@shared/types'
 
 const AZURE_PORTAL = 'https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade'
+const CURSEFORGE_CONSOLE = 'https://console.curseforge.com/?#/api-keys'
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function Settings(): JSX.Element {
@@ -48,7 +49,7 @@ export function Settings(): JSX.Element {
   )
   const showGeneral = matchesSection(
     t('Общее'),
-    `${t('Проверять обновления')} ${t('Язык интерфейса')} ${t('Повторить мастер первого запуска')} ${t('Client ID приложения Azure')} general language обновления язык setup wizard microsoft msa client id azure`
+    `${t('Проверять обновления')} ${t('Язык интерфейса')} ${t('Повторить мастер первого запуска')} ${t('Client ID приложения Azure')} ${t('Ключ API CurseForge')} general language обновления язык setup wizard microsoft msa client id azure curseforge world worlds key`
   )
   const showBackups = matchesSection(
     t('Бэкапы по расписанию'),
@@ -345,6 +346,35 @@ export function Settings(): JSX.Element {
               {settings.msaClientId && !CLIENT_ID_PATTERN.test(settings.msaClientId) && (
                 <p className="text-[10px] text-amber-300">{t('Client ID обычно выглядит как UUID — проверьте значение.')}</p>
               )}
+            </div>
+            <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <label className="label flex items-center gap-1.5" htmlFor="curseforge-api-key">
+                <KeyRound size={13} className="text-mint-400" />
+                {t('Ключ API CurseForge')}
+                <Tooltip content={t('Нужен для каталога готовых миров CurseForge. Получите ключ в консоли разработчика CurseForge.')}>
+                  <HelpCircle size={13} className="text-slate-600" />
+                </Tooltip>
+              </label>
+              <input
+                id="curseforge-api-key"
+                type="password"
+                className="input font-mono text-xs"
+                placeholder={t('Ключ не задан')}
+                spellCheck={false}
+                autoComplete="off"
+                value={settings.curseforgeApiKey ?? ''}
+                onChange={(event) => void update({ curseforgeApiKey: event.target.value.trim() })}
+              />
+              <p className="text-[10px] leading-relaxed text-slate-500">
+                {t('Нужен для каталога готовых миров CurseForge. Получите ключ в консоли разработчика CurseForge.')}{' '}
+                <button
+                  type="button"
+                  onClick={() => void api.openExternal(CURSEFORGE_CONSOLE)}
+                  className="inline-flex items-center gap-1 font-semibold text-mint-400 hover:text-mint-300"
+                >
+                  CurseForge <ExternalLink size={10} />
+                </button>
+              </p>
             </div>
             <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">

@@ -6,7 +6,7 @@ import { downloadMany, type DownloadTask } from './downloader'
 import { fetchJson } from './http'
 import { emitProgress, emitToast } from './events'
 import { getState } from './store'
-import type { ModrinthProject, ModrinthProjectDetails } from '@shared/types'
+import type { ModpackSort, ModrinthProject, ModrinthProjectDetails } from '@shared/types'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -72,13 +72,34 @@ export async function searchMods(
   }
 }
 
-export async function searchModpacks(query: string): Promise<ModrinthProject[]> {
-  const params = new URLSearchParams({ query, limit: '18', index: 'downloads', facets: JSON.stringify([['project_type:modpack']]) })
+/** Modpack catalog with pagination and sorting so the first 18 hits are not the only visible packs. */
+export async function searchModpacks(
+  query: string,
+  offset = 0,
+  sort: ModpackSort = 'relevance'
+): Promise<ModrinthProject[]> {
+  const facets = JSON.stringify([['project_type:modpack']])
+  const params = new URLSearchParams({
+    query,
+    limit: '24',
+    offset: String(Math.max(0, offset)),
+    index: sort,
+    facets
+  })
   try {
     const result = await fetchJson<{ hits: ModrinthProject[] }>(`${API}/search?${params}`)
     return result.hits
   } catch {
-    return []
+    // A proxy may reject the `index` value; retry with the universally supported index.
+    const fallback = new URLSearchParams({
+      query,
+      limit: '24',
+      offset: String(Math.max(0, offset)),
+      index: 'downloads',
+      facets
+    })
+    const result = await fetchJson<{ hits: ModrinthProject[] }>(`${API}/search?${fallback}`)
+    return result.hits
   }
 }
 

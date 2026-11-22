@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
 import { motion } from 'framer-motion'
-import { Download, FileArchive, Layers3, Loader2, Package, Search, Upload } from 'lucide-react'
+import { ChevronDown, Download, FileArchive, Layers3, Loader2, Package, Search, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { selectedProfile, useLauncher } from '../store'
-import { Badge, Button, EmptyState, SectionHeader } from '../components/ui'
+import { Badge, Button, EmptyState, SectionHeader, Select, Spinner } from '../components/ui'
 import { ProjectDetailPanel } from '../components/ProjectDetailPanel'
-import type { ModrinthProject } from '@shared/types'
+import type { ModpackSort, ModrinthProject } from '@shared/types'
+
+const PAGE_SIZE = 24
 
 export function Modpacks({ profileId, embedded = false }: { profileId?: string; embedded?: boolean }): JSX.Element {
   const { state, busy, setBusy, refresh, pushToast } = useLauncher()
@@ -14,7 +16,11 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
   const target = state?.profiles.find((item) => item.id === targetId)
   const [packs, setPacks] = useState<ModrinthProject[]>([])
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<ModpackSort>('relevance')
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
@@ -23,10 +29,17 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
     let cancelled = false
     setLoading(true)
     const timer = setTimeout(() => {
-      void api.searchModpacks(query).then((result) => {
-        if (!cancelled) setPacks(result)
+      void api.searchModpacks(query, 0, sort).then((result) => {
+        if (!cancelled) {
+          setPacks(result)
+          setOffset(result.length)
+          setHasMore(result.length >= PAGE_SIZE)
+        }
       }).catch(() => {
-        if (!cancelled) setPacks([])
+        if (!cancelled) {
+          setPacks([])
+          setHasMore(false)
+        }
       }).finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -35,7 +48,19 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [query, sort])
+
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const result = await api.searchModpacks(query, offset, sort)
+      setPacks((current) => [...current, ...result])
+      setOffset((current) => current + result.length)
+      setHasMore(result.length >= PAGE_SIZE)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const install = async (projectId: string, title: string) => {
     if (!targetId) return
@@ -118,11 +143,25 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("Популярные модпаки")}</h3>
         <div className="relative ml-auto w-full max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input className="input py-2 pl-9 text-xs" placeholder={t("Поиск модпаков")} value={query} onChange={(event) => setQuery(event.target.value)} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-600">{t('Сортировка')}</span>
+          <Select
+            className="w-40"
+            value={sort}
+            onChange={(value) => setSort(value as ModpackSort)}
+            options={[
+              { value: 'relevance', label: t('По соответствию') },
+              { value: 'downloads', label: t('По популярности') },
+              { value: 'updated', label: t('Недавно обновлённые') },
+              { value: 'newest', label: t('Новые') }
+            ]}
+          />
         </div>
       </div>
 
@@ -179,6 +218,15 @@ export function Modpacks({ profileId, embedded = false }: { profileId?: string; 
         </div>
       ) : (
         <EmptyState icon={<Package size={22} />} title={t("Модпаки не найдены")} description={t("Попробуйте изменить запрос.")} />
+      )}
+
+      {packs.length > 0 && (
+        <div className="mt-5 flex flex-col items-center gap-2">
+          {loadingMore && <Spinner size={18} />}
+          {hasMore && !loadingMore && (
+            <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
+          )}
+        </div>
       )}
 
       <ProjectDetailPanel

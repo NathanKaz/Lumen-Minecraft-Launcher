@@ -3,8 +3,8 @@ import { requestText } from './net'
 
 export { USER_AGENT } from './net'
 
-export async function fetchJson<T>(url: string, timeout = 30000): Promise<T> {
-  const text = await requestText(url, timeout)
+export async function fetchJson<T>(url: string, timeout = 30000, headers: Record<string, string> = {}): Promise<T> {
+  const text = await requestText(url, timeout, headers)
   try {
     return JSON.parse(text) as T
   } catch (error) {

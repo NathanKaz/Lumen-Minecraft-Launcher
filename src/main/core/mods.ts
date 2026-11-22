@@ -37,6 +37,26 @@ function readZipText(zip: AdmZip, name: string): string | null {
   return entry ? entry.getData().toString('utf8') : null
 }
 
+/** Finds every loader advertised by one JAR; universal mods ship several metadata files. */
+function detectLoaders(zip: AdmZip): string[] {
+  const loaders: string[] = []
+  if (zip.getEntry('fabric.mod.json')) loaders.push('fabric')
+  if (zip.getEntry('quilt.mod.json')) loaders.push('quilt')
+  const neoforge = readZipText(zip, 'META-INF/neoforge.mods.toml')
+  const forge = neoforge ?? readZipText(zip, 'META-INF/mods.toml') ?? readZipText(zip, 'mcmod.info')
+  if (forge) loaders.push(neoforge || /\bneoforge\b/i.test(forge) ? 'neoforge' : 'forge')
+  return [...new Set(loaders)]
+}
+
+/** Quilt mods are accepted in Fabric instances and vice versa for common mods. */
+function supportsLoader(modLoaders: string[], profileLoader: string): boolean {
+  if (!modLoaders.length) return true
+  if (modLoaders.includes(profileLoader)) return true
+  if (profileLoader === 'fabric') return modLoaders.includes('quilt')
+  if (profileLoader === 'quilt') return modLoaders.includes('fabric')
+  return false
+}
+
 function parseMetadata(file: string, fallback: string): ModMetadata {
   const result: ModMetadata = {
     name: fallback,
@@ -46,6 +66,7 @@ function parseMetadata(file: string, fallback: string): ModMetadata {
   }
   try {
     const zip = new AdmZip(file)
+    const loaders = detectLoaders(zip)
     const fabric = readZipText(zip, 'fabric.mod.json') ?? readZipText(zip, 'quilt.mod.json')
     if (fabric) {
       const json = JSON.parse(fabric) as {
@@ -62,11 +83,14 @@ function parseMetadata(file: string, fallback: string): ModMetadata {
         description: json.description,
         icon: json.icon,
         id: json.id ?? json.quilt_loader?.id,
-        loader: readZipText(zip, 'quilt.mod.json') ? 'quilt' : 'fabric',
+        loader: loaders[0] ?? 'fabric',
+        loaders,
         detected: true
       }
     }
-    const forge = readZipText(zip, 'META-INF/mods.toml') ?? readZipText(zip, 'mcmod.info')
+    const forge = readZipText(zip, 'META-INF/neoforge.mods.toml')
+      ?? readZipText(zip, 'META-INF/mods.toml')
+      ?? readZipText(zip, 'mcmod.info')
     if (forge) {
       if (forge.trim().startsWith('[')) {
         const json = (JSON.parse(forge) as Array<{
@@ -83,7 +107,8 @@ function parseMetadata(file: string, fallback: string): ModMetadata {
             description: json.description,
             icon: json.logoFile,
             id: json.modid,
-            loader: 'forge',
+            loader: loaders[0] ?? 'forge',
+            loaders,
             detected: true
           }
         }
@@ -93,7 +118,7 @@ function parseMetadata(file: string, fallback: string): ModMetadata {
       const name = forge.match(/^\s*name\s*=\s*"([^"]+)"/m)?.[1]
       const version = forge.match(/^\s*version\s*=\s*"([^"]+)"/m)?.[1]
       const description = forge.match(/^\s*description\s*=\s*"([^"]+)"/m)?.[1]
-      return { name: name ?? fallback, version: version ?? '', description, id, loader: 'forge', detected: true }
+      return { name: name ?? fallback, version: version ?? '', description, id, loader: loaders[0] ?? 'forge', loaders, detected: true }
     }
   } catch {
     // Файл может быть не модом — используем имя файла
@@ -306,13 +331,22 @@ export async function analyzeMods(profileId: string): Promise<ModIssue[]> {
         message: msg('Не удалось определить метаданные мода {fileName}', { fileName: mod.fileName })
       })
     }
-    if (profile && mod.loader !== 'unknown' && mod.loader !== profile.loader) {
-      issues.push({
+    if (profile && mod.loader !== 'unknown' && !supportsLoader(mod.loaders ?? [mod.loader], profile.loader)) {
+      const detected = mod.loaders ?? [mod.loader]
+      issues.push(detected.length > 1 ? {
+        fileName: mod.fileName,
+        type: 'loader',
+        message: msg('Мод {name} поддерживает {loaders}, а сборка использует {profileLoader}', {
+          name: mod.name,
+          loaders: detected.join(', '),
+          profileLoader: profile.loader
+        })
+      } : {
         fileName: mod.fileName,
         type: 'loader',
         message: msg('Мод {name} рассчитан на {loader}, а сборка использует {profileLoader}', {
           name: mod.name,
-          loader: mod.loader,
+          loader: detected[0] ?? mod.loader,
           profileLoader: profile.loader
         })
       })

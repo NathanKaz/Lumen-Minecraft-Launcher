@@ -54,6 +54,8 @@ export interface Settings {
   onboardingCompleted?: boolean
   /** Azure application (client) ID used for the Microsoft sign-in flow. */
   msaClientId?: string
+  /** CurseForge API key used by the ready-made world catalog. */
+  curseforgeApiKey?: string
 }
 
 export interface ScheduledBackupSettings {
@@ -185,7 +187,10 @@ export interface ModInfo {
   version: string
   description?: string
   icon?: string
+  /** Primary loader detected from the JAR metadata. */
   loader: string
+  /** All loaders advertised by the JAR (Fabric + Forge universal mods, etc.). */
+  loaders?: string[]
   enabled: boolean
   size: number
   source?: string
@@ -228,6 +233,15 @@ export interface ModrinthProjectDetails extends ModrinthProject {
   published?: string
   updated?: string
 }
+
+/** Ready-made world from CurseForge (Modrinth has no `world` project type). */
+export interface WorldProject extends ModrinthProject {
+  source: 'curseforge' | 'modrinth'
+  websiteUrl?: string
+  fileId?: number
+}
+
+export type ModpackSort = 'relevance' | 'downloads' | 'updated' | 'newest'
 
 export interface ModpackInfo {
   id: string
@@ -489,13 +503,14 @@ export interface LauncherAPI {
   deleteMod(profileId: string, fileName: string): Promise<void>
   searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
   installMod(profileId: string, projectId: string): Promise<void>
-  searchModpacks(query: string): Promise<ModrinthProject[]>
-  searchWorlds(query: string): Promise<ModrinthProject[]>
+  searchModpacks(query: string, offset?: number, sort?: ModpackSort): Promise<ModrinthProject[]>
+  /** Searches ready-made worlds; requires a CurseForge API key for real results. */
+  searchWorlds(query: string, offset?: number): Promise<WorldProject[]>
   getProjectDetails(projectId: string): Promise<ModrinthProjectDetails>
   installModpack(profileId: string): Promise<void>
   installModpackFilePath(profileId: string, filePath: string): Promise<void>
   installModpackFromModrinth(profileId: string, projectId: string): Promise<void>
-  installWorld(profileId: string, projectId: string): Promise<void>
+  installWorld(profileId: string, projectId: string, gameVersion?: string): Promise<void>
   listScreenshots(profileId?: string): Promise<ScreenshotInfo[]>
   deleteScreenshot(profileId: string, fileName: string): Promise<void>
   /** Native confirmation dialog. Resolves true only when the user confirms deletion. */
