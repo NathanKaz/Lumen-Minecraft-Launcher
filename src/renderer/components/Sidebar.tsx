@@ -1,14 +1,30 @@
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Camera, ChevronRight, Download, Gamepad2, Globe2, Image as ImageIcon, LayoutDashboard,
-  Library, Loader2, Package, Play, ScrollText, Settings, ShieldCheck, Shirt, Square, Wrench
+  ArrowLeft, Camera, ChevronRight, Download, ExternalLink, Gamepad2, Github, Globe2,
+  Image as ImageIcon, LayoutDashboard, Library, Loader2, Package, Play, ScrollText, Settings,
+  ShieldCheck, Shirt, Square, Wrench
 } from 'lucide-react'
 import { t } from '../lib/i18n'
+import { api } from '../lib/api'
 import {
   findProfile, selectedProfile, useLauncher, type Page, type ProfileSection
 } from '../store'
 import { useProfileLaunch } from '../hooks/useProfileLaunch'
+import { APP_REPOSITORY } from '@shared/version'
 import type { Profile } from '@shared/types'
+
+function ProjectLink(): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={() => void api.openExternal(APP_REPOSITORY)}
+      title={APP_REPOSITORY}
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:bg-white/[0.04] hover:text-mint-300"
+    >
+      <Github size={12} /> GitHub <ExternalLink size={10} />
+    </button>
+  )
+}
 
 // Labels are computed on every render so switching the interface language
 // updates the navigation immediately.
@@ -46,6 +62,9 @@ function AccountButton({ onAccount }: { onAccount: () => void }): JSX.Element {
         <div className="truncate text-xs font-semibold text-slate-200">{state?.account.name ?? t("Игрок")}</div>
         <div className="text-[10px] text-slate-500">
           {state?.account.type === 'offline' ? t("Офлайн-аккаунт") : t('Microsoft-аккаунт')}
+        </div>
+        <div className="max-w-[150px] truncate font-mono text-[9px] text-slate-600" title={state?.account.uuid}>
+          {state?.account.uuid ?? '—'}
         </div>
       </div>
       <ChevronRight size={14} className="text-slate-600" />
@@ -135,6 +154,7 @@ function ProfileNavigation({
 
       <div className="mt-auto px-3 pb-3">
         <AccountButton onAccount={onAccount} />
+        <ProjectLink />
       </div>
     </aside>
   )
@@ -202,6 +222,7 @@ export function Sidebar({ onAccount }: { onAccount: () => void }): JSX.Element {
         </button>
 
         <AccountButton onAccount={onAccount} />
+        <ProjectLink />
       </div>
     </aside>
   )

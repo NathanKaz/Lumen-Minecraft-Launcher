@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
-import { CheckCircle2, Clock, Coffee, Download, FolderOpen, HelpCircle, RefreshCw, Search, Terminal, XCircle } from 'lucide-react'
+import {
+  CheckCircle2, Clock, Coffee, Download, ExternalLink, FolderOpen, Github,
+  HelpCircle, Info, KeyRound, RefreshCw, Search, Terminal, XCircle
+} from 'lucide-react'
 import { api, isMock } from '../lib/api'
-import { APP_VERSION } from '@shared/version'
+import { APP_LICENSE, APP_REPOSITORY, APP_VERSION } from '@shared/version'
 import { useLauncher } from '../store'
-import { Badge, Button, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
+import { Badge, Button, ProgressBar, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
 import { Tooltip } from '../components/Tooltip'
-import type { JavaInfo, ScheduledBackupSettings, UpdateInfo } from '@shared/types'
+import type { JavaInfo, LauncherInfo, ScheduledBackupSettings, UpdateDownload, UpdateInfo } from '@shared/types'
+
+const AZURE_PORTAL = 'https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade'
+const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function Settings(): JSX.Element {
-  const { state, refresh, pushToast } = useLauncher()
+  const { state, refresh, pushToast, progress } = useLauncher()
   const [java, setJava] = useState<JavaInfo | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
+  const [downloaded, setDownloaded] = useState<UpdateDownload | null>(null)
+  const [launcherInfo, setLauncherInfo] = useState<LauncherInfo | null>(null)
   const [settingsQuery, setSettingsQuery] = useState('')
 
   useEffect(() => {
     void api.getJavaInfo().then(setJava).catch(() => setJava(null))
+    void api.getLauncherInfo().then(setLauncherInfo).catch(() => setLauncherInfo(null))
   }, [])
 
   if (!state) return <Spinner />
@@ -45,7 +54,11 @@ export function Settings(): JSX.Element {
     t('Бэкапы по расписанию'),
     `${t('Создавать копии автоматически')} ${t('Интервал, часы')} ${t('Хранить копий')} backup backups бэкап копии расписание interval`
   )
-  const anySectionVisible = showJava || showPerformance || showFolders || showGeneral || showBackups
+  const showAbout = matchesSection(
+    t('О лаунчере'),
+    `${t('Версия')} ${t('Лицензия')} ${t('Автор')} GitHub ${t('Каталог данных')} about version license author github ссылка repository`
+  )
+  const anySectionVisible = showJava || showPerformance || showFolders || showGeneral || showBackups || showAbout
 
   const update = async (patch: Partial<typeof settings>) => {
     await api.setState({ settings: { ...settings, ...patch } })
@@ -78,6 +91,7 @@ export function Settings(): JSX.Element {
     try {
       const info = await api.checkUpdates()
       setUpdateInfo(info)
+      if (!info.updateAvailable) setDownloaded(null)
       pushToast(info.updateAvailable ? 'info' : 'success', info.updateAvailable
         ? t('Доступна новая версия лаунчера: {version}', { version: info.latestVersion })
         : t('Обновлений не найдено'))
@@ -85,6 +99,26 @@ export function Settings(): JSX.Element {
       setCheckingUpdates(false)
     }
   }
+
+  const download = async () => {
+    try {
+      const result = await api.downloadUpdate()
+      setDownloaded(result)
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const install = async () => {
+    if (!downloaded) return
+    try {
+      await api.installUpdate(downloaded)
+    } catch (error) {
+      pushToast('error', error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const downloading = progress?.phase === 'update' && progress.percent < 100
 
   return (
     <div className="mx-auto max-w-[1060px]">
@@ -282,20 +316,96 @@ export function Settings(): JSX.Element {
                 ]}
               />
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <div>
-                <div className="text-xs font-semibold text-slate-200">{t('Обновления лаунчера')}</div>
-                <div className="text-[10px] text-slate-500">
-                  {updateInfo
-                    ? updateInfo.updateAvailable
-                      ? t('Версия {current} · доступна {latest}', { current: updateInfo.currentVersion, latest: updateInfo.latestVersion })
-                      : t('Версия {current} · обновлений нет', { current: updateInfo.currentVersion })
-                    : t('Версия лаунчера: {version}', { version: APP_VERSION })}
+            <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <label className="label flex items-center gap-1.5" htmlFor="msa-client-id">
+                <KeyRound size={13} className="text-mint-400" />
+                {t('Client ID приложения Azure')}
+                <Tooltip content={t('Собственный Client ID приложения Azure используется для лицензированного входа в Minecraft. Оставьте поле пустым, чтобы скрыть кнопку Microsoft.')}>
+                  <HelpCircle size={13} className="text-slate-600" />
+                </Tooltip>
+              </label>
+              <input
+                id="msa-client-id"
+                className="input font-mono text-xs"
+                placeholder="00000000-0000-0000-0000-000000000000"
+                spellCheck={false}
+                value={settings.msaClientId ?? ''}
+                onChange={(event) => void update({ msaClientId: event.target.value.trim() })}
+              />
+              <p className="text-[10px] leading-relaxed text-slate-500">
+                {t('Нужен для входа через Microsoft. Создайте приложение в Azure и добавьте Redirect URI http://localhost.')}{' '}
+                <button
+                  type="button"
+                  onClick={() => void api.openExternal(AZURE_PORTAL)}
+                  className="inline-flex items-center gap-1 font-semibold text-mint-400 hover:text-mint-300"
+                >
+                  Azure Portal <ExternalLink size={10} />
+                </button>
+              </p>
+              {settings.msaClientId && !CLIENT_ID_PATTERN.test(settings.msaClientId) && (
+                <p className="text-[10px] text-amber-300">{t('Client ID обычно выглядит как UUID — проверьте значение.')}</p>
+              )}
+            </div>
+            <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-slate-200">{t('Обновления лаунчера')}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {updateInfo
+                      ? updateInfo.updateAvailable
+                        ? t('Версия {current} · доступна {latest}', { current: updateInfo.currentVersion, latest: updateInfo.latestVersion })
+                        : t('Версия {current} · обновлений нет', { current: updateInfo.currentVersion })
+                      : t('Версия лаунчера: {version}', { version: APP_VERSION })}
+                  </div>
+                  {downloaded && (
+                    <div className="mt-1 truncate font-mono text-[10px] text-mint-300" title={downloaded.fileName}>
+                      {t('Загружено: {file}', { file: downloaded.fileName })}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  <Button title={t('Проверить')} onClick={() => void checkForUpdates()} disabled={checkingUpdates}>
+                    {checkingUpdates ? <Spinner size={14} /> : <RefreshCw size={14} />}
+                  </Button>
+                  {updateInfo?.updateAvailable && !downloaded && (
+                    <Button
+                      variant="primary"
+                      onClick={() => void download()}
+                      disabled={downloading || !updateInfo.asset}
+                      title={updateInfo.asset ? t('Скачать обновление') : t('Для этой платформы нет доступного обновления.')}
+                    >
+                      {downloading ? <Spinner size={14} /> : <Download size={14} />} {t('Скачать')}
+                    </Button>
+                  )}
+                  {downloaded && (
+                    <Button variant="primary" onClick={() => void install()}>
+                      <Download size={14} /> {downloaded.method === 'manual' ? t('Открыть') : t('Установить')}
+                    </Button>
+                  )}
+                  {updateInfo && (
+                    <Button
+                      title={t('Открыть страницу релиза')}
+                      onClick={() => void api.openExternal(updateInfo.url)}
+                    >
+                      <ExternalLink size={14} />
+                    </Button>
+                  )}
                 </div>
               </div>
-              <Button onClick={() => void checkForUpdates()} disabled={checkingUpdates}>
-                {checkingUpdates ? <Spinner size={14} /> : <Download size={15} />} {t('Проверить')}
-              </Button>
+              {downloading && progress && (
+                <div className="space-y-1.5">
+                  <ProgressBar value={progress.percent} />
+                  <div className="text-right font-mono text-[10px] text-slate-500">{Math.round(progress.percent)}%</div>
+                </div>
+              )}
+              {updateInfo?.releaseNotes && (
+                <details className="rounded-lg border border-white/[0.05] bg-white/[0.02] p-2">
+                  <summary className="cursor-pointer text-[10px] font-semibold text-slate-400">{t('Заметки о релизе')}</summary>
+                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-sans text-[10px] leading-relaxed text-slate-500">
+                    {updateInfo.releaseNotes}
+                  </pre>
+                </details>
+              )}
             </div>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <div>
@@ -362,6 +472,42 @@ export function Settings(): JSX.Element {
             </p>
           </div>
         </div>
+        )}
+
+        {showAbout && (
+          <div className="panel p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Info size={18} className="text-iris-400" />
+              <h3 className="text-sm font-bold text-white">{t('О лаунчере')}</h3>
+            </div>
+            <div className="space-y-2">
+              {([
+                [t('Название'), launcherInfo?.name ?? 'Lumen Launcher'],
+                [t('Версия'), launcherInfo?.version ?? APP_VERSION],
+                [t('Лицензия'), launcherInfo?.license ?? APP_LICENSE],
+                [t('Автор'), launcherInfo?.author ?? 'NathanKaz'],
+                [t('Платформа'), launcherInfo ? `${launcherInfo.platform} · ${launcherInfo.arch}` : '—'],
+                [t('Технологии'), launcherInfo
+                  ? `Electron ${launcherInfo.electron} · Chromium ${launcherInfo.chrome} · Node ${launcherInfo.node}`
+                  : '—'],
+                [t('Каталог данных'), launcherInfo?.dataDir ?? '—']
+              ] as const).map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-3 border-b border-white/[0.04] pb-2 text-[11px] last:border-0">
+                  <span className="shrink-0 text-slate-500">{label}</span>
+                  <span className="break-all text-right font-mono text-slate-300">{value}</span>
+                </div>
+              ))}
+            </div>
+            <Button
+              className="mt-4 w-full justify-center"
+              onClick={() => void api.openExternal(launcherInfo?.repository ?? APP_REPOSITORY)}
+            >
+              <Github size={15} /> GitHub <ExternalLink size={12} />
+            </Button>
+            <p className="mt-2 break-all text-center font-mono text-[9px] text-slate-600">
+              {launcherInfo?.repository ?? APP_REPOSITORY}
+            </p>
+          </div>
         )}
 
         {!anySectionVisible && (

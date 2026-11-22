@@ -135,6 +135,7 @@ export type ProgressPhase =
   | 'world'
   | 'launch'
   | 'java'
+  | 'update'
 
 export interface ProgressPayload {
   phase: ProgressPhase
@@ -268,11 +269,52 @@ export interface SkinInfo {
   active: boolean
 }
 
+/** A downloadable GitHub release asset suitable for the current platform. */
+export interface LauncherAsset {
+  name: string
+  url: string
+  size: number
+  /** GitHub's `sha256:` digest, when provided by the release. */
+  sha256?: string
+  /** How the launcher can apply this asset after downloading. */
+  method: 'installer' | 'appimage' | 'manual'
+}
+
 export interface UpdateInfo {
   currentVersion: string
   latestVersion: string
   url: string
   updateAvailable: boolean
+  releaseNotes?: string
+  publishedAt?: string
+  /** Undefined when this platform has no supported artifact in the release. */
+  asset?: LauncherAsset
+}
+
+/** Result of a completed in-app launcher update download. */
+export interface UpdateDownload {
+  version: string
+  fileName: string
+  filePath: string
+  size: number
+  method: LauncherAsset['method']
+}
+
+/** Static and runtime information shown in the About section. */
+export interface LauncherInfo {
+  name: string
+  version: string
+  license: string
+  author: string
+  repository: string
+  homepage: string
+  electron: string
+  chrome: string
+  node: string
+  platform: string
+  arch: string
+  dataDir: string
+  packaged: boolean
 }
 
 export interface VerifyReport {
@@ -484,6 +526,15 @@ export interface LauncherAPI {
   setSkinModel(id: string, model: SkinModel): Promise<void>
 
   checkUpdates(): Promise<UpdateInfo>
+  /** Downloads the matching release asset into the launcher cache. */
+  downloadUpdate(): Promise<UpdateDownload>
+  /** Applies a downloaded update; manual installs are opened for the user. */
+  installUpdate(download: UpdateDownload): Promise<void>
+  getLauncherInfo(): Promise<LauncherInfo>
+  /** Opens an https link in the system browser. */
+  openExternal(url: string): Promise<void>
+  /** Deterministic offline-player UUID for the given nickname. */
+  offlineUuid(name: string): Promise<string>
   verifyProfile(id: string, repair?: boolean): Promise<VerifyReport>
 
   listBackups(profileId: string): Promise<BackupInfo[]>

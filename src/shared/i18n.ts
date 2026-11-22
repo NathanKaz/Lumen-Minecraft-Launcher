@@ -1093,7 +1093,67 @@ const en: Record<string, string> = {
   'Генерация мира': 'World generation',
   'Бэкапы и диагностика': 'Backups and diagnostics',
   '{count} модов': '{count} mods',
-  '{count} миров': '{count} worlds'
+  '{count} миров': '{count} worlds',
+
+  // First-run wizard, accounts and client ID
+  'Язык': 'Language',
+  'Шаг {current} из {total}': 'Step {current} of {total}',
+  'Выберите язык, на котором будет работать лаунчер.': 'Choose the language used by the launcher.',
+  'UUID игрока': 'Player UUID',
+  'UUID: {uuid}': 'UUID: {uuid}',
+  'UUID вычисляется из имени игрока и будет виден в окне аккаунта.': 'The UUID is derived from the player name and is shown in the account window.',
+  'Имя и UUID Microsoft-аккаунта берутся из профиля Minecraft и не меняются здесь.': 'The name and UUID of a Microsoft account come from the Minecraft profile and cannot be changed here.',
+  'Для лицензированного входа укажите Client ID в настройках и войдите через Microsoft в окне аккаунта.': 'For a licensed sign-in, set a Client ID in Settings and sign in with Microsoft from the account window.',
+  'Профиль добавлен · UUID: {uuid}': 'Profile added · UUID: {uuid}',
+  'Профиль Microsoft добавлен · UUID: {uuid}': 'Microsoft profile added · UUID: {uuid}',
+  'Профиль игрока создан · UUID: {uuid}': 'Player profile created · UUID: {uuid}',
+  'Настроен': 'Configured',
+  'Нужен Client ID': 'Client ID required',
+  'Client ID найден в настройках. Откроется браузер для входа в Microsoft.': 'A Client ID is configured in Settings. Your browser will open for Microsoft sign-in.',
+  'Укажите Client ID приложения Azure в настройках лаунчера, чтобы войти.': 'Set the Azure application Client ID in launcher Settings to sign in.',
+  'Сначала укажите Client ID приложения Azure в настройках лаунчера.': 'Set the Azure application Client ID in launcher Settings first.',
+  'Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Для Microsoft-аккаунта нужен собственный Client ID приложения Azure.':
+    'An offline profile works for single-player and servers without license checks. A Microsoft account requires your own Azure application Client ID.',
+  'Собственный Client ID приложения Azure используется для лицензированного входа в Minecraft. Оставьте поле пустым, чтобы скрыть кнопку Microsoft.':
+    'Your own Azure application Client ID is used for licensed Minecraft sign-in. Leave it empty to hide the Microsoft button.',
+  'Нужен для входа через Microsoft. Создайте приложение в Azure и добавьте Redirect URI http://localhost.':
+    'Required for Microsoft sign-in. Create an Azure app and add the http://localhost redirect URI.',
+  'Client ID обычно выглядит как UUID — проверьте значение.': 'A Client ID normally looks like a UUID — check the value.',
+
+  // In-app launcher updates and About
+  'Обновление лаунчера {version}': 'Launcher update {version}',
+  'Для этой платформы нет доступного обновления.': 'No update is available for this platform.',
+  'Сначала скачайте обновление.': 'Download the update first.',
+  'Файл обновления не найден. Скачайте его снова.': 'Update file not found. Download it again.',
+  'Обновление загружено: {name}': 'Update downloaded: {name}',
+  'Загружено: {file}': 'Downloaded: {file}',
+  'Скачать обновление': 'Download update',
+  'Открыть страницу релиза': 'Open release page',
+  'Заметки о релизе': 'Release notes',
+  'Установка обновлений доступна только в собранной версии лаунчера.': 'Updates can only be installed in a packaged build of the launcher.',
+  'Установка обновления... Лаунчер будет перезапущен.': 'Installing the update... The launcher will restart.',
+  'Установщик открыт. Завершите установку и перезапустите лаунчер.': 'Installer opened. Finish installation and restart the launcher.',
+  'Не удалось запустить установщик: {error}': 'Failed to start the installer: {error}',
+  'Не удалось запустить обновление: {error}': 'Failed to start the update: {error}',
+  'Разрешены только ссылки http и https.': 'Only http and https links are allowed.',
+  'Демо-режим: скачивание обновлений недоступно.': 'Demo mode: update downloads are unavailable.',
+  'Демо-режим: установка обновлений недоступна.': 'Demo mode: updates cannot be installed.',
+  'О лаунчере': 'About',
+  'Лицензия': 'License',
+  'Автор': 'Author',
+  'Платформа': 'Platform',
+  'Технологии': 'Built with',
+  'Каталог данных': 'Data directory',
+
+  // Existing untranslated runtime strings
+  'CurseForge': 'CurseForge',
+  'MultiMC': 'MultiMC',
+  'MultiMC / Prism': 'MultiMC / Prism',
+  'Prism Launcher': 'Prism Launcher',
+  '{name} ({index})': '{name} ({index})',
+  'Обновление модов': 'Updating mods',
+  'Установка Java {version}': 'Installing Java {version}',
+  'Установка мира': 'Installing world'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {

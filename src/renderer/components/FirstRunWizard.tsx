@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Coffee, Download, UserRound, XCircle } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, CheckCircle2, Coffee, Download, Fingerprint, UserRound, XCircle } from 'lucide-react'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, Modal, ProgressBar, Spinner } from './ui'
+import { Badge, Button, ProgressBar, Spinner } from './ui'
 import type { JavaInfo, Profile, Settings } from '@shared/types'
 
 type WizardStep = 1 | 2 | 3 | 4
 
-/** Four-step onboarding shown while `settings.onboardingCompleted` is false. */
+const stepLabels = (): string[] => [
+  t('Язык'), t('Игрок'), t('Java'), t('Сборка')
+]
+
+/** Full-window onboarding shown while `settings.onboardingCompleted` is false. */
 export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
   const { state, versions, progress, refresh, pushToast } = useLauncher()
   const [step, setStep] = useState<WizardStep>(1)
   const [language, setLanguage] = useState<'ru' | 'en'>('ru')
   const [playerName, setPlayerName] = useState('')
+  const [uuidPreview, setUuidPreview] = useState('')
   const [javaInfo, setJavaInfo] = useState<JavaInfo | null>(null)
   const [javaLoading, setJavaLoading] = useState(false)
   const [javaError, setJavaError] = useState<string | null>(null)
@@ -29,6 +35,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     setStep(1)
     setLanguage(state?.settings.language ?? 'ru')
     setPlayerName(state?.account.name ?? '')
+    setUuidPreview('')
     setJavaInfo(null)
     setJavaError(null)
     setJavaLoading(false)
@@ -56,6 +63,20 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
     setLanguage(value)
     void patchSettings({ language: value })
   }
+
+  // The preview uses the same deterministic algorithm as the persisted account.
+  useEffect(() => {
+    if (!open || step !== 2 || state?.account.type === 'microsoft') {
+      setUuidPreview(state?.account.uuid ?? '')
+      return
+    }
+    const name = playerName.trim().slice(0, 16) || 'Steve'
+    let cancelled = false
+    void api.offlineUuid(name)
+      .then((id) => { if (!cancelled) setUuidPreview(id) })
+      .catch(() => { if (!cancelled) setUuidPreview('') })
+    return () => { cancelled = true }
+  }, [open, step, playerName, state?.account.type, state?.account.uuid])
 
   useEffect(() => {
     if (!open || step !== 3) return
@@ -100,7 +121,8 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
       if (cleanName && cleanName !== state.account.name) {
         try {
           await api.setAccount(cleanName)
-          pushToast('success', t('Профиль игрока создан'))
+          const uuid = await api.offlineUuid(cleanName)
+          pushToast('success', t('Профиль игрока создан · UUID: {uuid}', { uuid }))
         } catch (error) {
           pushToast('error', error instanceof Error ? error.message : String(error))
         }
@@ -151,196 +173,258 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
   }, [open, finish])
 
   const versionId = versions?.latest.release || '1.20.1'
+  const labels = stepLabels()
 
   return (
-    <Modal open={open} onClose={() => void finish(false)} title={t('Мастер первого запуска')} width="max-w-xl">
-      <div className="space-y-5">
-        <div className="flex items-center gap-2">
-          {([1, 2, 3, 4] as WizardStep[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              disabled={value >= step || finishing}
-              onClick={() => setStep(value)}
-              className={`flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-bold transition ${
-                value === step
-                  ? 'border-mint-400/50 bg-mint-400/15 text-mint-300'
-                  : value < step
-                    ? 'border-mint-400/25 bg-mint-400/[0.06] text-mint-400/70 hover:text-mint-300'
-                    : 'border-white/[0.08] bg-white/[0.02] text-slate-600'
-              }`}
-            >
-              {value}
-            </button>
-          ))}
-          <span className="ml-auto font-mono text-[11px] text-slate-600">{step} / 4</span>
-        </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-x-0 bottom-0 top-11 z-[65] overflow-y-auto bg-ink-950"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('Мастер первого запуска')}
+        >
+          <div className="pointer-events-none absolute inset-0 grid-overlay opacity-30" />
+          <motion.div
+            className="relative mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-8 sm:px-10 sm:py-10"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <header className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <img src="./logo.png" alt="" className="h-9 w-9 object-contain" />
+                <div>
+                  <div className="text-sm font-black tracking-[0.18em] text-slate-200">LUMEN LAUNCHER</div>
+                  <div className="text-[11px] text-slate-500">{t('Мастер первого запуска')}</div>
+                </div>
+              </div>
+              <Button disabled={finishing} onClick={() => void finish(false)}>{t('Пропустить')}</Button>
+            </header>
 
-        {step === 1 && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-bold text-white">{t('Добро пожаловать в Lumen Launcher')}</h4>
-              <p className="mt-1 text-[11px] text-slate-500">{t('Настроим лаунчер за четыре шага')}</p>
-            </div>
-            <div>
-              <label className="label">{t('Язык интерфейса')}</label>
-              <div className="grid grid-cols-2 gap-2">
-                {([['ru', t('Русский')], ['en', t('English')]] as const).map(([value, label]) => (
+            <div className="my-auto py-10">
+              <div className="mb-8">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-mint-400">
+                  {t('Шаг {current} из {total}', { current: step, total: 4 })}
+                </div>
+                <h1 className="text-2xl font-black text-white sm:text-3xl">{t('Добро пожаловать в Lumen Launcher')}</h1>
+                <p className="mt-2 text-sm text-slate-500">{t('Настроим лаунчер за четыре шага')}</p>
+              </div>
+
+              <div className="mb-6 grid grid-cols-4 gap-2 sm:gap-3">
+                {([1, 2, 3, 4] as WizardStep[]).map((value) => (
                   <button
                     key={value}
                     type="button"
-                    onClick={() => chooseLanguage(value)}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-semibold transition ${
-                      language === value
-                        ? 'border-mint-400/50 bg-mint-400/[0.08] text-mint-300'
-                        : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:border-white/20 hover:text-slate-200'
+                    disabled={value >= step || finishing}
+                    onClick={() => setStep(value)}
+                    className={`flex items-center gap-2 rounded-xl border px-2 py-2.5 text-left transition sm:px-3 ${
+                      value === step
+                        ? 'border-mint-400/50 bg-mint-400/[0.1] text-mint-300'
+                        : value < step
+                          ? 'border-mint-400/20 bg-mint-400/[0.04] text-mint-400/80 hover:text-mint-300'
+                          : 'border-white/[0.06] bg-white/[0.02] text-slate-600'
                     }`}
                   >
-                    {language === value && <CheckCircle2 size={14} />}
-                    {label}
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold ${
+                      value < step ? 'border-mint-400/30 bg-mint-400/10' : 'border-current'
+                    }`}>
+                      {value < step ? <Check size={13} /> : value}
+                    </span>
+                    <span className="truncate text-[11px] font-semibold sm:text-xs">{labels[value - 1]}</span>
                   </button>
                 ))}
               </div>
+
+              <div className="panel min-h-[320px] p-6 sm:p-8">
+                {step === 1 && (
+                  <div className="space-y-5">
+                    <div>
+                      <h2 className="text-lg font-bold text-white">{t('Язык интерфейса')}</h2>
+                      <p className="mt-1 text-xs text-slate-500">{t('Выберите язык, на котором будет работать лаунчер.')}</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {([['ru', t('Русский')], ['en', t('English')]] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => chooseLanguage(value)}
+                          className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-5 text-sm font-semibold transition ${
+                            language === value
+                              ? 'border-mint-400/50 bg-mint-400/[0.08] text-mint-300'
+                              : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:border-white/20 hover:text-slate-200'
+                          }`}
+                        >
+                          {label}
+                          {language === value && <CheckCircle2 size={18} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2">
+                      <UserRound size={18} className="text-mint-400" />
+                      <h2 className="text-lg font-bold text-white">{t('Создание аккаунта')}</h2>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-500">
+                      {t('Создайте офлайн-профиль игрока. У него будут свои сборки и скины.')}
+                    </p>
+                    {state?.account.type === 'microsoft' ? (
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <div className="text-sm font-semibold text-slate-200">{state.account.name}</div>
+                        <UuidLine uuid={state.account.uuid} />
+                        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                          {t('Имя и UUID Microsoft-аккаунта берутся из профиля Minecraft и не меняются здесь.')}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="label" htmlFor="wizard-player-name">{t('Имя игрока')}</label>
+                          <input
+                            id="wizard-player-name"
+                            className="input text-base"
+                            placeholder="Steve"
+                            maxLength={16}
+                            value={playerName}
+                            autoFocus
+                            onChange={(event) => setPlayerName(event.target.value)}
+                          />
+                        </div>
+                        <div className="rounded-xl border border-mint-400/15 bg-mint-400/[0.04] p-4">
+                          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-mint-400">
+                            <Fingerprint size={14} /> {t('UUID игрока')}
+                          </div>
+                          <UuidLine uuid={uuidPreview} />
+                          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                            {t('UUID вычисляется из имени игрока и будет виден в окне аккаунта.')}
+                          </p>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-slate-500">
+                          {t('Для лицензированного входа укажите Client ID в настройках и войдите через Microsoft в окне аккаунта.')}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2">
+                      <Coffee size={18} className="text-mint-400" />
+                      <h2 className="text-lg font-bold text-white">{t('Проверка Java')}</h2>
+                    </div>
+                    {javaLoading ? (
+                      <div className="flex items-center gap-2 py-8 text-xs text-slate-500">
+                        <Spinner size={16} /> {t('Проверяем Java...')}
+                      </div>
+                    ) : javaError ? (
+                      <div className="rounded-xl border border-rose-400/20 bg-rose-500/[0.06] p-4 text-xs text-rose-300">
+                        <div className="font-semibold">{t('Не удалось проверить Java')}</div>
+                        <div className="mt-1 break-words text-rose-200/70">{javaError}</div>
+                      </div>
+                    ) : javaInfo ? (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-200">Java {javaInfo.version}</div>
+                          <div className="mt-1 truncate font-mono text-[11px] text-slate-500">{javaInfo.path}</div>
+                        </div>
+                        <Badge tone={javaInfo.valid ? 'mint' : 'amber'}>
+                          {javaInfo.valid ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                          {javaInfo.valid ? t('Подходит') : t('Проверьте путь')}
+                        </Badge>
+                      </div>
+                    ) : null}
+                    {javaInfo && !javaInfo.valid && (
+                      <Button variant="primary" disabled={installingJava} onClick={() => void installJava()}>
+                        {installingJava ? <Spinner size={14} /> : <Download size={14} />}
+                        {installingJava ? t('Установка Java...') : t('Установить подходящую Java')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {step === 4 && (
+                  <div className="space-y-5">
+                    <h2 className="text-lg font-bold text-white">{t('Первая сборка')}</h2>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={createInstance}
+                        onChange={(event) => setCreateInstance(event.target.checked)}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-200">{t('Создать ванильную сборку')}</span>
+                        <span className="mt-1 block text-xs text-slate-500">Minecraft {versionId}</span>
+                      </span>
+                    </label>
+                    {createInstance && (
+                      <div>
+                        <label className="label">{t('Имя сборки')}</label>
+                        <input
+                          className="input"
+                          placeholder={t('Мой Minecraft')}
+                          value={instanceName}
+                          onChange={(event) => setInstanceName(event.target.value)}
+                        />
+                      </div>
+                    )}
+                    {finishing && (
+                      <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <Spinner size={14} /> {t('Создание профиля и сборки...')}
+                          {progress && <span className="ml-auto font-mono">{Math.round(progress.percent)}%</span>}
+                        </div>
+                        {progress && <ProgressBar value={progress.percent} />}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <UserRound size={17} className="text-mint-400" />
-              <h4 className="text-sm font-bold text-white">{t('Создание аккаунта')}</h4>
-            </div>
-            <p className="text-[11px] leading-relaxed text-slate-500">
-              {t('Создайте офлайн-профиль игрока. У него будут свои сборки и скины.')}
-            </p>
-            {state?.account.type === 'microsoft' ? (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                <div className="text-xs font-semibold text-slate-200">{state.account.name}</div>
-                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                  {t('Имя Microsoft-аккаунта берётся из профиля Minecraft и не меняется здесь.')}
-                </p>
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-6">
+              <Button disabled={finishing} onClick={() => void finish(false)}>{t('Пропустить')}</Button>
+              <div className="flex gap-3">
+                {step > 1 && (
+                  <Button disabled={finishing} onClick={() => setStep((current) => (current - 1) as WizardStep)}>
+                    {t('Назад')}
+                  </Button>
+                )}
+                {step < 4 ? (
+                  <Button
+                    variant="primary"
+                    disabled={step === 2 && state?.account.type !== 'microsoft' && !playerName.trim()}
+                    onClick={() => setStep((current) => (current + 1) as WizardStep)}
+                  >
+                    {t('Далее')}
+                  </Button>
+                ) : (
+                  <Button variant="primary" disabled={finishing} onClick={() => void finish(true)}>
+                    {finishing && <Spinner size={14} />} {t('Готово')}
+                  </Button>
+                )}
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="label" htmlFor="wizard-player-name">{t('Имя игрока')}</label>
-                  <input
-                    id="wizard-player-name"
-                    className="input"
-                    placeholder="Steve"
-                    maxLength={16}
-                    value={playerName}
-                    autoFocus
-                    onChange={(event) => setPlayerName(event.target.value)}
-                  />
-                </div>
-                <p className="text-[10px] leading-relaxed text-slate-500">
-                  {t('Это офлайн-аккаунт. Вход через Microsoft будет добавлен позже; имя можно изменить в окне аккаунта.')}
-                </p>
-              </>
-            )}
-          </div>
-        )}
+            </footer>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
 
-        {step === 3 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Coffee size={17} className="text-mint-400" />
-              <h4 className="text-sm font-bold text-white">{t('Проверка Java')}</h4>
-            </div>
-            {javaLoading ? (
-              <div className="flex items-center gap-2 py-6 text-xs text-slate-500">
-                <Spinner size={16} /> {t('Проверяем Java...')}
-              </div>
-            ) : javaError ? (
-              <div className="rounded-xl border border-rose-400/20 bg-rose-500/[0.06] p-3 text-[11px] text-rose-300">
-                <div className="font-semibold">{t('Не удалось проверить Java')}</div>
-                <div className="mt-1 break-words text-rose-200/70">{javaError}</div>
-              </div>
-            ) : javaInfo ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-slate-200">Java {javaInfo.version}</div>
-                  <div className="mt-0.5 truncate font-mono text-[10px] text-slate-500">{javaInfo.path}</div>
-                </div>
-                <Badge tone={javaInfo.valid ? 'mint' : 'amber'}>
-                  {javaInfo.valid ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                  {javaInfo.valid ? t('Подходит') : t('Проверьте путь')}
-                </Badge>
-              </div>
-            ) : null}
-            {javaInfo && !javaInfo.valid && (
-              <Button variant="primary" disabled={installingJava} onClick={() => void installJava()}>
-                {installingJava ? <Spinner size={14} /> : <Download size={14} />}
-                {installingJava ? t('Установка Java...') : t('Установить подходящую Java')}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-bold text-white">{t('Первая сборка')}</h4>
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={createInstance}
-                onChange={(event) => setCreateInstance(event.target.checked)}
-              />
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold text-slate-200">{t('Создать ванильную сборку')}</span>
-                <span className="block text-[10px] text-slate-500">Minecraft {versionId}</span>
-              </span>
-            </label>
-            {createInstance && (
-              <div>
-                <label className="label">{t('Имя сборки')}</label>
-                <input
-                  className="input"
-                  placeholder={t('Мой Minecraft')}
-                  value={instanceName}
-                  onChange={(event) => setInstanceName(event.target.value)}
-                />
-              </div>
-            )}
-            {finishing && (
-              <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                  <Spinner size={14} /> {t('Создание профиля и сборки...')}
-                  {progress && <span className="ml-auto font-mono">{Math.round(progress.percent)}%</span>}
-                </div>
-                {progress && <ProgressBar value={progress.percent} />}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
-          <Button disabled={finishing} onClick={() => void finish(false)}>{t('Пропустить')}</Button>
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button disabled={finishing} onClick={() => setStep((current) => (current - 1) as WizardStep)}>
-                {t('Назад')}
-              </Button>
-            )}
-            {step < 4 ? (
-              <Button
-                variant="primary"
-                disabled={step === 2 && state?.account.type !== 'microsoft' && !playerName.trim()}
-                onClick={() => setStep((current) => (current + 1) as WizardStep)}
-              >
-                {t('Далее')}
-              </Button>
-            ) : (
-              <Button variant="primary" disabled={finishing} onClick={() => void finish(true)}>
-                {finishing && <Spinner size={14} />} {t('Готово')}
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </Modal>
+function UuidLine({ uuid }: { uuid: string }): JSX.Element {
+  return (
+    <div className="mt-2 select-all break-all font-mono text-xs text-mint-300" title={uuid}>
+      {uuid || '—'}
+    </div>
   )
 }

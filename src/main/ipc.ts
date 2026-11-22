@@ -47,7 +47,14 @@ import { deletionSummary, deleteScreenshot, listScreenshots } from './core/scree
 import { detectJava, getJavaInfo } from './core/java'
 import { ensureJava } from './core/javaInstall'
 import { deleteSkin, importSkin, listSkins, selectSkin, setSkinModel } from './core/skins'
-import { checkUpdates } from './core/updates'
+import {
+  checkUpdates,
+  downloadUpdate,
+  getLauncherInfo,
+  installUpdate,
+  openExternal
+} from './core/updates'
+import { offlineUuid } from '@shared/uuid'
 import { repairProfile, verifyProfile } from './core/verify'
 import { backupAllProfiles, createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
 import { exportProfiles, importProfiles } from './core/profileTransfer'
@@ -231,6 +238,11 @@ export function registerIpc(): void {
 
   // Updates & verification
   handle(IPC.checkUpdates, () => checkUpdates())
+  handle(IPC.downloadUpdate, () => downloadUpdate())
+  handle(IPC.installUpdate, (download: Parameters<typeof installUpdate>[0]) => installUpdate(download))
+  handle(IPC.getLauncherInfo, () => getLauncherInfo())
+  handle(IPC.openExternal, (url: string) => openExternal(url))
+  handle(IPC.offlineUuid, (name: string) => offlineUuid(name.trim().slice(0, 16) || 'Steve'))
   handle(IPC.verifyProfile, (id: string, repair?: boolean) =>
     runTaskAndWait({
       label: repair ? msg('Восстановление файлов') : msg('Проверка файлов'),

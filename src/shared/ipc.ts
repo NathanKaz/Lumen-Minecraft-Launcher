@@ -52,6 +52,11 @@ export const IPC = {
 
   // Updates & verification
   checkUpdates: 'app:checkUpdates',
+  downloadUpdate: 'app:downloadUpdate',
+  installUpdate: 'app:installUpdate',
+  getLauncherInfo: 'app:getLauncherInfo',
+  openExternal: 'app:openExternal',
+  offlineUuid: 'app:offlineUuid',
   verifyProfile: 'profile:verify',
   repairProfile: 'profile:repair',
 

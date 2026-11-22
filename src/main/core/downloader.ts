@@ -13,6 +13,8 @@ export interface DownloadTask {
   url: string
   dest: string
   sha1?: string
+  /** SHA-256 digest (hex) for release artifacts that publish one. */
+  sha256?: string
   size?: number
   label?: string
 }
@@ -36,9 +38,11 @@ function hashFile(file: string, algorithm: string): Promise<string> {
 
 async function fileMatches(task: DownloadTask): Promise<boolean> {
   if (!fs.existsSync(task.dest)) return false
-  if (!task.sha1) return fs.statSync(task.dest).size > 0
+  if (!task.sha1 && !task.sha256) return fs.statSync(task.dest).size > 0
   try {
-    return (await hashFile(task.dest, 'sha1')) === task.sha1.toLowerCase()
+    if (task.sha256 && (await hashFile(task.dest, 'sha256')) !== task.sha256.toLowerCase()) return false
+    if (task.sha1 && (await hashFile(task.dest, 'sha1')) !== task.sha1.toLowerCase()) return false
+    return true
   } catch {
     return false
   }
@@ -89,11 +93,11 @@ async function downloadOne(task: DownloadTask, onChunk: (bytes: number, total: n
       await pipeline(response, counter, fs.createWriteStream(part))
       onChunk(received, total)
 
-      if (task.sha1) {
-        const actual = await hashFile(part, 'sha1')
-        if (actual !== task.sha1.toLowerCase()) {
-          throw new Error(msg('Контрольная сумма не совпала: {label}', { label }))
-        }
+      if (task.sha1 && (await hashFile(part, 'sha1')) !== task.sha1.toLowerCase()) {
+        throw new Error(msg('Контрольная сумма не совпала: {label}', { label }))
+      }
+      if (task.sha256 && (await hashFile(part, 'sha256')) !== task.sha256.toLowerCase()) {
+        throw new Error(msg('Контрольная сумма не совпала: {label}', { label }))
       }
 
       await fs.move(part, task.dest, { overwrite: true })
@@ -197,7 +201,8 @@ export async function downloadToFile(
   phase: ProgressPhase,
   label: string,
   sha1?: string,
-  opts?: { signal?: AbortSignal; taskId?: string }
+  opts?: { signal?: AbortSignal; taskId?: string },
+  sha256?: string
 ): Promise<void> {
-  await downloadMany([{ url, dest, sha1, label }], phase, label, 1, opts)
+  await downloadMany([{ url, dest, sha1, sha256, label }], phase, label, 1, opts)
 }

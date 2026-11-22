@@ -17,14 +17,15 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Resource & shader packs** — install `.zip` packs per instance, toggle them on/off, and delete them. Packs are enabled through the instance's `options.txt`; the generated offline-skin pack is managed automatically. The in-instance catalog tab installs resource packs and shaders directly from Modrinth.
 - **Mod updates** — check installed mods against Modrinth by SHA-1 and update them to the latest compatible version for the instance's Minecraft version and loader.
 - **Logs & diagnostics** — the Settings log viewer switches between in-memory launcher logs and real log files/crash reports of the selected instance, with search, level filtering, and a text viewer that reads the tail of large files.
-- **Launcher updates & tray** — check for new launcher releases on startup or on demand, minimize to the system tray on close, and launch/stop the game from the tray menu.
+- **Launcher updates & tray** — check for new launcher releases on startup or on demand, then download and install the matching GitHub release asset directly from Settings (SHA-256 verification when published; silent NSIS update on Windows, AppImage relaunch on Linux, DMG/DEB opened for manual installation). The launcher can also minimize to the system tray on close and launch/stop the game from the tray menu.
 - **Localization** — full Russian and English interface, including dialogs, toasts, progress messages, and tray menu; switching the language updates the UI immediately.
+- **About & project link** — Settings → About shows version, license, author, platform, Electron/Chromium/Node versions and the data directory; the GitHub repository is linked from both About and the sidebar.
 - **Instance deletion** — native confirmation dialog listing data to be removed (saves, mods, screenshots, configs, resource/shader packs, options, logs) and the full instance folder path.
 - **Instance transfer & bulk actions** — export selected instances (full folders + manifest) to ZIP, import them back with fresh IDs, and run install/export/delete on a selection from the home screen. A separate `Import` action discovers instances from MultiMC/Prism Launcher, CurseForge export archives (chosen in a dialog), and official `.minecraft` launcher profiles (listed last), copying saves/mods/packs/configs into new instances with path-traversal and size checks.
 - **Per-instance Java** — override the Java executable and JVM arguments for each build. If no compatible Java is found, the launcher can download a managed Temurin JRE automatically into its own data directory (no system-wide changes).
-- **Multiple offline profiles** — create, rename, switch between, and delete local players. Each player has an isolated set of instances, groups, and skins; switching profiles closes the current instance view and loads that player's world. Profile folders on disk are kept when a player is removed.
+- **Multiple offline profiles** — create, rename, switch between, and delete local players. Each player has an isolated set of instances, groups, and skins; its deterministic UUID is shown next to the nickname in the account window, sidebar, and player list. Switching profiles closes the current instance view and loads that player's world. Profile folders on disk are kept when a player is removed.
 - **Cross-platform builds** — electron-builder targets Windows (NSIS), macOS (DMG, x64 + Apple Silicon), and Linux (AppImage + DEB, x64 + arm64). Ready-to-use `dist:win`, `dist:mac`, `dist:linux`, and `dist:all` scripts plus a GitHub Actions matrix build native artifacts for all three systems.
-- **First-run wizard** — a three-step setup for interface language, Java detection/installation and an optional vanilla instance. It runs once on a fresh install and can be re-opened from Settings.
+- **First-run wizard** — a full-window four-step setup for interface language, player name with a live UUID preview, Java detection/installation and an optional vanilla instance. It runs once on a fresh install and can be re-opened from Settings.
 - **Global search** — `Ctrl+K` / `Cmd+K` opens a command palette that searches instances, open-instance sections, installed mods and worlds, settings sections and common actions.
 - **Crash assistant** — when the game crashes, the launcher analyzes the newest crash report and logs, explains the likely cause and offers concrete fixes (memory, Java, mods, file verification, full report).
 - **Update preview** — `Update all` now shows a checklist of `current → latest` versions; select only the updates to apply, with an automatic backup before a full batch.
@@ -33,6 +34,19 @@ A cross-platform Minecraft launcher with a dark interface, version management, a
 - **Instance signals** — cards show mod/update/world counts, last launch and scheduled backup status, with a one-click backup button.
 - **Settings search & field help** — filter settings sections by keyword and open `?` tooltips explaining Java, JVM, memory, loader and backup options.
 - **Quality of life** — offline account, Java auto-detection, game/launcher logs, memory and resolution settings, custom window chrome.
+
+## Possible improvements
+
+Ideas for future releases, in no particular order:
+
+- **Background and staged updates** — opt-in automatic download/install on exit, stable/beta channels, rollback to the previous launcher version, and signed update manifests with mandatory checksum verification.
+- **Multiple Microsoft apps** — save several Azure Client IDs, validate the redirect URI configuration in the UI, and show token/permission status per profile.
+- **Instance templates** — reusable presets (loader, Minecraft version, Java, RAM, JVM flags) and one-click cloning of an existing instance without its worlds.
+- **Smarter modpack maintenance** — selective file sync after a modpack update, mod version rollback, and conflict resolution when two mods provide the same classes.
+- **Server browser** — favorite servers with live ping/MOTD and player counts, direct connect, and quick switching between offline and licensed profiles.
+- **Skin library improvements** — tags/search, multiple skin models per profile, and Mojang skin upload for licensed accounts.
+- **Insights and recovery** — per-instance playtime charts, crash-history comparison, and suggested fixes applied with one click from the crash assistant.
+- **Release engineering** — code signing/notarization, unit and end-to-end tests, and CI that publishes release notes with asset checksums automatically.
 
 ## Development
 
@@ -71,14 +85,14 @@ The launcher supports two account types, each with its own builds, groups and sk
 
 ### Setting up Microsoft sign-in
 
-> **Currently unavailable in the UI.** The **Sign in with Microsoft** button is disabled and Azure Client ID fields are hidden for now; the authentication backend is kept in the codebase and will be re-enabled in a later release. Use an offline profile for now — the first-run wizard lets you create one.
+The **Sign in with Microsoft** button becomes active as soon as your own Azure application Client ID is saved in Settings → General → Azure application (client) ID. Without it the offline profile is used; the first-run wizard lets you create one.
 
-Microsoft requires every third-party launcher to use its own Azure application, so a one-time setup is needed when the feature is enabled:
+Microsoft requires every third-party launcher to use its own Azure application, so a one-time setup is needed:
 
 1. Open [App registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) in the Azure portal and create a new registration.
 2. Set **Supported account types** to **Personal Microsoft accounts only** (the consumer `consumers` tenant).
 3. Add a **Mobile and desktop applications** platform with the redirect URI `http://localhost`. The launcher starts a temporary loopback server on a free port, so any port is accepted.
-4. Copy the **Application (client) ID** into **Settings → General → Azure application (client) ID** (or into the Account dialog).
+4. Copy the **Application (client) ID** into **Settings → General → Azure application (client) ID**. The Account dialog then enables the Microsoft sign-in button.
 5. New Azure applications must be approved for the Minecraft API via the [Minecraft API access request form](https://aka.ms/mce-reviewappid). Without that approval `api.minecraftservices.com` returns HTTP 403.
 
 Afterwards click **Sign in with Microsoft** in the Account dialog: the system browser opens the Microsoft login page, and the launcher receives the authorization code on the loopback address. Sign-in uses PKCE and a random `state` value. The long-lived refresh token is stored in `msa-tokens.json` and encrypted with Electron `safeStorage` (OS keychain/DPAPI) when available. If the platform has no keyring, the file is created with owner-only permissions and a plaintext fallback so the launcher still works.

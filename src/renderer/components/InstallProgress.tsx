@@ -14,7 +14,8 @@ const phaseKeys: Record<ProgressPhase, string> = {
   modpack: 'Модпак',
   world: 'Мир',
   launch: 'Запуск',
-  java: 'Java'
+  java: 'Java',
+  update: 'Обновление'
 }
 
 export function InstallProgress(): JSX.Element | null {

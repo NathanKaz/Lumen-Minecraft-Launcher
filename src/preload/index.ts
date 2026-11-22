@@ -68,6 +68,11 @@ const api: LauncherAPI = {
   setSkinModel: (id, model) => invoke(IPC.setSkinModel, id, model),
 
   checkUpdates: () => invoke(IPC.checkUpdates),
+  downloadUpdate: () => invoke(IPC.downloadUpdate),
+  installUpdate: (download) => invoke(IPC.installUpdate, download),
+  getLauncherInfo: () => invoke(IPC.getLauncherInfo),
+  openExternal: (url) => invoke(IPC.openExternal, url),
+  offlineUuid: (name) => invoke(IPC.offlineUuid, name),
   verifyProfile: (id, repair) => invoke(IPC.verifyProfile, id, repair),
 
   listBackups: (profileId) => invoke(IPC.listBackups, profileId),

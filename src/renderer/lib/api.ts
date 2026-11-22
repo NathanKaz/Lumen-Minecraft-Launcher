@@ -12,6 +12,7 @@ import type {
   ImportCandidate,
   JavaInfo,
   LauncherAPI,
+  LauncherInfo,
   LogFileContent,
   LogFileInfo,
   LogPayload,
@@ -30,10 +31,12 @@ import type {
   ToastPayload,
   UpdateInfo,
   UpdateAllResult,
+  UpdateDownload,
   VerifyReport,
   VersionManifest,
   WorldInfo
 } from '@shared/types'
+import { offlineUuid } from '@shared/uuid'
 
 declare global {
   interface Window {
@@ -323,7 +326,7 @@ function createMock(): LauncherAPI {
     const updated: AccountRecord = {
       ...target,
       name: clean,
-      uuid: `${clean.length.toString(16).padStart(2, '0')}000000-0000-4000-8000-000000000000`,
+      uuid: offlineUuid(clean),
       token: `${Date.now()}`
     }
     const next = { ...current, accounts: current.accounts.map((account) => (account.id === id ? updated : account)) }
@@ -341,7 +344,7 @@ function createMock(): LauncherAPI {
       const account: Account = {
         id: `account-${Date.now()}`,
         name: clean,
-        uuid: `${clean.length.toString(16).padStart(2, '0')}000000-0000-4000-8000-000000000000`,
+        uuid: offlineUuid(clean),
         token: 'mock',
         type: 'offline',
         createdAt: Date.now()
@@ -680,9 +683,39 @@ function createMock(): LauncherAPI {
     checkUpdates: async (): Promise<UpdateInfo> => ({
       currentVersion: APP_VERSION,
       latestVersion: APP_VERSION,
-      url: 'https://github.com/NathanKaz/Minecraft-launcher/releases/latest',
-      updateAvailable: false
+      url: 'https://github.com/NathanKaz/Lumen-Minecraft-Launcher/releases/latest',
+      updateAvailable: false,
+      asset: undefined
     }),
+    downloadUpdate: async (): Promise<UpdateDownload> => {
+      throw new Error(t('Демо-режим: скачивание обновлений недоступно.'))
+    },
+    installUpdate: async () => {
+      emit('toast', {
+        id: String(Date.now()),
+        type: 'info',
+        message: t('Демо-режим: установка обновлений недоступна.')
+      })
+    },
+    getLauncherInfo: async (): Promise<LauncherInfo> => ({
+      name: 'Lumen Launcher',
+      version: APP_VERSION,
+      license: 'MIT',
+      author: 'NathanKaz',
+      repository: 'https://github.com/NathanKaz/Lumen-Minecraft-Launcher',
+      homepage: 'https://github.com/NathanKaz/Lumen-Minecraft-Launcher',
+      electron: '—',
+      chrome: '—',
+      node: '—',
+      platform: 'browser',
+      arch: '—',
+      dataDir: '—',
+      packaged: false
+    }),
+    openExternal: async (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
+    offlineUuid: async (name) => offlineUuid(name.trim().slice(0, 16) || 'Steve'),
     verifyProfile: async (id, repair): Promise<VerifyReport> => {
       await mockProgress(t(repair ? 'Восстановление файлов' : 'Проверка файлов'), 'version')
       return { profileId: id, checked: 128, missing: [], invalid: [], ok: true }

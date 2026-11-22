@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { setLocale, t } from './lib/i18n'
 import { motion } from 'framer-motion'
-import { Check, Loader2, LogOut, Pencil, Plus, RefreshCw, Trash2, UserRound, Users, X } from 'lucide-react'
+import { Check, Fingerprint, Loader2, LogOut, Pencil, Plus, RefreshCw, Trash2, UserRound, Users, X } from 'lucide-react'
 import { api } from './lib/api'
 import { findProfile, useLauncher } from './store'
 import { Titlebar } from './components/Titlebar'
@@ -43,6 +43,7 @@ export default function App(): JSX.Element {
   const [accountOpen, setAccountOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [newAccountName, setNewAccountName] = useState('')
+  const [newAccountUuid, setNewAccountUuid] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [msaBusy, setMsaBusy] = useState(false)
@@ -59,6 +60,18 @@ export default function App(): JSX.Element {
   useEffect(() => {
     if (state && !state.settings.onboardingCompleted) setWizardOpen(true)
   }, [state, state?.settings.onboardingCompleted])
+
+  // Live UUID preview for the offline account being created.
+  useEffect(() => {
+    if (!accountOpen) return
+    let cancelled = false
+    void api.offlineUuid(newAccountName.trim() || 'Steve')
+      .then((uuid) => { if (!cancelled) setNewAccountUuid(uuid) })
+      .catch(() => { if (!cancelled) setNewAccountUuid('') })
+    return () => { cancelled = true }
+  }, [accountOpen, newAccountName])
+
+  const clientIdConfigured = Boolean(state?.settings.msaClientId?.trim())
 
   // Ctrl/Cmd+K opens the command palette from anywhere in the launcher.
   useEffect(() => {
@@ -93,22 +106,26 @@ export default function App(): JSX.Element {
     if (!name) return
     setPage('library')
     backToInstances()
-    await api.addAccount(name)
+    const next = await api.addAccount(name)
     setNewAccountName('')
     setRenamingId(null)
     await refresh()
-    pushToast('success', t('Профиль добавлен'))
+    pushToast('success', t('Профиль добавлен · UUID: {uuid}', { uuid: next.account.uuid }))
   }
 
   const loginWithMicrosoft = async () => {
     if (!state || msaBusy) return
+    if (!clientIdConfigured) {
+      pushToast('error', t('Сначала укажите Client ID приложения Azure в настройках лаунчера.'))
+      return
+    }
     setMsaBusy(true)
     setPage('library')
     backToInstances()
     try {
-      await api.loginMicrosoft()
+      const next = await api.loginMicrosoft()
       await refresh()
-      pushToast('success', t('Профиль Microsoft добавлен'))
+      pushToast('success', t('Профиль Microsoft добавлен · UUID: {uuid}', { uuid: next.account.uuid }))
     } finally {
       setMsaBusy(false)
     }
@@ -224,6 +241,13 @@ export default function App(): JSX.Element {
                       ? t('Лицензированный профиль Minecraft')
                       : t('Офлайн-профиль · без лицензии')}
                   </div>
+                  <div
+                    className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-slate-500"
+                    title={state.account.uuid}
+                  >
+                    <Fingerprint size={11} className="shrink-0 text-mint-400/70" />
+                    <span className="truncate">UUID: {state.account.uuid}</span>
+                  </div>
                 </div>
                 {state.account.type === 'microsoft' && (
                   <div className="flex shrink-0 gap-1">
@@ -322,6 +346,9 @@ export default function App(): JSX.Element {
                                     ? t('Microsoft-аккаунт')
                                     : t('Офлайн-аккаунт')}
                                 </div>
+                                <div className="max-w-[280px] truncate font-mono text-[10px] text-slate-600" title={account.uuid}>
+                                  {account.uuid}
+                                </div>
                               </div>
                             </button>
                             {account.type === 'offline' && (
@@ -361,6 +388,10 @@ export default function App(): JSX.Element {
                     <Plus size={15} /> {t('Добавить профиль')}
                   </Button>
                 </div>
+                <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] text-slate-600" title={newAccountUuid}>
+                  <Fingerprint size={11} className="shrink-0 text-mint-400/70" />
+                  <span className="truncate">{t('UUID: {uuid}', { uuid: newAccountUuid || '—' })}</span>
+                </div>
               </div>
 
               <div className="space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
@@ -368,25 +399,29 @@ export default function App(): JSX.Element {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
                       <MicrosoftMark /> {t('Вход через Microsoft')}
-                      <Badge tone="amber">{t('Скоро')}</Badge>
+                      <Badge tone={clientIdConfigured ? 'mint' : 'amber'}>
+                        {clientIdConfigured ? t('Настроен') : t('Нужен Client ID')}
+                      </Badge>
                     </div>
                     <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                      {t('Вход через Microsoft будет добавлен позже.')}
+                      {clientIdConfigured
+                        ? t('Client ID найден в настройках. Откроется браузер для входа в Microsoft.')
+                        : t('Укажите Client ID приложения Azure в настройках лаунчера, чтобы войти.')}
                     </div>
                   </div>
                   <Button
                     variant="primary"
-                    disabled
-                    title={t('Вход через Microsoft будет добавлен позже.')}
+                    disabled={!clientIdConfigured || msaBusy || gameBusy}
+                    title={clientIdConfigured ? t('Войти через Microsoft') : t('Сначала укажите Client ID приложения Azure в настройках лаунчера.')}
                     onClick={() => void loginWithMicrosoft()}
                   >
-                    <MicrosoftMark /> {t('Войти через Microsoft')}
+                    {msaBusy ? <Loader2 size={15} className="animate-spin" /> : <MicrosoftMark />} {t('Войти через Microsoft')}
                   </Button>
                 </div>
               </div>
 
               <p className="text-[11px] leading-relaxed text-slate-500">
-                {t('Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Вход через Microsoft будет добавлен позже.')}
+                {t('Офлайн-аккаунт подходит для одиночной игры и серверов без проверки лицензии. Для Microsoft-аккаунта нужен собственный Client ID приложения Azure.')}
               </p>
             </section>
           </div>

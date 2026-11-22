@@ -4,18 +4,13 @@ import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { clearDirNames, dirs, registerAccountDir, registerProfileDir, root, safeDirName } from './paths'
 import type { Account, AccountRecord, AppState, BuildGroup, MicrosoftCredentials, Profile, Settings } from '@shared/types'
+import { offlineUuid } from '@shared/uuid'
 
 const statePath = path.join(root, 'launcher-state.json')
 const currentSchemaVersion = 3
 
 function cleanName(name: string): string {
   return name.trim().slice(0, 16) || 'Steve'
-}
-
-function offlineUuid(name: string): string {
-  const hash = crypto.createHash('md5').update(`OfflinePlayer:${name}`, 'utf8').digest('hex')
-  const hex = `${hash.slice(0, 12)}${'3'}${hash.slice(13, 16)}${'8'}${hash.slice(17, 20)}${hash.slice(20, 32)}`
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 function makeAccount(name: string): Account {
