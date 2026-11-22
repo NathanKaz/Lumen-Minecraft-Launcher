@@ -6,7 +6,7 @@ import { downloadMany, type DownloadTask } from './downloader'
 import { fetchJson } from './http'
 import { emitProgress, emitToast } from './events'
 import { getState } from './store'
-import type { ModpackSort, ModrinthProject, ModrinthProjectDetails } from '@shared/types'
+import type { ModVersionInfo, ModpackSort, ModrinthProject, ModrinthProjectDetails } from '@shared/types'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -36,9 +36,8 @@ interface ModrinthVersion {
 }
 
 /**
- * Search the whole catalogue by default. Version/loader facets are applied only when the
- * user explicitly enables them in the UI, so builds never show an empty catalogue just
- * because a mod has no file for one exact Minecraft patch version.
+ * Version/loader facets are applied when requested by the UI. The mod catalog enables the
+ * version facet by default and offers an opt-out for builds on uncommon Minecraft versions.
  */
 export async function searchMods(
   query: string,
@@ -182,6 +181,13 @@ export async function installModrinthProject(
   })
   await downloadMany(tasks, 'mod', msg('Мод {name}', { name: version.name }), 2, opts)
 
+  // Remember the source of every installed file so the catalog can mark it as
+  // installed and offer an exact-version uninstall. Best effort: a read-only
+  // mods folder must not fail an otherwise successful download.
+  for (const task of tasks) {
+    await fs.writeJson(`${task.dest}.lumen.json`, { projectId, versionId: version.id }).catch(() => undefined)
+  }
+
   for (const dependency of version.dependencies) {
     if (dependency.dependency_type !== 'required') continue
     if (!dependency.project_id && !dependency.version_id) continue
@@ -195,8 +201,13 @@ export async function installModrinthProject(
   }
 }
 
-export async function installMod(profileId: string, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
-  await installModrinthProject(profileId, projectId, undefined, new Set<string>(), opts)
+export async function installMod(
+  profileId: string,
+  projectId: string,
+  versionId?: string,
+  opts?: { signal?: AbortSignal; taskId?: string }
+): Promise<void> {
+  await installModrinthProject(profileId, projectId, versionId, new Set<string>(), opts)
   emitToast('success', msg("Мод установлен в выбранную сборку"))
 }
 
@@ -204,7 +215,7 @@ export async function getModVersionsForMrpack(projectId: string) {
   return projectVersions(projectId)
 }
 
-/** All published versions of a project, used by the worlds installer. */
-export async function getProjectVersions(projectId: string) {
+/** All published versions of a project, used by the mod/world version selectors. */
+export async function getProjectVersions(projectId: string): Promise<ModVersionInfo[]> {
   return projectVersions(projectId)
 }

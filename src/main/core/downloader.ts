@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'fs-extra'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { emitProgress } from './events'
+import { emitProgress, emitProgressDone } from './events'
 import { msg } from './i18n'
 import { request, withRetry } from './net'
 import { updateTaskProgress } from './tasks'
@@ -193,6 +193,9 @@ export async function downloadMany(
   await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()))
   if (abortedError) throw abortedError
   report(true)
+  // Downloads started outside the task queue have no task owner to clear the
+  // global progress state, so signal completion here as well.
+  if (!opts?.taskId) emitProgressDone()
 }
 
 export async function downloadToFile(

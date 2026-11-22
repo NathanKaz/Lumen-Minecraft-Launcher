@@ -139,11 +139,20 @@ async function readModEntries(profileId: string): Promise<ModEntry[]> {
     const stat = await fs.stat(file).catch(() => null)
     if (!stat?.isFile()) continue
     const cleanName = fileName.replace(/\.(jar|zip)$/i, '').replace(/-\d[\d.]*.*$/, '')
+    let source: { projectId?: string; versionId?: string } = {}
+    try {
+      const sidecar = await fs.readJson(path.join(dir, `${fileName}.lumen.json`))
+      if (typeof sidecar.projectId === 'string') source.projectId = sidecar.projectId
+      if (typeof sidecar.versionId === 'string') source.versionId = sidecar.versionId
+    } catch {
+      // Locally added mods have no catalog metadata.
+    }
     mods.push({
       fileName,
       ...parseMetadata(file, cleanName),
       enabled,
-      size: stat.size
+      size: stat.size,
+      ...source
     })
   }
   return mods.sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.name.localeCompare(b.name))
@@ -376,6 +385,8 @@ export async function deleteMod(profileId: string, fileName: string): Promise<vo
     const file = path.join(dir, candidate)
     if (await fs.pathExists(file)) await fs.remove(file)
   }
+  const sidecar = path.join(dir, `${fileName}.lumen.json`)
+  if (await fs.pathExists(sidecar)) await fs.remove(sidecar)
 }
 
 export async function copyModFile(profileId: string, source: string): Promise<void> {

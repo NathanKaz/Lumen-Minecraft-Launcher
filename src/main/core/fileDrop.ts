@@ -18,7 +18,8 @@ export async function importDroppedFile(profileId: string, filePath: string): Pr
     return
   }
   if (extension === '.mrpack') {
-    await installModpackFromPath(profileId, filePath)
+    // A modpack is a self-contained build: always create a separate instance.
+    await installModpackFromPath(filePath)
     return
   }
   if (extension === '.mcworld') {

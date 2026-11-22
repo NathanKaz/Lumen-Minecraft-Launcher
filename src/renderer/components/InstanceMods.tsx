@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatSize, t } from '../lib/i18n'
 import { motion } from 'framer-motion'
-import { AlertTriangle, ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Modal, Spinner, Toggle } from './ui'
@@ -25,7 +25,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const profile = state?.profiles.find((item) => item.id === profileId) ?? null
   const [tab, setTab] = useState<'catalog' | 'installed'>('catalog')
   const [query, setQuery] = useState('')
-  const [matchVersion, setMatchVersion] = useState(false)
+  const [matchVersion, setMatchVersion] = useState(true)
   const [matchLoader, setMatchLoader] = useState(false)
   const [projects, setProjects] = useState<ModrinthProject[]>([])
   const [mods, setMods] = useState<ModInfo[]>([])
@@ -48,6 +48,10 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
 
   const versionFilter = matchVersion ? profile?.versionId : undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
+  const installedProjects = useMemo(
+    () => new Set(mods.map((mod) => mod.projectId).filter((id): id is string => Boolean(id))),
+    [mods]
+  )
 
   const loadMods = async () => {
     const result = await api.listMods(profileId)
@@ -122,15 +126,29 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     }
   }
 
-  const install = async (projectId: string) => {
+  const install = async (projectId: string, versionId?: string) => {
+    if (installing || installedProjects.has(projectId)) return
     setInstalling(projectId)
     setBusy(true)
     try {
-      await api.installMod(profileId, projectId)
+      await api.installMod(profileId, projectId, versionId)
       await refreshMods()
       pushToast('success', t("Мод добавлен в сборку"))
     } finally {
       setInstalling(null)
+      setBusy(false)
+    }
+  }
+
+  const removeProject = async (projectId: string) => {
+    const installed = mods.filter((mod) => mod.projectId === projectId)
+    if (!installed.length) return
+    setBusy(true)
+    try {
+      for (const mod of installed) await api.deleteMod(profileId, mod.fileName)
+      await refreshMods()
+      pushToast('success', t('Мод удалён из сборки'))
+    } finally {
       setBusy(false)
     }
   }
@@ -380,15 +398,17 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
       </div>
 
       {tab === 'catalog' ? (
-        loading && !projects.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1">
+            {loading && !projects.length ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <div key={index} className="panel shimmer h-44 animate-shimmer" />
             ))}
           </div>
-        ) : projects.length ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            ) : projects.length ? (
+              <>
+                <div className={`grid gap-4 sm:grid-cols-2 ${selectedProjectId ? 'xl:grid-cols-2' : 'xl:grid-cols-3'}`}>
               {projects.map((project, index) => (
                 <motion.div
                   key={project.project_id}
@@ -422,18 +442,37 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                     {project.categories.slice(0, 3).map((category) => <Badge key={category}>{category}</Badge>)}
                     {project.versions?.slice(0, 2).map((version) => <Badge key={version} tone="amber">{version}</Badge>)}
                   </div>
-                  <Button
-                    variant="primary"
-                    className="mt-4 w-full"
-                    disabled={busy}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void install(project.project_id)
-                    }}
-                  >
-                    {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                    {installing === project.project_id ? t("Установка...") : t("Установить")}
-                  </Button>
+                  {installedProjects.has(project.project_id) ? (
+                    <div className="mt-4 flex gap-2">
+                      <Button variant="primary" className="flex-1" disabled title={t('Мод уже установлен в эту сборку')}>
+                        <Check size={15} /> {t('Установлен')}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="flex-1"
+                        disabled={busy}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void removeProject(project.project_id)
+                        }}
+                      >
+                        <Trash2 size={15} /> {t('Удалить')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      className="mt-4 w-full"
+                      disabled={busy || installing !== null}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void install(project.project_id)
+                      }}
+                    >
+                      {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                      {installing === project.project_id ? t("Установка...") : t("Установить")}
+                    </Button>
+                  )}
                 </motion.div>
               ))}
             </div>
@@ -443,17 +482,35 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                 <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
               )}
               <span className="text-[10px] text-slate-600">
-                {t('Показано {count} · фильтры версии и загрузчика выключены по умолчанию', { count: projects.length })}
+                {matchVersion
+                  ? t('Показано {count} · только для Minecraft {version}', { count: projects.length, version: profile?.versionId ?? '—' })
+                  : t('Показано {count} · все версии Minecraft', { count: projects.length })}
               </span>
             </div>
-          </>
-        ) : (
-          <EmptyState
-            icon={<Search size={22} />}
-            title={t("Ничего не найдено")}
-            description={t("Попробуйте другой запрос или отключите фильтры версии и загрузчика.")}
+              </>
+            ) : (
+              <EmptyState
+                icon={<Search size={22} />}
+                title={t("Ничего не найдено")}
+                description={t("Попробуйте другой запрос или отключите фильтр версии.")}
+              />
+            )}
+          </div>
+
+          <ProjectDetailPanel
+            projectId={selectedProjectId}
+            kind="mod"
+            onClose={() => setSelectedProjectId(null)}
+            action={selectedProjectId ? {
+              label: t("Установить в сборку"),
+              onClick: (versionId) => void install(selectedProjectId, versionId),
+              disabled: busy,
+              loading: installing === selectedProjectId,
+              installed: installedProjects.has(selectedProjectId),
+              onDelete: () => void removeProject(selectedProjectId)
+            } : undefined}
           />
-        )
+        </div>
       ) : (
         <div className="space-y-4">
           <div className="panel flex flex-wrap items-center gap-2 p-3">
@@ -583,18 +640,6 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
           )}
         </div>
       )}
-
-      <ProjectDetailPanel
-        projectId={selectedProjectId}
-        kind="mod"
-        onClose={() => setSelectedProjectId(null)}
-        action={selectedProjectId ? {
-          label: t("Установить в сборку"),
-          onClick: () => void install(selectedProjectId),
-          disabled: busy,
-          loading: installing === selectedProjectId
-        } : undefined}
-      />
 
       <Modal
         open={showUpdatePreview}

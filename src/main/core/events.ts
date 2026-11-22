@@ -17,6 +17,11 @@ export function emitProgress(payload: ProgressPayload): void {
   send(EVENTS.progress, payload)
 }
 
+/** Signals that no more progress for the current operation will be reported. */
+export function emitProgressDone(): void {
+  send(EVENTS.progressDone, undefined)
+}
+
 export function emitLog(level: LogPayload['level'], message: string): void {
   const entry: LogPayload = { level, message, time: Date.now() }
   logs.push(entry)

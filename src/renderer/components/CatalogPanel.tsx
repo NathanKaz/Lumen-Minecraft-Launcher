@@ -156,15 +156,17 @@ export function CatalogPanel({
         )}
       </div>
 
-      {loading && !projects.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          {loading && !projects.length ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="panel shimmer h-48 animate-shimmer" />
           ))}
         </div>
-      ) : projects.length ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          ) : projects.length ? (
+            <>
+              <div className={`grid gap-4 sm:grid-cols-2 ${selectedId ? 'xl:grid-cols-2' : 'xl:grid-cols-3'}`}>
             {projects.map((project, index) => (
               <motion.div
                 key={project.project_id}
@@ -212,32 +214,34 @@ export function CatalogPanel({
                 </Button>
               </motion.div>
             ))}
-          </div>
-          <div className="mt-5 flex flex-col items-center gap-2">
-            {loadingMore && <Spinner size={18} />}
-            {hasMore && !loadingMore && (
-              <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
-            )}
-          </div>
-        </>
-      ) : (
-        <EmptyState icon={<Search size={22} />} title={t("Ничего не найдено")} description={t("Попробуйте другой запрос или отключите фильтры.")} />
-      )}
+            </div>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {loadingMore && <Spinner size={18} />}
+              {hasMore && !loadingMore && (
+                <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
+              )}
+            </div>
+            </>
+          ) : (
+            <EmptyState icon={<Search size={22} />} title={t("Ничего не найдено")} description={t("Попробуйте другой запрос или отключите фильтры.")} />
+          )}
+        </div>
 
-      <ProjectDetailPanel
-        projectId={selectedId}
-        kind={detailKind}
-        onClose={() => setSelectedId(null)}
-        action={selectedId ? {
-          label: t('Установить в «{name}»', { name: profile?.name ?? '—' }),
-          onClick: () => {
-            const project = projects.find((item) => item.project_id === selectedId)
-            if (project) void install(project.project_id, project.title)
-          },
-          disabled: installing !== null,
-          loading: installing === selectedId
-        } : undefined}
-      />
+        <ProjectDetailPanel
+          projectId={selectedId}
+          kind={detailKind}
+          onClose={() => setSelectedId(null)}
+          action={selectedId ? {
+            label: t('Установить в «{name}»', { name: profile?.name ?? '—' }),
+            onClick: () => {
+              const project = projects.find((item) => item.project_id === selectedId)
+              if (project) void install(project.project_id, project.title)
+            },
+            disabled: installing !== null,
+            loading: installing === selectedId
+          } : undefined}
+        />
+      </div>
     </div>
   )
 }

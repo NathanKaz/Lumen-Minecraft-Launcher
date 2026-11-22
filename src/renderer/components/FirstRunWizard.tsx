@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, ProgressBar, Spinner } from './ui'
 import type { JavaInfo, Profile, Settings } from '@shared/types'
+import { defaultProfileName } from '@shared/naming'
 
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -135,7 +136,7 @@ export function FirstRunWizard({ open, onClose }: { open: boolean; onClose: () =
         : `wizard-${Date.now()}`
       const profile: Profile = {
         id,
-        name: instanceName.trim() || t('Мой Minecraft'),
+        name: instanceName.trim() || defaultProfileName(versions?.latest.release || '1.20.1', 'vanilla'),
         versionId: versions?.latest.release || '1.20.1',
         loader: 'vanilla',
         createdAt: Date.now(),

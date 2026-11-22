@@ -1,4 +1,4 @@
-import { emitProgress, emitTasks, uid } from './events'
+import { emitProgress, emitProgressDone, emitTasks, uid } from './events'
 import type { ProgressPayload, ProgressPhase, TaskInfo, TaskStatus } from '@shared/types'
 
 interface ManagedTask {
@@ -73,6 +73,8 @@ async function execute(task: ManagedTask): Promise<void> {
     task.controller = null
     activeCount--
     pump()
+    // Task progress is transient UI: hide it once nothing else is downloading.
+    if (activeCount === 0 && queue.length === 0) emitProgressDone()
   }
 }
 

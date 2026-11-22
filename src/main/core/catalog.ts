@@ -114,16 +114,15 @@ async function downloadPack(
   }
 }
 
-/** Installs a Modrinth project into the given instance according to its type. */
+/** Installs a Modrinth project: modpacks become new instances, other content goes into the given one. */
 export async function installCatalogProject(profileId: string, kind: CatalogKind, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
-  const profile = getState().profiles.find((entry) => entry.id === profileId)
-  if (!profile) throw new Error(msg('Сборка не найдена'))
-
   if (kind === 'modpack') {
-    await installModpackFromModrinth(profileId, projectId, opts)
-    emitToast('success', msg('Модпак установлен'))
+    await installModpackFromModrinth(projectId, opts)
     return
   }
+
+  const profile = getState().profiles.find((entry) => entry.id === profileId)
+  if (!profile) throw new Error(msg('Сборка не найдена'))
 
   if (kind === 'datapack') {
     await downloadPack(profileId, projectId, kind, path.join(instanceDir(profileId), 'datapacks'), msg('Набор данных'), opts)
