@@ -14,7 +14,7 @@ import type {
 export type Page = 'home' | 'library' | 'screenshots' | 'skins' | 'modpacks' | 'shaders' | 'logs' | 'tasks' | 'settings'
 
 /** Sections of the dedicated instance page shown in its own sidebar. */
-export type ProfileSection = 'overview' | 'mods' | 'worlds' | 'screenshots' | 'tools' | 'settings'
+export type ProfileSection = 'overview' | 'mods' | 'shaders' | 'worlds' | 'screenshots' | 'tools' | 'settings'
 
 export interface NotificationRecord extends ToastPayload {
   time: number

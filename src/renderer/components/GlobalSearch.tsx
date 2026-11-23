@@ -175,6 +175,7 @@ export function GlobalSearch(): JSX.Element {
       const sections: Array<{ id: ProfileSection; label: string; keywords: string; icon: LucideIcon }> = [
         { id: 'overview', label: t('Обзор'), keywords: 'overview dashboard', icon: LayoutDashboard },
         { id: 'mods', label: t('Моды'), keywords: 'mods jars', icon: Puzzle },
+        { id: 'shaders', label: t('Шейдеры'), keywords: 'shaders shaderpacks graphics', icon: Sparkles },
         { id: 'worlds', label: t('Миры'), keywords: 'worlds saves', icon: Map },
         { id: 'screenshots', label: t('Скриншоты'), keywords: 'screenshots f2', icon: ImageIcon },
         { id: 'tools', label: t('Инструменты'), keywords: 'tools backups diagnostics', icon: Wrench },

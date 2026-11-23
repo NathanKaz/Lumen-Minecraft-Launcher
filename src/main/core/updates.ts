@@ -1,3 +1,4 @@
+import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { app, shell } from 'electron'
@@ -215,6 +216,8 @@ export async function getLauncherInfo(): Promise<LauncherInfo> {
     platform: process.platform,
     arch: process.arch,
     dataDir: dirs.root,
+    totalMemoryMb: Math.round(os.totalmem() / 1024 / 1024),
+    freeMemoryMb: Math.round(os.freemem() / 1024 / 1024),
     packaged: app.isPackaged
   }
 }

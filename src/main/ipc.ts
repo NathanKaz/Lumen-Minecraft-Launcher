@@ -61,6 +61,7 @@ import {
   openExternal
 } from './core/updates'
 import { offlineUuid } from '@shared/uuid'
+import { checkCompatibility } from './core/compatibility'
 import { repairProfile, verifyProfile } from './core/verify'
 import { backupAllProfiles, createBackup, deleteBackup, listBackups, restoreBackup } from './core/backups'
 import { exportProfiles, importProfiles } from './core/profileTransfer'
@@ -319,6 +320,7 @@ export function registerIpc(): void {
   handle(IPC.exportModList, (profileId: string) => exportModList(profileId))
   handle(IPC.importModList, (profileId: string) => importModList(profileId))
   handle(IPC.analyzeMods, (profileId: string) => analyzeMods(profileId))
+  handle(IPC.checkCompatibility, (profileId: string) => checkCompatibility(profileId))
 
   // Local worlds
   handle(IPC.listWorlds, (profileId: string) => listWorlds(profileId))
@@ -331,11 +333,11 @@ export function registerIpc(): void {
 
   // Modrinth catalogs
   handle(IPC.searchCatalog, (query: Parameters<typeof searchCatalog>[0]) => searchCatalog(query))
-  handle(IPC.installCatalogProject, (profileId: string, kind: Parameters<typeof installCatalogProject>[1], projectId: string) =>
+  handle(IPC.installCatalogProject, (profileId: string, kind: Parameters<typeof installCatalogProject>[1], projectId: string, versionId?: string) =>
     runTaskAndWait({
       label: msg('Установка {name}', { name: kind }),
       phase: kind === 'modpack' ? 'modpack' : 'mod',
-      run: ({ signal, taskId }) => installCatalogProject(profileId, kind, projectId, { signal, taskId })
+      run: ({ signal, taskId }) => installCatalogProject(profileId, kind, projectId, { signal, taskId }, versionId)
     })
   )
 

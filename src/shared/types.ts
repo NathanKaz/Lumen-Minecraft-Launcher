@@ -9,6 +9,7 @@ export type HotkeyAction =
   | 'home'
   | 'library'
   | 'mods'
+  | 'shaders'
   | 'settings'
   | 'backupAll'
   | 'toggleTheme'
@@ -392,6 +393,10 @@ export interface LauncherInfo {
   platform: string
   arch: string
   dataDir: string
+  /** Physical RAM available to the OS, in MiB. */
+  totalMemoryMb: number
+  /** Currently unused RAM, in MiB. */
+  freeMemoryMb: number
   packaged: boolean
 }
 
@@ -401,6 +406,24 @@ export interface VerifyReport {
   missing: string[]
   invalid: string[]
   ok: boolean
+}
+
+export type CompatibilitySeverity = 'warning' | 'error'
+
+export interface CompatibilityIssue {
+  id: string
+  severity: CompatibilitySeverity
+  /** Already localized by the main process. */
+  message: string
+}
+
+export interface CompatibilityReport {
+  profileId: string
+  checkedAt: number
+  ok: boolean
+  issues: CompatibilityIssue[]
+  /** Already localized by the main process. */
+  summary: string
 }
 
 export interface BackupInfo {
@@ -629,6 +652,8 @@ export interface LauncherAPI {
   /** Deterministic offline-player UUID for the given nickname. */
   offlineUuid(name: string): Promise<string>
   verifyProfile(id: string, repair?: boolean): Promise<VerifyReport>
+  /** Read-only check of mods, shaders, Java and memory for one instance. */
+  checkCompatibility(profileId: string): Promise<CompatibilityReport>
 
   listBackups(profileId: string): Promise<BackupInfo[]>
   createBackup(profileId: string): Promise<BackupInfo>
@@ -653,7 +678,7 @@ export interface LauncherAPI {
 
   // Modrinth catalogs (modpacks, datapacks, resource packs, shaders)
   searchCatalog(query: CatalogQuery): Promise<ModrinthProject[]>
-  installCatalogProject(profileId: string, kind: CatalogKind, projectId: string): Promise<void>
+  installCatalogProject(profileId: string, kind: CatalogKind, projectId: string, versionId?: string): Promise<void>
 
   // Bulk mod management
   setModsEnabled(profileId: string, fileNames: string[], enabled: boolean): Promise<void>

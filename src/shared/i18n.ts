@@ -1319,7 +1319,44 @@ const en: Record<string, string> = {
   'Вставьте ссылку на страницу модпака Modrinth (/modpack/...) или прямую ссылку на файл .mrpack':
     'Paste a Modrinth modpack page URL (/modpack/...) or a direct .mrpack file URL',
   'Установить модпак по ссылке': 'Install modpack from URL',
-  'Модпак установлен по ссылке': 'Modpack installed from URL'
+  'Модпак установлен по ссылке': 'Modpack installed from URL',
+
+  // Per-instance shaders, shader filters and version selection
+  'Все версии': 'All versions',
+  'Реализм': 'Realistic',
+  'Полуреализм': 'Semi-realistic',
+  'Iris': 'Iris',
+  'OptiFine': 'OptiFine',
+  'Ваниль': 'Vanilla-like',
+  'Тени': 'Shadows',
+  'Встроенное видео': 'Embedded video',
+  'Открыть страницу шейдеров': 'Open the shaders page',
+
+  // Compatibility check
+  'Проверка совместимости': 'Compatibility check',
+  'Проверить совместимость': 'Check compatibility',
+  'Проверяет моды, загрузчик шейдеров, Java и объём памяти для этой сборки.':
+    'Checks mods, the shader loader, Java and the memory allocation for this instance.',
+  'Проблем не найдено': 'No problems found',
+  'Найдено замечаний: {count}': '{count} issues found',
+  'Для Minecraft {version} нужна Java {required} или новее. Найдена: {found}.':
+    'Minecraft {version} requires Java {required} or newer. Found: {found}.',
+  'Шейдерпаки установлены, но загрузчик шейдеров (Iris, Oculus или OptiFine) не найден.':
+    'Shader packs are installed, but no shader loader (Iris, Oculus or OptiFine) was found.',
+  'Шейдерпаки установлены, но загрузчик шейдеров ({names}) отключён.':
+    'Shader packs are installed, but the shader loader ({names}) is disabled.',
+  'OptiFine несовместим с Fabric: используйте Iris.': 'OptiFine is incompatible with Fabric: use Iris instead.',
+  'Iris не поддерживает {loader}: для шейдеров нужен Oculus.':
+    'Iris does not support {loader}: Oculus is required for shaders.',
+  'Oculus рассчитан на Forge: для Fabric используйте Iris.': 'Oculus targets Forge: use Iris for Fabric.',
+
+  // Memory allocation warnings
+  'Сборке выделено {allocated} МБ из {total} МБ ОЗУ. Слишком большой объём может замедлить игру и систему.':
+    'The instance is allocated {allocated} MB out of {total} MB of RAM. Too much can slow down the game and the system.',
+  'Всего ОЗУ: {total} МБ · свободно: {free} МБ': 'Total RAM: {total} MB · free: {free} MB',
+  'Слишком много памяти для этой системы': 'Too much memory for this system',
+  'Сборкам выделено до {allocated} МБ из {total} МБ ОЗУ. Оставьте 2–4 ГБ системе: при нехватке памяти игра может тормозить или падать.':
+    'Instances are allocated up to {allocated} MB out of {total} MB of RAM. Leave 2–4 GB for the system: running out of memory can cause lag or crashes.'
 }
 
 export function translate(key: string, locale: Locale, params?: TranslateParams): string {

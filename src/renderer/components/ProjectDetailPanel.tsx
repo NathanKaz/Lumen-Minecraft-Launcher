@@ -62,11 +62,11 @@ export function ProjectDetailPanel({
     return () => { cancelled = true }
   }, [projectId])
 
-  // Mod versions are only needed for the mod catalog's version picker.
+  // Exact versions are offered for mods and shader packs (both are installable files).
   useEffect(() => {
     setVersions([])
     setSelectedVersion('')
-    if (!projectId || kind !== 'mod') return
+    if (!projectId || (kind !== 'mod' && kind !== 'shader')) return
     let cancelled = false
     setVersionsLoading(true)
     void api.getProjectVersions(projectId).then((result) => {
@@ -156,10 +156,10 @@ export function ProjectDetailPanel({
 
                 {action && (
                   <div className="space-y-3">
-                    {kind === 'mod' && versions.length > 0 && (
+                    {(kind === 'mod' || kind === 'shader') && versions.length > 0 && (
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400">
-                          {t('Версия мода')}
+                          {t(kind === 'shader' ? 'Версия шейдера' : 'Версия мода')}
                           {versionsLoading && <Spinner size={12} />}
                         </div>
                         <Select

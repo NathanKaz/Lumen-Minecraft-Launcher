@@ -126,6 +126,10 @@ export default function App(): JSX.Element {
       else if (action === 'launchLast') void launchLast()
       else if (action === 'stopGame') void api.stopGame()
       else if (action === 'home' || action === 'library' || action === 'settings') setPage(action)
+      else if (action === 'shaders') {
+        backToInstances()
+        setPage('shaders')
+      }
       else if (action === 'mods') {
         const targetProfile = selectedProfile(state)
         if (targetProfile) void openProfile(targetProfile.id).then(() => setProfileSection('mods'))
@@ -143,7 +147,7 @@ export default function App(): JSX.Element {
   }, [
     hotkeys, state, wizardOpen, accountOpen, shortcutsOpen, globalSearchOpen,
     setGlobalSearchOpen, setShortcutsOpen, setPage, launchLast, openProfile,
-    setProfileSection, pushToast, refresh
+    backToInstances, setProfileSection, pushToast, refresh
   ])
 
   const switchAccount = async (id: string) => {

@@ -65,7 +65,10 @@ export async function searchCatalog(query: CatalogQuery): Promise<ModrinthProjec
   }
 }
 
-async function latestVersion(projectId: string): Promise<CatalogVersion | undefined> {
+async function latestVersion(projectId: string, versionId?: string): Promise<CatalogVersion | undefined> {
+  if (versionId) {
+    return fetchJson<CatalogVersion>(`${API}/version/${encodeURIComponent(versionId)}`)
+  }
   const versions = await fetchJson<CatalogVersion[]>(`${API}/project/${encodeURIComponent(projectId)}/version`)
   return versions.find((version) => version.files.length) ?? versions[0]
 }
@@ -83,9 +86,10 @@ async function downloadPack(
   kind: CatalogKind,
   targetDir: string,
   label: string,
-  opts?: { signal?: AbortSignal; taskId?: string }
+  opts?: { signal?: AbortSignal; taskId?: string },
+  versionId?: string
 ): Promise<void> {
-  const version = await latestVersion(projectId)
+  const version = await latestVersion(projectId, versionId)
   const file = pickFile(version)
   if (!file) throw new Error(msg('У проекта нет файла для установки'))
 
@@ -115,7 +119,13 @@ async function downloadPack(
 }
 
 /** Installs a Modrinth project: modpacks become new instances, other content goes into the given one. */
-export async function installCatalogProject(profileId: string, kind: CatalogKind, projectId: string, opts?: { signal?: AbortSignal; taskId?: string }): Promise<void> {
+export async function installCatalogProject(
+  profileId: string,
+  kind: CatalogKind,
+  projectId: string,
+  opts?: { signal?: AbortSignal; taskId?: string },
+  versionId?: string
+): Promise<void> {
   if (kind === 'modpack') {
     await installModpackFromModrinth(projectId, opts)
     return
@@ -125,12 +135,12 @@ export async function installCatalogProject(profileId: string, kind: CatalogKind
   if (!profile) throw new Error(msg('Сборка не найдена'))
 
   if (kind === 'datapack') {
-    await downloadPack(profileId, projectId, kind, path.join(instanceDir(profileId), 'datapacks'), msg('Набор данных'), opts)
+    await downloadPack(profileId, projectId, kind, path.join(instanceDir(profileId), 'datapacks'), msg('Набор данных'), opts, versionId)
     emitToast('success', msg('Набор данных установлен'))
     return
   }
 
   const dir = packsDir(profileId, kind === 'resourcepack' ? 'resource' : 'shader')
-  await downloadPack(profileId, projectId, kind, dir, msg(kind === 'resourcepack' ? 'Набор ресурсов' : 'Шейдеры'), opts)
+  await downloadPack(profileId, projectId, kind, dir, msg(kind === 'resourcepack' ? 'Набор ресурсов' : 'Шейдеры'), opts, versionId)
   emitToast('success', msg(kind === 'resourcepack' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен'))
 }

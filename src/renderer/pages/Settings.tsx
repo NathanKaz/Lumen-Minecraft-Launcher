@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
 import {
-  CheckCircle2, Clock, Coffee, Download, ExternalLink, FileDown, FileUp, FolderOpen, Github,
+  AlertTriangle, CheckCircle2, Clock, Coffee, Download, ExternalLink, FileDown, FileUp, FolderOpen, Github,
   HelpCircle, Info, KeyRound, Keyboard, Palette, RefreshCw, Search, Terminal, Upload, XCircle
 } from 'lucide-react'
 import {
@@ -83,6 +83,12 @@ export function Settings(): JSX.Element {
   const settings = state.settings
   const uiScale = uiScaleDraft ?? settings.accessibility?.uiScale ?? 1
   const scheduled: ScheduledBackupSettings = settings.scheduledBackup ?? { enabled: false, intervalHours: 6, keepCount: 10 }
+  const totalMemoryMb = launcherInfo?.totalMemoryMb
+  const freeMemoryMb = launcherInfo?.freeMemoryMb
+  const maxAllocatedMb = Math.max(settings.memory, ...state.profiles.map((profile) => profile.memory ?? settings.memory))
+  const memoryRatio = totalMemoryMb ? maxAllocatedMb / totalMemoryMb : 0
+  const memoryCritical = memoryRatio > 0.75
+  const memoryWarning = !memoryCritical && memoryRatio > 0.6
 
   // Search aliases are not user-visible, so English terms stay literal here.
   const normalizedSettingsQuery = settingsQuery.trim().toLowerCase()
@@ -303,6 +309,31 @@ export function Settings(): JSX.Element {
                 className="w-full"
               />
               <div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>{t("1 ГБ")}</span><span>{t("16 ГБ")}</span></div>
+              {totalMemoryMb ? (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {t('Всего ОЗУ: {total} МБ · свободно: {free} МБ', {
+                    total: totalMemoryMb,
+                    free: freeMemoryMb ?? '—'
+                  })}
+                </p>
+              ) : null}
+              {(memoryWarning || memoryCritical) && totalMemoryMb ? (
+                <div className={`mt-3 rounded-xl border p-3 text-[11px] leading-relaxed ${
+                  memoryCritical
+                    ? 'border-rose-400/30 bg-rose-400/[0.06] text-rose-200'
+                    : 'border-amber-400/30 bg-amber-400/[0.06] text-amber-200'
+                }`}>
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertTriangle size={14} /> {t('Слишком много памяти для этой системы')}
+                  </div>
+                  <p className="mt-1">
+                    {t('Сборкам выделено до {allocated} МБ из {total} МБ ОЗУ. Оставьте 2–4 ГБ системе: при нехватке памяти игра может тормозить или падать.', {
+                      allocated: maxAllocatedMb,
+                      total: totalMemoryMb
+                    })}
+                  </p>
+                </div>
+              ) : null}
               <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
                 {t('Используется всеми сборками, у которых нет своего значения. Свою память можно задать в настройках сборки{extra}.', {
                   extra: state.profiles.some((profile) => profile.memory !== undefined)

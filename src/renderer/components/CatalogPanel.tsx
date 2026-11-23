@@ -4,11 +4,23 @@ import { ChevronDown, Download, Layers, Loader2, Package, Search, SlidersHorizon
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, EmptyState, Spinner } from './ui'
+import { Badge, Button, EmptyState, Select, Spinner } from './ui'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
 import type { CatalogKind, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 18
+
+/** Real Modrinth shader facets (including Iris/OptiFine, which are not in the public tag list). */
+const SHADER_CATEGORIES: Array<{ id: string; label: string }> = [
+  { id: '', label: 'Все' },
+  { id: 'realistic', label: 'Реализм' },
+  { id: 'semi-realistic', label: 'Полуреализм' },
+  { id: 'potato', label: 'Производительность' },
+  { id: 'iris', label: 'Iris' },
+  { id: 'optifine', label: 'OptiFine' },
+  { id: 'vanilla-like', label: 'Ваниль' },
+  { id: 'shadows', label: 'Тени' }
+]
 
 const ICONS: Record<CatalogKind, typeof Package> = {
   modpack: Package,
@@ -22,15 +34,17 @@ export function CatalogPanel({
   kind,
   profileId,
   category,
-  title
+  title,
+  onInstalled
 }: {
   kind: CatalogKind
   profileId: string
   /** Fixed Modrinth category facet, e.g. worldgen or adventure. */
   category?: string
   title?: string
+  onInstalled?: () => void
 }): JSX.Element {
-  const { state, pushToast } = useLauncher()
+  const { state, versions, pushToast } = useLauncher()
   const profile = state?.profiles.find((item) => item.id === profileId)
   const [query, setQuery] = useState('')
   const [matchVersion, setMatchVersion] = useState(false)
@@ -42,6 +56,16 @@ export function CatalogPanel({
   const [hasMore, setHasMore] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState(category ?? '')
+  const [gameVersion, setGameVersion] = useState(profile?.versionId ?? '')
+
+  const selectedCategory = activeCategory || category || undefined
+  const effectiveVersion = kind === 'shader'
+    ? gameVersion || undefined
+    : matchVersion ? profile?.versionId : undefined
+
+  useEffect(() => { setActiveCategory(category ?? '') }, [category])
+  useEffect(() => { setGameVersion(profile?.versionId ?? '') }, [profile?.versionId])
 
   useEffect(() => {
     let cancelled = false
@@ -50,8 +74,8 @@ export function CatalogPanel({
       void api.searchCatalog({
         kind,
         query,
-        category,
-        gameVersion: matchVersion ? profile?.versionId : undefined,
+        category: selectedCategory,
+        gameVersion: effectiveVersion,
         loader: matchLoader ? profile?.loader : undefined,
         offset: 0
       }).then((result) => {
@@ -72,7 +96,7 @@ export function CatalogPanel({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [kind, query, category, matchVersion, matchLoader, profile?.versionId, profile?.loader])
+  }, [kind, query, selectedCategory, effectiveVersion, matchLoader, profile?.loader])
 
   const loadMore = async () => {
     setLoadingMore(true)
@@ -80,8 +104,8 @@ export function CatalogPanel({
       const result = await api.searchCatalog({
         kind,
         query,
-        category,
-        gameVersion: matchVersion ? profile?.versionId : undefined,
+        category: selectedCategory,
+        gameVersion: effectiveVersion,
         loader: matchLoader ? profile?.loader : undefined,
         offset
       })
@@ -93,15 +117,16 @@ export function CatalogPanel({
     }
   }
 
-  const install = async (projectId: string, projectTitle: string) => {
+  const install = async (projectId: string, projectTitle: string, versionId?: string) => {
     setInstalling(projectId)
     try {
-      await api.installCatalogProject(profileId, kind, projectId)
+      await api.installCatalogProject(profileId, kind, projectId, versionId)
       pushToast('success', t('«{name}» установлено в сборку «{profile}»', {
         name: projectTitle,
         profile: profile?.name ?? '—'
       }))
       setSelectedId(null)
+      onInstalled?.()
     } finally {
       setInstalling(null)
     }
@@ -109,6 +134,10 @@ export function CatalogPanel({
 
   const Icon = ICONS[kind]
   const detailKind = kind === 'modpack' ? 'modpack' : kind
+  const shaderVersions = [...new Set([
+    ...(profile?.versionId ? [profile.versionId] : []),
+    ...(versions?.versions ?? []).filter((entry) => entry.type === 'release').slice(0, 30).map((entry) => entry.id)
+  ])]
 
   return (
     <div>
@@ -130,7 +159,20 @@ export function CatalogPanel({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        {kind !== 'shader' && (
+        {kind === 'shader' ? (
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-slate-600" />
+            <Select
+              className="w-44"
+              value={gameVersion}
+              onChange={setGameVersion}
+              options={[
+                { value: '', label: t('Все версии') },
+                ...shaderVersions.map((version) => ({ value: version, label: `Minecraft ${version}` }))
+              ]}
+            />
+          </div>
+        ) : (
           <div className="flex items-center gap-2">
             <SlidersHorizontal size={14} className="text-slate-600" />
             <button
@@ -155,6 +197,24 @@ export function CatalogPanel({
           </div>
         )}
       </div>
+
+      {kind === 'shader' && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {SHADER_CATEGORIES.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveCategory(item.id)}
+              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                activeCategory === item.id
+                  ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
+                  : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
+              }`}
+            >
+              {t(item.label)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
@@ -233,9 +293,9 @@ export function CatalogPanel({
           onClose={() => setSelectedId(null)}
           action={selectedId ? {
             label: t('Установить в «{name}»', { name: profile?.name ?? '—' }),
-            onClick: () => {
+            onClick: (versionId) => {
               const project = projects.find((item) => item.project_id === selectedId)
-              if (project) void install(project.project_id, project.title)
+              if (project) void install(project.project_id, project.title, versionId)
             },
             disabled: installing !== null,
             loading: installing === selectedId

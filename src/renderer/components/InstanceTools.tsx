@@ -5,6 +5,7 @@ import { formatSize, t } from '../lib/i18n'
 import { useLauncher } from '../store'
 import { Badge, Button, Spinner, Toggle } from './ui'
 import { CatalogPanel } from './CatalogPanel'
+import { CompatibilityPanel } from './CompatibilityPanel'
 import type { BackupInfo, PackInfo, PackKind, Profile, VerifyReport } from '@shared/types'
 
 function formatDate(value: number): string {
@@ -258,13 +259,14 @@ function Packs({ profile }: { profile: Profile }): JSX.Element {
 }
 
 export function InstanceTools({ profile }: { profile: Profile }): JSX.Element {
-  const [section, setSection] = useState<'verify' | 'backups' | 'packs'>('verify')
+  const [section, setSection] = useState<'verify' | 'compat' | 'backups' | 'packs'>('verify')
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         {([
           { id: 'verify', label: t('Проверить файлы'), icon: ShieldCheck },
+          { id: 'compat', label: t('Совместимость'), icon: ShieldCheck },
           { id: 'backups', label: t('Бэкапы миров'), icon: Archive },
           { id: 'packs', label: t('Ресурсы и шейдеры'), icon: Layers }
         ] as const).map((item) => (
@@ -278,6 +280,7 @@ export function InstanceTools({ profile }: { profile: Profile }): JSX.Element {
         ))}
       </div>
       {section === 'verify' && <Verification profile={profile} />}
+      {section === 'compat' && <CompatibilityPanel profileId={profile.id} />}
       {section === 'backups' && <Backups profile={profile} />}
       {section === 'packs' && <Packs profile={profile} />}
     </div>

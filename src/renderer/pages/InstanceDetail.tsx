@@ -15,6 +15,7 @@ import { InstanceMods } from '../components/InstanceMods'
 import { ProfileFields } from '../components/ProfileFields'
 import { InstanceTools } from '../components/InstanceTools'
 import { Worlds } from './Worlds'
+import { Shaders } from './Shaders'
 import type { Profile, ScreenshotInfo } from '@shared/types'
 
 function formatDate(value: number): string {
@@ -155,6 +156,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
   const sectionLabel = {
     overview: t('Обзор'),
     mods: t('Моды'),
+    shaders: t('Шейдеры'),
     worlds: t('Миры'),
     screenshots: t('Скриншоты'),
     tools: t('Инструменты'),
@@ -332,6 +334,7 @@ export function InstanceDetail({ profile }: { profile: Profile }): JSX.Element {
         {profileSection === 'mods' && (
           <div className="panel p-5"><InstanceMods profileId={current.id} /></div>
         )}
+        {profileSection === 'shaders' && <Shaders profileId={current.id} />}
         {profileSection === 'worlds' && (
           <div className="panel p-5"><Worlds profileId={current.id} /></div>
         )}

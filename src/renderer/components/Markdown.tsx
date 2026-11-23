@@ -1,9 +1,80 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * Small, dependency-free Markdown renderer for catalog descriptions.
- * Everything is emitted as React text/elements — raw HTML is never injected.
+ * Raw HTML is never injected: only video iframes from a strict host allowlist
+ * are lifted out of the source and rendered as React elements.
  */
+
+const IFRAME = /<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi
+const EMBED_PREFIX = 'LUMEN_EMBED_'
+const EMBED_LINE = new RegExp(`^${EMBED_PREFIX}(\\d+)$`)
+
+const EMBED_HOSTS: Array<{ host: string; path: string }> = [
+  { host: 'www.youtube.com', path: '/embed/' },
+  { host: 'youtube.com', path: '/embed/' },
+  { host: 'www.youtube-nocookie.com', path: '/embed/' },
+  { host: 'youtube-nocookie.com', path: '/embed/' },
+  { host: 'player.vimeo.com', path: '/video/' },
+  { host: 'www.twitch.tv', path: '/embed/' }
+]
+
+const ALLOW_TOKENS = new Set([
+  'accelerometer', 'autoplay', 'clipboard-write', 'display-capture', 'encrypted-media',
+  'fullscreen', 'gyroscope', 'picture-in-picture', 'web-share'
+])
+
+interface SafeEmbed {
+  src: string
+  title: string
+  width: number
+  height: number
+  allow: string
+  allowFullscreen: boolean
+}
+
+function safeEmbedUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return null
+    const rule = EMBED_HOSTS.find((entry) => url.hostname.toLowerCase() === entry.host)
+    if (!rule || !url.pathname.toLowerCase().startsWith(rule.path)) return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+function clampSize(value: string | null, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10)
+  return Number.isFinite(parsed) ? Math.max(160, Math.min(1600, parsed)) : fallback
+}
+
+/** Extracts allowed video embeds and replaces them with unique placeholder lines. */
+function extractEmbeds(source: string): { text: string; embeds: SafeEmbed[] } {
+  const embeds: SafeEmbed[] = []
+  if (typeof DOMParser === 'undefined') return { text: source, embeds }
+  const text = source.replace(IFRAME, (html) => {
+    const frame = new DOMParser().parseFromString(html, 'text/html').querySelector('iframe')
+    const src = safeEmbedUrl(frame?.getAttribute('src') ?? '')
+    if (!frame || !src) return ''
+    const allow = (frame.getAttribute('allow') ?? '')
+      .split(/[\s;]+/)
+      .filter((token) => ALLOW_TOKENS.has(token.toLowerCase()))
+      .join('; ')
+    embeds.push({
+      src,
+      title: (frame.getAttribute('title') ?? t('Встроенное видео')).slice(0, 200),
+      width: clampSize(frame.getAttribute('width'), 853),
+      height: clampSize(frame.getAttribute('height'), 480),
+      allow,
+      allowFullscreen: frame.hasAttribute('allowfullscreen') || /\bfullscreen\b/i.test(allow)
+    })
+    return `\n\n${EMBED_PREFIX}${embeds.length - 1}\n\n`
+  })
+  return { text, embeds }
+}
 
 const FENCE = /^\s*```(\w*)\s*$/
 const FENCE_END = /^\s*```\s*$/
@@ -68,12 +139,13 @@ function inline(text: string, prefix: string): ReactNode[] {
 }
 
 function isBlockStart(line: string): boolean {
-  return FENCE.test(line) || HEADING.test(line) || RULE.test(line)
+  return EMBED_LINE.test(line.trim()) || FENCE.test(line) || HEADING.test(line) || RULE.test(line)
     || QUOTE.test(line) || BULLET.test(line) || ORDERED.test(line)
 }
 
 export function Markdown({ source, className = '' }: { source: string; className?: string }): JSX.Element {
-  const lines = source.replace(/\r\n?/g, '\n').split('\n')
+  const { text, embeds } = useMemo(() => extractEmbeds(source), [source])
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const blocks: ReactNode[] = []
   let index = 0
   let key = 0
@@ -81,6 +153,30 @@ export function Markdown({ source, className = '' }: { source: string; className
   while (index < lines.length) {
     const line = lines[index]
     if (!line.trim()) {
+      index++
+      continue
+    }
+
+    const embedMatch = EMBED_LINE.exec(line.trim())
+    if (embedMatch) {
+      const embed = embeds[Number(embedMatch[1])]
+      if (embed) {
+        blocks.push(
+          <div key={key++} className="embed-frame">
+            <iframe
+              src={embed.src}
+              title={embed.title}
+              width={embed.width}
+              height={embed.height}
+              allow={embed.allow}
+              allowFullScreen={embed.allowFullscreen}
+              frameBorder={0}
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        )
+      }
       index++
       continue
     }

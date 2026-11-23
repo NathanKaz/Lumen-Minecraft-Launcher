@@ -64,6 +64,7 @@ export const IPC = {
   offlineUuid: 'app:offlineUuid',
   verifyProfile: 'profile:verify',
   repairProfile: 'profile:repair',
+  checkCompatibility: 'profile:checkCompatibility',
 
   // Backups
   listBackups: 'backups:list',

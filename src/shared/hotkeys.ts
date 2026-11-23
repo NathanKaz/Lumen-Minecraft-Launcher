@@ -19,6 +19,7 @@ export const HOTKEY_DEFINITIONS: HotkeyDefinition[] = [
   { id: 'home', label: 'Главная', hint: 'Открыть главную страницу', default: 'Ctrl+Alt+H', keywords: 'home main' },
   { id: 'library', label: 'Библиотека сборок', hint: 'Открыть список сборок', default: 'Ctrl+Alt+L', keywords: 'library instances builds' },
   { id: 'mods', label: 'Моды активной сборки', hint: 'Открыть вкладку модов', default: 'Ctrl+Alt+M', keywords: 'mods jars' },
+  { id: 'shaders', label: 'Каталог шейдеров', hint: 'Открыть страницу шейдеров', default: 'Ctrl+Alt+G', keywords: 'shaders graphics shaderpacks' },
   { id: 'settings', label: 'Настройки', hint: 'Открыть настройки лаунчера', default: 'Ctrl+Alt+O', keywords: 'settings preferences' },
   { id: 'backupAll', label: 'Бэкап всех миров', hint: 'Создать копии миров всех сборок', default: 'Ctrl+Alt+B', keywords: 'backup worlds save' },
   { id: 'toggleTheme', label: 'Сменить тему', hint: 'Переключить светлую и тёмную тему', default: 'Ctrl+Alt+T', keywords: 'theme light dark' }

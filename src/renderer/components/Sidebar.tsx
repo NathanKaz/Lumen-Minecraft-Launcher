@@ -43,6 +43,7 @@ const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
 const profileItems = (): Array<{ id: ProfileSection; label: string; icon: typeof LayoutDashboard }> => [
   { id: 'overview', label: t('Обзор'), icon: LayoutDashboard },
   { id: 'mods', label: t('Моды'), icon: Wrench },
+  { id: 'shaders', label: t('Шейдеры'), icon: Sparkles },
   { id: 'worlds', label: t('Миры'), icon: Globe2 },
   { id: 'screenshots', label: t('Скриншоты'), icon: Camera },
   { id: 'tools', label: t('Инструменты'), icon: ShieldCheck },

@@ -80,6 +80,7 @@ const api: LauncherAPI = {
   openExternal: (url) => invoke(IPC.openExternal, url),
   offlineUuid: (name) => invoke(IPC.offlineUuid, name),
   verifyProfile: (id, repair) => invoke(IPC.verifyProfile, id, repair),
+  checkCompatibility: (profileId) => invoke(IPC.checkCompatibility, profileId),
 
   listBackups: (profileId) => invoke(IPC.listBackups, profileId),
   createBackup: (profileId) => invoke(IPC.createBackup, profileId),
@@ -105,7 +106,7 @@ const api: LauncherAPI = {
   deleteWorld: (profileId, dirName) => invoke(IPC.deleteWorld, profileId, dirName),
 
   searchCatalog: (query) => invoke(IPC.searchCatalog, query),
-  installCatalogProject: (profileId, kind, projectId) => invoke(IPC.installCatalogProject, profileId, kind, projectId),
+  installCatalogProject: (profileId, kind, projectId, versionId) => invoke(IPC.installCatalogProject, profileId, kind, projectId, versionId),
 
   setModsEnabled: (profileId, fileNames, enabled) => invoke(IPC.setModsEnabled, profileId, fileNames, enabled),
   exportModList: (profileId) => invoke(IPC.exportModList, profileId),

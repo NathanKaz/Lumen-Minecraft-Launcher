@@ -4,11 +4,12 @@ import { formatSize, t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { findProfile, selectedProfile, useLauncher } from '../store'
 import { CatalogPanel } from '../components/CatalogPanel'
+import { CompatibilityPanel } from '../components/CompatibilityPanel'
 import { Badge, Button, EmptyState, SectionHeader, Select, Spinner, Toggle } from '../components/ui'
 import type { PackInfo } from '@shared/types'
 
-/** Standalone Modrinth shader browser with management of installed shader packs. */
-export function Shaders(): JSX.Element {
+/** Shader catalog and installed packs. A fixed profileId turns it into an instance tab. */
+export function Shaders({ profileId: fixedProfileId }: { profileId?: string }): JSX.Element {
   const { state, setPage } = useLauncher()
   const [profileId, setProfileId] = useState<string | null>(null)
   const [view, setView] = useState<'catalog' | 'installed'>('catalog')
@@ -17,9 +18,10 @@ export function Shaders(): JSX.Element {
   const [busy, setBusy] = useState(false)
 
   const defaultProfile = selectedProfile(state)
-  const activeId = profileId && state?.profiles.some((profile) => profile.id === profileId)
-    ? profileId
-    : defaultProfile?.id ?? ''
+  const activeId = fixedProfileId
+    ?? (profileId && state?.profiles.some((profile) => profile.id === profileId)
+      ? profileId
+      : defaultProfile?.id ?? '')
   const profile = findProfile(state, activeId)
 
   const load = async () => {
@@ -68,11 +70,13 @@ export function Shaders(): JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-[1180px]">
-      <SectionHeader
-        title={t('Каталог шейдеров')}
-        subtitle={t('Подберите шейдеры в Modrinth и установите их в выбранную сборку.')}
-      />
+    <div className={fixedProfileId ? '' : 'mx-auto max-w-[1180px]'}>
+      {!fixedProfileId && (
+        <SectionHeader
+          title={t('Каталог шейдеров')}
+          subtitle={t('Подберите шейдеры в Modrinth и установите их в выбранную сборку.')}
+        />
+      )}
 
       {!profile ? (
         <EmptyState
@@ -83,23 +87,25 @@ export function Shaders(): JSX.Element {
         />
       ) : (
         <>
-          <div className="panel mb-5 flex flex-wrap items-center gap-3 p-4">
-            <label className="label mb-0 flex items-center gap-1.5">
-              <Sparkles size={14} className="text-mint-400" /> {t('Сборка')}
-            </label>
-            <Select
-              className="w-64"
-              value={activeId}
-              onChange={setProfileId}
-              options={(state?.profiles ?? []).map((entry) => ({
-                value: entry.id,
-                label: `${entry.name} · ${entry.versionId}`
-              }))}
-            />
-            <span className="text-[11px] text-slate-500">{t('Файлы попадают в папку shaderpacks сборки.')}</span>
-            <span className="w-full text-[11px] text-amber-300/80">
-              {t('Для работы шейдеров нужна совместимая модификация: Iris, Oculus или OptiFine.')}
-            </span>
+          {!fixedProfileId && (
+            <div className="panel mb-5 flex flex-wrap items-center gap-3 p-4">
+              <label className="label mb-0 flex items-center gap-1.5">
+                <Sparkles size={14} className="text-mint-400" /> {t('Сборка')}
+              </label>
+              <Select
+                className="w-64"
+                value={activeId}
+                onChange={setProfileId}
+                options={(state?.profiles ?? []).map((entry) => ({
+                  value: entry.id,
+                  label: `${entry.name} · ${entry.versionId}`
+                }))}
+              />
+              <span className="text-[11px] text-slate-500">{t('Файлы попадают в папку shaderpacks сборки.')}</span>
+            </div>
+          )}
+          <div className="mb-4 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-4 py-2.5 text-[11px] text-amber-300/80">
+            {t('Для работы шейдеров нужна совместимая модификация: Iris, Oculus или OptiFine.')}
           </div>
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -129,9 +135,18 @@ export function Shaders(): JSX.Element {
             )}
           </div>
 
+          <div className="mb-5 panel p-4">
+            <CompatibilityPanel profileId={activeId} />
+          </div>
+
           {view === 'catalog' ? (
             <div className="panel p-5">
-              <CatalogPanel key={profile.id} kind="shader" profileId={profile.id} />
+              <CatalogPanel
+                key={profile.id}
+                kind="shader"
+                profileId={profile.id}
+                onInstalled={() => void load()}
+              />
             </div>
           ) : loadingPacks ? (
             <div className="flex items-center justify-center py-8"><Spinner size={20} /></div>

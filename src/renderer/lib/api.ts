@@ -6,6 +6,7 @@ import type {
   AppState,
   BackupInfo,
   CatalogQuery,
+  CompatibilityReport,
   CrashAnalysis,
   CrashReportInfo,
   GameStatus,
@@ -821,6 +822,8 @@ function createMock(): LauncherAPI {
       platform: 'browser',
       arch: '—',
       dataDir: '—',
+      totalMemoryMb: 16384,
+      freeMemoryMb: 6144,
       packaged: false
     }),
     exportSettings: async () => {
@@ -868,6 +871,40 @@ function createMock(): LauncherAPI {
     verifyProfile: async (id, repair): Promise<VerifyReport> => {
       await mockProgress(t(repair ? 'Восстановление файлов' : 'Проверка файлов'), 'version')
       return { profileId: id, checked: 128, missing: [], invalid: [], ok: true }
+    },
+    checkCompatibility: async (profileId): Promise<CompatibilityReport> => {
+      await wait(280)
+      const issues: CompatibilityReport['issues'] = []
+      const mods = modsFor(profileId)
+      const shaders = (packsByProfile[profileId] ?? []).filter((pack) => pack.kind === 'shader')
+      const hasShaderLoader = mods.some((mod) => mod.enabled && /iris|oculus|optifine/i.test(`${mod.name} ${mod.fileName}`))
+      if (shaders.length && !hasShaderLoader) {
+        issues.push({
+          id: 'shader:loader',
+          severity: 'warning',
+          message: t('Шейдерпаки установлены, но загрузчик шейдеров (Iris, Oculus или OptiFine) не найден.')
+        })
+      }
+      const allocated = state.profiles.find((entry) => entry.id === profileId)?.memory ?? state.settings.memory
+      if (allocated > 16384 * 0.75) {
+        issues.push({
+          id: 'memory:allocation',
+          severity: 'warning',
+          message: t('Сборке выделено {allocated} МБ из {total} МБ ОЗУ. Слишком большой объём может замедлить игру и систему.', {
+            allocated,
+            total: 16384
+          })
+        })
+      }
+      return {
+        profileId,
+        checkedAt: Date.now(),
+        ok: issues.length === 0,
+        issues,
+        summary: issues.length
+          ? t('Найдено замечаний: {count}', { count: issues.length })
+          : t('Проблем не найдено')
+      }
     },
 
     listBackups: async (profileId) => [...(backupsByProfile[profileId] ?? [])],
@@ -980,7 +1017,7 @@ function createMock(): LauncherAPI {
         return !normalized || `${project.title} ${project.description}`.toLowerCase().includes(normalized)
       })
     },
-    installCatalogProject: async (_profileId, kind, projectId) => {
+    installCatalogProject: async (_profileId, kind, projectId, _versionId) => {
       await mockProgress(t(kind === 'datapack' ? 'Установка набора данных' : 'Установка проекта'), kind === 'shader' ? 'mod' : 'modpack')
       if (kind === 'modpack') {
         const project = mockModpacks.find((entry) => entry.project_id === projectId)
