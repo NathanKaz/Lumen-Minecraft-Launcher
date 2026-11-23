@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, Layers, Loader2, Package, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Download, Layers, Loader2, Package, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
@@ -56,15 +56,17 @@ export function CatalogPanel({
   const [hasMore, setHasMore] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [activeCategory, setActiveCategory] = useState(category ?? '')
+  const [activeCategories, setActiveCategories] = useState<string[]>([])
   const [gameVersion, setGameVersion] = useState(profile?.versionId ?? '')
 
-  const selectedCategory = activeCategory || category || undefined
+  const selectedCategory = kind === 'shader' ? undefined : category || undefined
+  const selectedCategories = kind === 'shader' ? activeCategories : []
+  const categoryKey = selectedCategories.join(',')
   const effectiveVersion = kind === 'shader'
     ? gameVersion || undefined
     : matchVersion ? profile?.versionId : undefined
 
-  useEffect(() => { setActiveCategory(category ?? '') }, [category])
+  useEffect(() => { setActiveCategories([]) }, [kind, category])
   useEffect(() => { setGameVersion(profile?.versionId ?? '') }, [profile?.versionId])
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export function CatalogPanel({
         kind,
         query,
         category: selectedCategory,
+        categories: selectedCategories,
         gameVersion: effectiveVersion,
         loader: matchLoader ? profile?.loader : undefined,
         offset: 0
@@ -96,7 +99,7 @@ export function CatalogPanel({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [kind, query, selectedCategory, effectiveVersion, matchLoader, profile?.loader])
+  }, [kind, query, selectedCategory, categoryKey, effectiveVersion, matchLoader, profile?.loader])
 
   const loadMore = async () => {
     setLoadingMore(true)
@@ -105,6 +108,7 @@ export function CatalogPanel({
         kind,
         query,
         category: selectedCategory,
+        categories: selectedCategories,
         gameVersion: effectiveVersion,
         loader: matchLoader ? profile?.loader : undefined,
         offset
@@ -199,20 +203,35 @@ export function CatalogPanel({
       </div>
 
       {kind === 'shader' && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {SHADER_CATEGORIES.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveCategory(item.id)}
-              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                activeCategory === item.id
-                  ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
-                  : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
-              }`}
-            >
-              {t(item.label)}
-            </button>
-          ))}
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {SHADER_CATEGORIES.map((item) => {
+            const active = item.id ? activeCategories.includes(item.id) : activeCategories.length === 0
+            return (
+              <button
+                key={item.id || 'all'}
+                onClick={() => setActiveCategories((current) => {
+                  if (!item.id) return []
+                  return current.includes(item.id)
+                    ? current.filter((entry) => entry !== item.id)
+                    : [...current, item.id]
+                })}
+                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                  active
+                    ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
+                    : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
+                }`}
+                title={item.id ? t('Можно выбрать несколько тегов') : t('Все')}
+              >
+                {active && item.id && <Check size={11} />}
+                {t(item.label)}
+              </button>
+            )
+          })}
+          {activeCategories.length > 1 && (
+            <span className="ml-1 text-[10px] text-slate-500">
+              {t('Выбрано тегов: {count}', { count: activeCategories.length })}
+            </span>
+          )}
         </div>
       )}
 

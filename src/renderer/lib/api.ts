@@ -1013,7 +1013,8 @@ function createMock(): LauncherAPI {
       return mockCatalog.filter((project) => {
         const kind = query.kind === 'modpack' ? 'modpack' : query.kind === 'datapack' ? 'datapack' : query.kind
         if (project.project_type !== kind) return false
-        if (query.category && !project.categories.includes(query.category)) return false
+        const categories = [...(query.categories ?? []), ...(query.category ? [query.category] : [])]
+        if (categories.some((category) => !project.categories.includes(category))) return false
         return !normalized || `${project.title} ${project.description}`.toLowerCase().includes(normalized)
       })
     },

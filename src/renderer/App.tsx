@@ -127,8 +127,12 @@ export default function App(): JSX.Element {
       else if (action === 'stopGame') void api.stopGame()
       else if (action === 'home' || action === 'library' || action === 'settings') setPage(action)
       else if (action === 'shaders') {
-        backToInstances()
-        setPage('shaders')
+        const targetProfile = selectedProfile(state)
+        if (targetProfile) void openProfile(targetProfile.id).then(() => setProfileSection('shaders'))
+        else {
+          backToInstances()
+          setPage('shaders')
+        }
       }
       else if (action === 'mods') {
         const targetProfile = selectedProfile(state)

@@ -470,7 +470,10 @@ export interface CatalogQuery {
   query: string
   gameVersion?: string
   loader?: string
+  /** Fixed Modrinth category facet (used by the world-generation catalog). */
   category?: string
+  /** Several Modrinth category facets, combined with AND. */
+  categories?: string[]
   offset?: number
 }
 

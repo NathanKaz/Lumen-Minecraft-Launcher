@@ -31,7 +31,8 @@ function safeFileName(value: string): string {
 /** Searches one of the supported Modrinth catalogs with optional compatibility filters. */
 export async function searchCatalog(query: CatalogQuery): Promise<ModrinthProject[]> {
   const facets: string[][] = [[`project_type:${query.kind}`]]
-  if (query.category) facets.push([`categories:${query.category}`])
+  const categories = [...(query.categories ?? []), ...(query.category ? [query.category] : [])]
+  for (const category of new Set(categories)) facets.push([`categories:${category}`])
   if (query.loader && query.loader !== 'vanilla' && query.kind !== 'shader') {
     facets.push([`categories:${query.loader}`])
   }

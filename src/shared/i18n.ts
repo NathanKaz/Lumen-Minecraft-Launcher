@@ -1323,6 +1323,8 @@ const en: Record<string, string> = {
 
   // Per-instance shaders, shader filters and version selection
   'Все версии': 'All versions',
+  'Можно выбрать несколько тегов': 'You can select several tags',
+  'Выбрано тегов: {count}': '{count} tags selected',
   'Реализм': 'Realistic',
   'Полуреализм': 'Semi-realistic',
   'Iris': 'Iris',

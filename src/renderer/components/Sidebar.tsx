@@ -34,7 +34,6 @@ const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
   { id: 'screenshots', label: t("Скриншоты"), icon: ImageIcon },
   { id: 'skins', label: t("Скины"), icon: Shirt },
   { id: 'modpacks', label: t("Модпаки"), icon: Package },
-  { id: 'shaders', label: t('Шейдеры'), icon: Sparkles },
   { id: 'logs', label: t("Логи"), icon: ScrollText },
   { id: 'tasks', label: t("Загрузки"), icon: Download },
   { id: 'settings', label: t("Настройки"), icon: Settings }

@@ -3,13 +3,15 @@ import { t } from '../lib/i18n'
 
 /**
  * Small, dependency-free Markdown renderer for catalog descriptions.
- * Raw HTML is never injected: only video iframes from a strict host allowlist
- * are lifted out of the source and rendered as React elements.
+ * Raw HTML is never injected: a safe subset is converted to Markdown first,
+ * and video iframes are rendered as React elements from a strict host allowlist.
  */
 
 const IFRAME = /<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi
 const EMBED_PREFIX = 'LUMEN_EMBED_'
 const EMBED_LINE = new RegExp(`^${EMBED_PREFIX}(\\d+)$`)
+const CODE_PREFIX = 'LUMEN_CODE_'
+const CODE_LINE = new RegExp(`^${CODE_PREFIX}(\\d+)$`)
 
 const EMBED_HOSTS: Array<{ host: string; path: string }> = [
   { host: 'www.youtube.com', path: '/embed/' },
@@ -17,12 +19,19 @@ const EMBED_HOSTS: Array<{ host: string; path: string }> = [
   { host: 'www.youtube-nocookie.com', path: '/embed/' },
   { host: 'youtube-nocookie.com', path: '/embed/' },
   { host: 'player.vimeo.com', path: '/video/' },
-  { host: 'www.twitch.tv', path: '/embed/' }
+  { host: 'www.twitch.tv', path: '/embed/' },
+  { host: 'player.twitch.tv', path: '/' }
 ]
 
 const ALLOW_TOKENS = new Set([
   'accelerometer', 'autoplay', 'clipboard-write', 'display-capture', 'encrypted-media',
   'fullscreen', 'gyroscope', 'picture-in-picture', 'web-share'
+])
+
+/** Tags whose content must never be rendered from an untrusted description. */
+const DROP_TAGS = new Set([
+  'script', 'style', 'noscript', 'template', 'form', 'input', 'button', 'select', 'textarea',
+  'iframe', 'object', 'embed', 'svg', 'math', 'canvas', 'link', 'meta', 'base'
 ])
 
 interface SafeEmbed {
@@ -36,7 +45,8 @@ interface SafeEmbed {
 
 function safeEmbedUrl(raw: string): string | null {
   try {
-    const url = new URL(raw)
+    const value = raw.startsWith('//') ? `https:${raw}` : raw
+    const url = new URL(value)
     if (url.protocol !== 'https:') return null
     const rule = EMBED_HOSTS.find((entry) => url.hostname.toLowerCase() === entry.host)
     if (!rule || !url.pathname.toLowerCase().startsWith(rule.path)) return null
@@ -83,14 +93,106 @@ const RULE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/
 const QUOTE = /^\s*>\s?/
 const BULLET = /^\s*[-*+]\s+/
 const ORDERED = /^\s*\d+[.)]\s+/
-const INLINE = /(!\[[^\]]*\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\*[^*]+\*|_[^_]+_)/g
+const INLINE = /(\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|`[^`]+`|\[[^\]]+\]\([^)]+\)|\*[^*]+\*|_[^_]+_)/g
 
 function safeUrl(raw: string): string | null {
-  const url = raw.trim()
+  const url = raw.trim().replace(/&amp;/g, '&')
   if (/^https?:\/\//i.test(url)) return url
   // Modrinth descriptions often use site-relative links.
   if (url.startsWith('/') && !url.startsWith('//')) return `https://modrinth.com${url}`
+  if (url.startsWith('//')) return `https:${url}`
   return null
+}
+
+/** Keeps fenced code blocks intact while HTML is converted around them. */
+function protectCode(source: string): { text: string; blocks: string[] } {
+  const blocks: string[] = []
+  const lines = source.replace(/\r\n?/g, '\n').split('\n')
+  const output: string[] = []
+  let index = 0
+  while (index < lines.length) {
+    if (FENCE.test(lines[index])) {
+      const code: string[] = []
+      index++
+      while (index < lines.length && !FENCE_END.test(lines[index])) code.push(lines[index++])
+      if (index < lines.length) index++
+      output.push(`${CODE_PREFIX}${blocks.length}`)
+      blocks.push(code.join('\n'))
+    } else {
+      output.push(lines[index++])
+    }
+  }
+  return { text: output.join('\n'), blocks }
+}
+
+function restoreCode(text: string, blocks: string[]): string {
+  return text.split('\n').map((line) => {
+    const match = CODE_LINE.exec(line.trim())
+    const code = match ? blocks[Number(match[1])] : undefined
+    return code === undefined ? line : `\`\`\`\n${code}\n\`\`\``
+  }).join('\n')
+}
+
+/** Converts the HTML subset used by Modrinth descriptions into Markdown. */
+function htmlToMarkdown(source: string): string {
+  if (typeof DOMParser === 'undefined') {
+    return source
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<hr\s*\/?>/gi, '\n\n---\n\n')
+      .replace(/<\/?(?:p|div|center|section|article|h[1-6]|ul|ol|blockquote)\b[^>]*>/gi, '\n\n')
+      .replace(/<[^>]+>/g, '')
+  }
+
+  function serialize(node: Node): string {
+    if (node.nodeType === 3) return node.textContent ?? '' // text node
+    if (node.nodeType !== 1) return '' // comments and other nodes
+    const element = node as Element
+    const tag = element.tagName.toLowerCase()
+    if (DROP_TAGS.has(tag)) return ''
+    const inner = Array.from(element.childNodes).map(serialize).join('')
+
+    switch (tag) {
+      case 'br': return '\n'
+      case 'hr': return '\n\n---\n\n'
+      case 'p': case 'div': case 'center': case 'section': case 'article':
+      case 'main': case 'header': case 'footer': case 'figure': case 'figcaption':
+        return `\n\n${inner.trim()}\n\n`
+      case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
+        return `\n\n${'#'.repeat(Number(tag[1]))} ${inner.trim()}\n\n`
+      case 'b': case 'strong': return inner.trim() ? `**${inner.trim()}**` : ''
+      case 'i': case 'em': case 'cite': return inner.trim() ? `*${inner.trim()}*` : ''
+      case 's': case 'del': case 'strike': return inner.trim() ? `~~${inner.trim()}~~` : ''
+      case 'code': case 'kbd': return inner ? `\`${inner}\`` : ''
+      case 'pre': return `\n\n\`\`\`\n${inner.trim()}\n\`\`\`\n\n`
+      case 'a': {
+        const href = safeUrl(element.getAttribute('href') ?? '')
+        return href && inner ? `[${inner}](${href})` : inner
+      }
+      case 'img': {
+        const src = safeUrl(element.getAttribute('src') ?? '')
+        const alt = (element.getAttribute('alt') ?? '').replace(/[\[\]]/g, '')
+        return src ? `![${alt}](${src})` : alt
+      }
+      case 'ul': case 'ol': {
+        const items = Array.from(element.children)
+          .filter((child) => child.tagName.toLowerCase() === 'li')
+          .map((child, position) => tag === 'ul'
+            ? `- ${serialize(child).trim()}`
+            : `${position + 1}. ${serialize(child).trim()}`)
+        return items.length ? `\n\n${items.join('\n')}\n\n` : ''
+      }
+      case 'li': return inner.trim()
+      case 'blockquote':
+        return `\n\n${inner.trim().split('\n').map((line) => `> ${line}`).join('\n')}\n\n`
+      case 'sup': case 'sub': case 'small': case 'mark': case 'span': case 'abbr':
+      case 'time': case 'u': case 'table': case 'thead': case 'tbody': case 'tr':
+      case 'td': case 'th':
+        return inner
+      default: return inner
+    }
+  }
+
+  return serialize(new DOMParser().parseFromString(source, 'text/html').body)
 }
 
 function inline(text: string, prefix: string): ReactNode[] {
@@ -109,6 +211,22 @@ function inline(text: string, prefix: string): ReactNode[] {
       nodes.push(<del key={key}>{inline(token.slice(2, -2), key)}</del>)
     } else if (token.startsWith('`')) {
       nodes.push(<code key={key}>{token.slice(1, -1)}</code>)
+    } else if (token.startsWith('[') && token.startsWith('[![')) {
+      const imageLink = /^\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)$/.exec(token)
+      if (imageLink) {
+        const href = safeUrl(imageLink[3])
+        const src = safeUrl(imageLink[2])
+        const image = <img src={src ?? undefined} alt={imageLink[1]} className="my-2 max-h-80 rounded-xl object-contain" />
+        if (href) {
+          nodes.push(
+            <a key={key} href={href} target="_blank" rel="noopener noreferrer">{image}</a>
+          )
+        } else {
+          nodes.push(<span key={key}>{image}</span>)
+        }
+      } else {
+        nodes.push(token)
+      }
     } else if (token.startsWith('![')) {
       const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(token)
       if (image) {
@@ -139,13 +257,21 @@ function inline(text: string, prefix: string): ReactNode[] {
 }
 
 function isBlockStart(line: string): boolean {
-  return EMBED_LINE.test(line.trim()) || FENCE.test(line) || HEADING.test(line) || RULE.test(line)
-    || QUOTE.test(line) || BULLET.test(line) || ORDERED.test(line)
+  return EMBED_LINE.test(line.trim()) || CODE_LINE.test(line.trim()) || FENCE.test(line)
+    || HEADING.test(line) || RULE.test(line) || QUOTE.test(line)
+    || BULLET.test(line) || ORDERED.test(line)
 }
 
 export function Markdown({ source, className = '' }: { source: string; className?: string }): JSX.Element {
-  const { text, embeds } = useMemo(() => extractEmbeds(source), [source])
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const { markdown, embeds } = useMemo(() => {
+    const extracted = extractEmbeds(source)
+    const protectedCode = protectCode(extracted.text)
+    return {
+      markdown: restoreCode(htmlToMarkdown(protectedCode.text), protectedCode.blocks),
+      embeds: extracted.embeds
+    }
+  }, [source])
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n')
   const blocks: ReactNode[] = []
   let index = 0
   let key = 0
