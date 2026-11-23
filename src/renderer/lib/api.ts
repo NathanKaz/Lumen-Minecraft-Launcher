@@ -181,7 +181,7 @@ const mockLocalWorlds: WorldInfo[] = [
 const mockCatalog: ModrinthProject[] = [
   { project_id: 'worldgen-adventure', slug: 'worldgen-adventure', title: 'Adventure Islands', description: 'Карта с островами, храмами и заданиями.', icon_url: icon('A', '#16a34a'), downloads: 840_000, follow_count: 4_200, categories: ['adventure', 'worldgen'], project_type: 'modpack', versions: ['1.20.1'] },
   { project_id: 'datapack-caves', slug: 'datapack-caves', title: 'Caves & Ruins', description: 'Набор данных с новыми пещерами и руинами.', icon_url: icon('C', '#2563eb'), downloads: 1_250_000, follow_count: 7_800, categories: ['worldgen', 'datapack'], project_type: 'datapack', versions: ['1.20.1'] },
-  { project_id: 'shader-bs', slug: 'shader-bs', title: 'Beautiful Shaders', description: 'Мягкий свет и реалистичная вода.', icon_url: icon('S', '#7c3aed'), downloads: 3_100_000, follow_count: 15_200, categories: ['shader'], project_type: 'shader', versions: ['1.20.1'] },
+  { project_id: 'shader-bs', slug: 'shader-bs', title: 'Beautiful Shaders', description: 'Мягкий свет и реалистичная вода.', icon_url: icon('S', '#7c3aed'), downloads: 3_100_000, follow_count: 15_200, categories: ['shader', 'realistic', 'iris', 'shadows'], project_type: 'shader', versions: ['1.20.1'] },
   { project_id: 'pack-medieval', slug: 'pack-medieval', title: 'Medieval Pack', description: 'Средневековые текстуры для всего мира.', icon_url: icon('M', '#b45309'), downloads: 2_200_000, follow_count: 9_300, categories: ['resourcepack'], project_type: 'resourcepack', versions: ['1.20.1'] }
 ]
 
@@ -318,7 +318,7 @@ function createMock(): LauncherAPI {
   const packsByProfile: Record<string, PackInfo[]> = {
     default: [
       { fileName: 'faithful-32x.zip', name: 'Faithful 32x', kind: 'resource', enabled: true, size: 8_400_000 },
-      { fileName: 'complementary.zip', name: 'Complementary Shaders', kind: 'shader', enabled: false, size: 2_100_000 }
+      { fileName: 'beautiful-shaders.zip', name: 'Beautiful Shaders', kind: 'shader', enabled: false, size: 2_100_000, projectId: 'shader-bs' }
     ]
   }
   const modsByProfile: Record<string, ModInfo[]> = {
@@ -564,7 +564,7 @@ function createMock(): LauncherAPI {
     deleteMod: async (profileId, fileName) => {
       modsByProfile[profileId] = modsFor(profileId).filter((mod) => mod.fileName !== fileName)
     },
-    searchMods: async (query, gameVersion, loader, offset = 0) => {
+    searchMods: async (query, gameVersion, loader, offset = 0, categories = []) => {
       await wait(260)
       const normalized = query.trim().toLowerCase()
       let result = mockProjects
@@ -575,6 +575,9 @@ function createMock(): LauncherAPI {
       }
       if (gameVersion) result = result.filter((project) => project.versions?.includes(gameVersion))
       if (loader && loader !== 'vanilla') result = result.filter((project) => project.categories.includes(loader))
+      if (categories.length) {
+        result = result.filter((project) => categories.every((category) => project.categories.includes(category)))
+      }
       return result.slice(offset, offset + 24)
     },
     installMod: async (id, projectId, versionId) => {
@@ -1018,12 +1021,28 @@ function createMock(): LauncherAPI {
         return !normalized || `${project.title} ${project.description}`.toLowerCase().includes(normalized)
       })
     },
-    installCatalogProject: async (_profileId, kind, projectId, _versionId) => {
+    installCatalogProject: async (profileId, kind, projectId, versionId) => {
       await mockProgress(t(kind === 'datapack' ? 'Установка набора данных' : 'Установка проекта'), kind === 'shader' ? 'mod' : 'modpack')
       if (kind === 'modpack') {
         const project = mockModpacks.find((entry) => entry.project_id === projectId)
         addMockModpackInstance(project?.title ?? projectId, project)
         return
+      }
+      if (kind === 'shader' || kind === 'resourcepack') {
+        const project = mockCatalog.find((entry) => entry.project_id === projectId)
+        const pack: PackInfo = {
+          fileName: `${projectId}-${versionId ?? 'latest'}.zip`,
+          name: project?.title ?? projectId,
+          kind: kind === 'shader' ? 'shader' : 'resource',
+          enabled: true,
+          size: 2_100_000,
+          projectId,
+          versionId
+        }
+        packsByProfile[profileId] = [
+          ...(packsByProfile[profileId] ?? []).filter((entry) => entry.projectId !== projectId),
+          pack
+        ]
       }
       emit('toast', { id: nextToastId(), type: 'success', message: t('Проект установлен') })
     },

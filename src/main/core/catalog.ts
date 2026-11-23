@@ -21,6 +21,7 @@ interface CatalogFile {
 }
 
 interface CatalogVersion {
+  id?: string
   files: CatalogFile[]
 }
 
@@ -115,6 +116,10 @@ async function downloadPack(
     opts
   )
   if (kind === 'resourcepack' || kind === 'shader') {
+    await fs.writeJson(`${destination}.lumen.json`, {
+      projectId,
+      versionId: version?.id
+    }).catch(() => undefined)
     await setPackEnabled(profileId, kind === 'resourcepack' ? 'resource' : 'shader', path.basename(destination), true)
   }
 }

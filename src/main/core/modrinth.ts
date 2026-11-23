@@ -43,9 +43,12 @@ export async function searchMods(
   query: string,
   gameVersion?: string,
   loader?: string,
-  offset = 0
+  offset = 0,
+  categories?: string[]
 ): Promise<ModrinthProject[]> {
   const facets: string[][] = [['project_type:mod']]
+  // One facet per tag: Modrinth joins separate arrays with AND.
+  for (const category of new Set(categories ?? [])) facets.push([`categories:${category}`])
   if (loader && loader !== 'vanilla') facets.push([`categories:${loader}`])
   if (gameVersion) facets.push([`versions:${gameVersion}`])
   const params = new URLSearchParams({

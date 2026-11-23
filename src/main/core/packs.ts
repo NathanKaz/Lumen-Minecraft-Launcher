@@ -41,12 +41,15 @@ export async function listPacks(profileId: string, kind: PackKind): Promise<Pack
     const full = path.join(dir, fileName)
     const stat = await fs.stat(full).catch(() => null)
     if (!stat?.isFile()) continue
+    const sidecar = await fs.readJson(`${full}.lumen.json`).catch(() => null)
     result.push({
       fileName,
       name: path.basename(fileName, path.extname(fileName)),
       kind,
       enabled: enabledNames.has(fileName),
-      size: stat.size
+      size: stat.size,
+      projectId: typeof sidecar?.projectId === 'string' ? sidecar.projectId : undefined,
+      versionId: typeof sidecar?.versionId === 'string' ? sidecar.versionId : undefined
     })
   }
   return result.sort((a, b) => a.name.localeCompare(b.name))
@@ -70,7 +73,10 @@ export async function installPack(profileId: string, kind: PackKind): Promise<vo
 export async function installPackFile(profileId: string, kind: PackKind, source: string): Promise<void> {
   const target = packsDir(profileId, kind)
   await fs.ensureDir(target)
-  await fs.copy(source, path.join(target, path.basename(source)), { overwrite: true })
+  const destination = path.join(target, path.basename(source))
+  await fs.copy(source, destination, { overwrite: true })
+  // A local archive with the same name must not inherit catalog install metadata.
+  await fs.remove(`${destination}.lumen.json`).catch(() => undefined)
   emitToast('success', msg(kind === 'resource' ? 'Набор ресурсов установлен' : 'Набор шейдеров установлен'))
 }
 
@@ -83,6 +89,7 @@ export async function deletePack(profileId: string, kind: PackKind, fileName: st
   if (fileName === GENERATED_SKIN_PACK) return
   const file = path.join(packsDir(profileId, kind), path.basename(fileName))
   if (await fs.pathExists(file)) await fs.remove(file)
+  await fs.remove(`${file}.lumen.json`).catch(() => undefined)
   await setPackEnabled(profileId, kind, fileName, false)
   emitToast('success', msg(kind === 'resource' ? 'Набор ресурсов удалён' : 'Набор шейдеров удалён'))
 }

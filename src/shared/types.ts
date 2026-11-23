@@ -441,6 +441,9 @@ export interface PackInfo {
   kind: PackKind
   enabled: boolean
   size: number
+  /** Set when the pack was installed from a Modrinth catalog project. */
+  projectId?: string
+  versionId?: string
 }
 
 export interface ModUpdateInfo {
@@ -593,7 +596,7 @@ export interface LauncherAPI {
   installModFile(profileId: string, path: string): Promise<void>
   toggleMod(profileId: string, fileName: string): Promise<void>
   deleteMod(profileId: string, fileName: string): Promise<void>
-  searchMods(query: string, gameVersion?: string, loader?: string, offset?: number): Promise<ModrinthProject[]>
+  searchMods(query: string, gameVersion?: string, loader?: string, offset?: number, categories?: string[]): Promise<ModrinthProject[]>
   /** Installs a mod, optionally pinning one exact Modrinth version. */
   installMod(profileId: string, projectId: string, versionId?: string): Promise<void>
   /** All published versions of a Modrinth project, for the version selector. */

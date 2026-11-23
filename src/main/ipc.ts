@@ -182,8 +182,8 @@ export function registerIpc(): void {
   handle(IPC.toggleMod, (id: string, fileName: string) => toggleMod(id, fileName))
   handle(IPC.deleteMod, (id: string, fileName: string) => deleteMod(id, fileName))
   handle(IPC.installModFile, (id: string, source: string) => copyModFile(id, source))
-  handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string, offset?: number) =>
-    searchMods(query, gameVersion, loader, offset)
+  handle(IPC.searchMods, (query: string, gameVersion?: string, loader?: string, offset?: number, categories?: string[]) =>
+    searchMods(query, gameVersion, loader, offset, categories)
   )
   handle(IPC.installMod, (id: string, projectId: string, versionId?: string) =>
     runTaskAndWait({

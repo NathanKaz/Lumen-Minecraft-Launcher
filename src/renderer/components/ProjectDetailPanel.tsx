@@ -197,7 +197,11 @@ export function ProjectDetailPanel({
                         </Button>
                       )}
                     </div>
-                    {action.installed && <p className="text-[11px] text-mint-300/80">{t('Мод уже установлен в эту сборку')}</p>}
+                    {action.installed && (
+                      <p className="text-[11px] text-mint-300/80">
+                        {t(kind === 'mod' ? 'Мод уже установлен в эту сборку' : 'Уже установлено в эту сборку')}
+                      </p>
+                    )}
                   </div>
                 )}
 

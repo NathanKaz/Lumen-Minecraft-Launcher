@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, ChevronDown, Download, Layers, Loader2, Package, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { ChevronDown, Download, Layers, Loader2, Package, Search, SlidersHorizontal, Sparkles, Trash2 } from 'lucide-react'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
 import { Badge, Button, EmptyState, Select, Spinner } from './ui'
+import { CategoryTags } from './CategoryTags'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
-import type { CatalogKind, ModrinthProject } from '@shared/types'
+import type { CatalogKind, ModrinthProject, PackInfo } from '@shared/types'
 
 const PAGE_SIZE = 18
 
@@ -55,19 +56,36 @@ export function CatalogPanel({
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeCategories, setActiveCategories] = useState<string[]>([])
+  const [installedShaders, setInstalledShaders] = useState<PackInfo[]>([])
   const [gameVersion, setGameVersion] = useState(profile?.versionId ?? '')
 
   const selectedCategory = kind === 'shader' ? undefined : category || undefined
   const selectedCategories = kind === 'shader' ? activeCategories : []
   const categoryKey = selectedCategories.join(',')
+  const installedShaderIds = useMemo(
+    () => new Set(installedShaders.map((pack) => pack.projectId).filter((id): id is string => Boolean(id))),
+    [installedShaders]
+  )
   const effectiveVersion = kind === 'shader'
     ? gameVersion || undefined
     : matchVersion ? profile?.versionId : undefined
 
   useEffect(() => { setActiveCategories([]) }, [kind, category])
   useEffect(() => { setGameVersion(profile?.versionId ?? '') }, [profile?.versionId])
+
+  const loadInstalledShaders = async () => {
+    if (kind !== 'shader' || !profileId) return
+    try {
+      setInstalledShaders(await api.listPacks(profileId, 'shader'))
+    } catch {
+      setInstalledShaders([])
+    }
+  }
+
+  useEffect(() => { void loadInstalledShaders() }, [kind, profileId])
 
   useEffect(() => {
     let cancelled = false
@@ -130,9 +148,24 @@ export function CatalogPanel({
         profile: profile?.name ?? '—'
       }))
       setSelectedId(null)
+      await loadInstalledShaders()
       onInstalled?.()
     } finally {
       setInstalling(null)
+    }
+  }
+
+  const removeShader = async (projectId: string) => {
+    const pack = installedShaders.find((entry) => entry.projectId === projectId)
+    if (!pack || removing) return
+    setRemoving(projectId)
+    try {
+      await api.deletePack(profileId, 'shader', pack.fileName)
+      await loadInstalledShaders()
+      onInstalled?.()
+      pushToast('success', t('Шейдер удалён из сборки'))
+    } finally {
+      setRemoving(null)
     }
   }
 
@@ -203,36 +236,11 @@ export function CatalogPanel({
       </div>
 
       {kind === 'shader' && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          {SHADER_CATEGORIES.map((item) => {
-            const active = item.id ? activeCategories.includes(item.id) : activeCategories.length === 0
-            return (
-              <button
-                key={item.id || 'all'}
-                onClick={() => setActiveCategories((current) => {
-                  if (!item.id) return []
-                  return current.includes(item.id)
-                    ? current.filter((entry) => entry !== item.id)
-                    : [...current, item.id]
-                })}
-                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                  active
-                    ? 'border-mint-400/40 bg-mint-400/10 text-mint-300'
-                    : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
-                }`}
-                title={item.id ? t('Можно выбрать несколько тегов') : t('Все')}
-              >
-                {active && item.id && <Check size={11} />}
-                {t(item.label)}
-              </button>
-            )
-          })}
-          {activeCategories.length > 1 && (
-            <span className="ml-1 text-[10px] text-slate-500">
-              {t('Выбрано тегов: {count}', { count: activeCategories.length })}
-            </span>
-          )}
-        </div>
+        <CategoryTags
+          categories={SHADER_CATEGORIES}
+          active={activeCategories}
+          onChange={setActiveCategories}
+        />
       )}
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -279,18 +287,37 @@ export function CatalogPanel({
                   {project.categories.slice(0, 3).map((item) => <Badge key={item}>{item}</Badge>)}
                   {project.versions?.slice(0, 2).map((item) => <Badge key={item} tone="amber">{item}</Badge>)}
                 </div>
-                <Button
-                  variant="primary"
-                  className="mt-4 w-full"
-                  disabled={installing !== null}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void install(project.project_id, project.title)
-                  }}
-                >
-                  {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                  {installing === project.project_id ? t("Установка...") : t("Установить")}
-                </Button>
+                {installedShaderIds.has(project.project_id) ? (
+                  <div className="mt-4 flex gap-2">
+                    <Button variant="primary" className="flex-1" disabled title={t('Шейдер уже установлен в эту сборку')}>
+                      <Download size={15} /> {t('Установлен')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="flex-1"
+                      disabled={installing !== null || removing !== null}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void removeShader(project.project_id)
+                      }}
+                    >
+                      <Trash2 size={15} /> {t('Удалить')}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="primary"
+                    className="mt-4 w-full"
+                    disabled={installing !== null || removing !== null}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void install(project.project_id, project.title)
+                    }}
+                  >
+                    {installing === project.project_id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                    {installing === project.project_id ? t("Установка...") : t("Установить")}
+                  </Button>
+                )}
               </motion.div>
             ))}
             </div>
@@ -316,8 +343,10 @@ export function CatalogPanel({
               const project = projects.find((item) => item.project_id === selectedId)
               if (project) void install(project.project_id, project.title, versionId)
             },
-            disabled: installing !== null,
-            loading: installing === selectedId
+            disabled: installing !== null || removing !== null,
+            loading: installing === selectedId,
+            installed: kind === 'shader' && installedShaderIds.has(selectedId),
+            onDelete: kind === 'shader' ? () => void removeShader(selectedId) : undefined
           } : undefined}
         />
       </div>

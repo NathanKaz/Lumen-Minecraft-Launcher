@@ -4,11 +4,30 @@ import { motion } from 'framer-motion'
 import { AlertTriangle, Check, ChevronDown, Download, FolderPlus, Loader2, Power, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLauncher } from '../store'
-import { Badge, Button, EmptyState, Modal, Spinner, Toggle } from './ui'
+import { Badge, Button, EmptyState, Modal, Select, Spinner, Toggle } from './ui'
+import { CategoryTags } from './CategoryTags'
 import { ProjectDetailPanel } from './ProjectDetailPanel'
 import type { ModInfo, ModIssue, ModIssueType, ModUpdateInfo, ModrinthProject } from '@shared/types'
 
 const PAGE_SIZE = 24
+
+/** Popular Modrinth mod categories, combined with AND when several are selected. */
+const MOD_CATEGORIES = [
+  { id: 'adventure', label: 'Приключения' },
+  { id: 'decoration', label: 'Оформление' },
+  { id: 'economy', label: 'Экономика' },
+  { id: 'equipment', label: 'Снаряжение' },
+  { id: 'food', label: 'Еда' },
+  { id: 'game-mechanics', label: 'Игровые механики' },
+  { id: 'magic', label: 'Магия' },
+  { id: 'mobs', label: 'Мобы' },
+  { id: 'optimization', label: 'Оптимизация' },
+  { id: 'storage', label: 'Хранение' },
+  { id: 'technology', label: 'Технические моды' },
+  { id: 'transportation', label: 'Транспорт' },
+  { id: 'utility', label: 'Утилиты' },
+  { id: 'worldgen', label: 'Генерация мира' }
+]
 
 function formatDownloads(value: number): string {
   if (value > 1e6) return `${(value / 1e6).toFixed(1)}M`
@@ -21,11 +40,12 @@ function errorMessage(error: unknown): string {
 }
 
 export function InstanceMods({ profileId }: { profileId: string }): JSX.Element {
-  const { state, busy, setBusy, refresh, pushToast } = useLauncher()
+  const { state, versions, busy, setBusy, refresh, pushToast } = useLauncher()
   const profile = state?.profiles.find((item) => item.id === profileId) ?? null
   const [tab, setTab] = useState<'catalog' | 'installed'>('catalog')
   const [query, setQuery] = useState('')
-  const [matchVersion, setMatchVersion] = useState(true)
+  const [gameVersion, setGameVersion] = useState(profile?.versionId ?? '')
+  const [activeCategories, setActiveCategories] = useState<string[]>([])
   const [matchLoader, setMatchLoader] = useState(false)
   const [projects, setProjects] = useState<ModrinthProject[]>([])
   const [mods, setMods] = useState<ModInfo[]>([])
@@ -46,8 +66,13 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
   const [previewSelected, setPreviewSelected] = useState<string[]>([])
   const [updateResult, setUpdateResult] = useState<{ updated: number; failed: number } | null>(null)
 
-  const versionFilter = matchVersion ? profile?.versionId : undefined
+  const versionFilter = gameVersion || undefined
   const loaderFilter = matchLoader ? profile?.loader : undefined
+  const categoryKey = activeCategories.join(',')
+  const versionOptions = useMemo(() => [...new Set([
+    ...(profile?.versionId ? [profile.versionId] : []),
+    ...(versions?.versions ?? []).filter((entry) => entry.type === 'release').slice(0, 30).map((entry) => entry.id)
+  ])], [profile?.versionId, versions?.versions])
   const installedProjects = useMemo(
     () => new Set(mods.map((mod) => mod.projectId).filter((id): id is string => Boolean(id))),
     [mods]
@@ -76,6 +101,8 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
 
   useEffect(() => {
     void loadMods()
+    setGameVersion(profile?.versionId ?? '')
+    setActiveCategories([])
     setSelectedFiles([])
     setModUpdates([])
     setPreviewSelected([])
@@ -94,7 +121,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
     let cancelled = false
     setLoading(true)
     const timer = setTimeout(() => {
-      void api.searchMods(query, versionFilter, loaderFilter, 0).then((result) => {
+      void api.searchMods(query, versionFilter, loaderFilter, 0, activeCategories).then((result) => {
         if (cancelled) return
         setProjects(result)
         setOffset(result.length)
@@ -112,12 +139,12 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query, versionFilter, loaderFilter])
+  }, [query, versionFilter, loaderFilter, categoryKey])
 
   const loadMore = async () => {
     setLoadingMore(true)
     try {
-      const result = await api.searchMods(query, versionFilter, loaderFilter, offset)
+      const result = await api.searchMods(query, versionFilter, loaderFilter, offset, activeCategories)
       setProjects((current) => [...current, ...result])
       setOffset((current) => current + result.length)
       setHasMore(result.length >= PAGE_SIZE)
@@ -374,15 +401,15 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
             </div>
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} className="text-slate-600" />
-              <button
-                onClick={() => setMatchVersion((value) => !value)}
-                className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                  matchVersion ? 'border-mint-400/40 bg-mint-400/10 text-mint-300' : 'border-white/[0.08] text-slate-500 hover:text-slate-200'
-                }`}
-                title={t('Показывать только моды для Minecraft {version}', { version: profile?.versionId ?? '—' })}
-              >
-                {t('Версия {version}', { version: profile?.versionId ?? '' })}
-              </button>
+              <Select
+                className="w-44"
+                value={gameVersion}
+                onChange={setGameVersion}
+                options={[
+                  { value: '', label: t('Все версии') },
+                  ...versionOptions.map((version) => ({ value: version, label: `Minecraft ${version}` }))
+                ]}
+              />
               <button
                 onClick={() => setMatchLoader((value) => !value)}
                 className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
@@ -396,6 +423,14 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
           </>
         )}
       </div>
+
+      {tab === 'catalog' && (
+        <CategoryTags
+          categories={MOD_CATEGORIES}
+          active={activeCategories}
+          onChange={setActiveCategories}
+        />
+      )}
 
       {tab === 'catalog' ? (
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -482,8 +517,8 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
                 <Button onClick={() => void loadMore()}><ChevronDown size={15} /> {t("Показать ещё")}</Button>
               )}
               <span className="text-[10px] text-slate-600">
-                {matchVersion
-                  ? t('Показано {count} · только для Minecraft {version}', { count: projects.length, version: profile?.versionId ?? '—' })
+                {versionFilter
+                  ? t('Показано {count} · только для Minecraft {version}', { count: projects.length, version: versionFilter })
                   : t('Показано {count} · все версии Minecraft', { count: projects.length })}
               </span>
             </div>
@@ -492,7 +527,7 @@ export function InstanceMods({ profileId }: { profileId: string }): JSX.Element 
               <EmptyState
                 icon={<Search size={22} />}
                 title={t("Ничего не найдено")}
-                description={t("Попробуйте другой запрос или отключите фильтр версии.")}
+                description={t("Попробуйте другой запрос или отключите фильтры.")}
               />
             )}
           </div>

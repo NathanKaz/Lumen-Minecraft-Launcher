@@ -1333,6 +1333,24 @@ const en: Record<string, string> = {
   'Тени': 'Shadows',
   'Встроенное видео': 'Embedded video',
   'Открыть страницу шейдеров': 'Open the shaders page',
+  'Шейдер уже установлен в эту сборку': 'Shader is already installed in this instance',
+  'Шейдер удалён из сборки': 'Shader removed from the instance',
+  'Уже установлено в эту сборку': 'Already installed in this instance',
+
+  // Mod catalog categories
+  'Приключения': 'Adventure',
+  'Оформление': 'Decoration',
+  'Экономика': 'Economy',
+  'Снаряжение': 'Equipment',
+  'Еда': 'Food',
+  'Игровые механики': 'Game mechanics',
+  'Магия': 'Magic',
+  'Мобы': 'Mobs',
+  'Оптимизация': 'Optimization',
+  'Хранение': 'Storage',
+  'Технические моды': 'Technical mods',
+  'Транспорт': 'Transport',
+  'Утилиты': 'Utilities',
 
   // Compatibility check
   'Проверка совместимости': 'Compatibility check',
