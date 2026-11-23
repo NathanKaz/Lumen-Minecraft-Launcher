@@ -59,6 +59,8 @@ function HotkeyCapture({
 
 export function Settings(): JSX.Element {
   const { state, refresh, pushToast, progress } = useLauncher()
+  // Kept locally while saving so the slider fills and the thumb move immediately.
+  const [uiScaleDraft, setUiScaleDraft] = useState<number | null>(null)
   const [java, setJava] = useState<JavaInfo | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
@@ -72,8 +74,14 @@ export function Settings(): JSX.Element {
     void api.getLauncherInfo().then(setLauncherInfo).catch(() => setLauncherInfo(null))
   }, [])
 
+  // Drop the local value once the saved setting catches up; ignore stale refreshes.
+  useEffect(() => {
+    setUiScaleDraft((current) => current === state?.settings.accessibility?.uiScale ? null : current)
+  }, [state?.settings.accessibility?.uiScale])
+
   if (!state) return <Spinner />
   const settings = state.settings
+  const uiScale = uiScaleDraft ?? settings.accessibility?.uiScale ?? 1
   const scheduled: ScheduledBackupSettings = settings.scheduledBackup ?? { enabled: false, intervalHours: 6, keepCount: 10 }
 
   // Search aliases are not user-visible, so English terms stay literal here.
@@ -139,6 +147,7 @@ export function Settings(): JSX.Element {
       } else {
         await api.importSettings()
         await refresh()
+        setUiScaleDraft(null)
         pushToast('success', t('Настройки импортированы'))
       }
     } catch (error) {
@@ -649,20 +658,25 @@ export function Settings(): JSX.Element {
                 </div>
               </div>
               <div>
-                <label className="label">{t('Масштаб интерфейса: {scale}%', { scale: Math.round((settings.accessibility?.uiScale ?? 1) * 100) })}</label>
+                <label className="label">{t('Масштаб интерфейса: {scale}%', { scale: Math.round(uiScale * 100) })}</label>
                 <input
                   type="range"
                   min={0.8}
                   max={1.3}
                   step={0.05}
-                  value={settings.accessibility?.uiScale ?? 1}
-                  onChange={(event) => void update({
-                    accessibility: {
-                      uiScale: Number(event.target.value),
-                      compact: settings.accessibility?.compact ?? false,
-                      reducedMotion: settings.accessibility?.reducedMotion ?? false
-                    }
-                  })}
+                  value={uiScale}
+                  style={{ '--range-value': `${((uiScale - 0.8) / 0.5) * 100}%` } as React.CSSProperties}
+                  onChange={(event) => {
+                    const scale = Number(event.target.value)
+                    setUiScaleDraft(scale)
+                    void update({
+                      accessibility: {
+                        uiScale: scale,
+                        compact: settings.accessibility?.compact ?? false,
+                        reducedMotion: settings.accessibility?.reducedMotion ?? false
+                      }
+                    })
+                  }}
                   className="w-full"
                 />
                 <div className="mt-1 flex justify-between text-[10px] text-slate-600"><span>80%</span><span>130%</span></div>

@@ -20,6 +20,7 @@ import { Instances } from './pages/Instances'
 import { Logs } from './pages/Logs'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { Modpacks } from './pages/Modpacks'
+import { Shaders } from './pages/Shaders'
 import { Screenshots } from './pages/Screenshots'
 import { Settings } from './pages/Settings'
 import { TasksPage } from './pages/Tasks'
@@ -264,6 +265,7 @@ export default function App(): JSX.Element {
                     {page === 'screenshots' && <Screenshots />}
                     {page === 'skins' && <SkinsPanel accountId={state.activeAccountId} />}
                     {page === 'modpacks' && <Modpacks />}
+                    {page === 'shaders' && <Shaders />}
                     {page === 'logs' && <Logs />}
                     {page === 'tasks' && <TasksPage />}
                     {page === 'settings' && <Settings />}

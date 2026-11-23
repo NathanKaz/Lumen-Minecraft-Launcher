@@ -776,6 +776,11 @@ const en: Record<string, string> = {
   'Удалить мир': 'Delete world',
 
   // Modrinth catalogs
+  'Каталог шейдеров': 'Shader catalog',
+  'Подберите шейдеры в Modrinth и установите их в выбранную сборку.': 'Browse shaders on Modrinth and install them into the selected instance.',
+  'Файлы попадают в папку shaderpacks сборки.': 'Files are placed in the instance shaderpacks folder.',
+  'Для работы шейдеров нужна совместимая модификация: Iris, Oculus или OptiFine.': 'Shaders require a compatible mod: Iris, Oculus, or OptiFine.',
+  'Создайте сборку, чтобы устанавливать шейдеры.': 'Create an instance to install shaders.',
   'Карты и приключения': 'Maps & adventures',
   'Наборы данных': 'Data packs',
   'Набор данных': 'Data pack',

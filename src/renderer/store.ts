@@ -11,7 +11,7 @@ import type {
   VersionManifest
 } from '@shared/types'
 
-export type Page = 'home' | 'library' | 'screenshots' | 'skins' | 'modpacks' | 'logs' | 'tasks' | 'settings'
+export type Page = 'home' | 'library' | 'screenshots' | 'skins' | 'modpacks' | 'shaders' | 'logs' | 'tasks' | 'settings'
 
 /** Sections of the dedicated instance page shown in its own sidebar. */
 export type ProfileSection = 'overview' | 'mods' | 'worlds' | 'screenshots' | 'tools' | 'settings'

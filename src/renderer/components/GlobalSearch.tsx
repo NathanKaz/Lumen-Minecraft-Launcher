@@ -23,6 +23,7 @@ import {
   Settings as SettingsIcon,
   Shirt,
   SlidersHorizontal,
+  Sparkles,
   Wrench,
   X
 } from 'lucide-react'
@@ -249,6 +250,7 @@ export function GlobalSearch(): JSX.Element {
       { id: 'screenshots', label: t('Скриншоты'), keywords: 'screenshots f2', icon: ImageIcon },
       { id: 'skins', label: t('Скины'), keywords: 'skins player', icon: Shirt },
       { id: 'modpacks', label: t('Модпаки'), keywords: 'modpacks modrinth', icon: Package },
+      { id: 'shaders', label: t('Шейдеры'), keywords: 'shader shaders modrinth iris optifine', icon: Sparkles },
       { id: 'logs', label: t('Логи'), keywords: 'logs журналы crash reports', icon: ScrollText },
       { id: 'settings', label: t('Настройки'), keywords: 'settings preferences', icon: SettingsIcon }
     ]

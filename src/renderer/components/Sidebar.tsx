@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowLeft, Camera, ChevronRight, Download, ExternalLink, Gamepad2, Github, Globe2,
   Image as ImageIcon, LayoutDashboard, Library, Loader2, Package, Play, ScrollText, Settings,
-  ShieldCheck, Shirt, Square, Wrench
+  ShieldCheck, Shirt, Sparkles, Square, Wrench
 } from 'lucide-react'
 import { t } from '../lib/i18n'
 import { api } from '../lib/api'
@@ -34,6 +34,7 @@ const items = (): Array<{ id: Page; label: string; icon: typeof LayoutDashboard 
   { id: 'screenshots', label: t("Скриншоты"), icon: ImageIcon },
   { id: 'skins', label: t("Скины"), icon: Shirt },
   { id: 'modpacks', label: t("Модпаки"), icon: Package },
+  { id: 'shaders', label: t('Шейдеры'), icon: Sparkles },
   { id: 'logs', label: t("Логи"), icon: ScrollText },
   { id: 'tasks', label: t("Загрузки"), icon: Download },
   { id: 'settings', label: t("Настройки"), icon: Settings }
