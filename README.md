@@ -130,4 +130,4 @@ src/shared/   shared types and IPC channel names
 src/renderer/ React UI (Tailwind CSS + zustand + framer-motion)
 ```
 
-The implementation does not rely on ready-made launcher cores: version downloading, JSON inheritance resolution, classpath assembly, and process launch are implemented explicitly for precise progress reporting and error control.
+The implementation does not rely on ready-made launcher cores: version downloading, JSON inheritance resolution, classpath assembly, and process launch are implemented explicitly for precise progress reporting and error control. Forge/NeoForge installers pick their own version id (NeoForge 21.x uses `neoforge-<version>`, with the game version in `inheritsFrom`), so the launcher detects the JSON written by the installer instead of assuming a `<gameVersion>-<loader>-<version>` folder name.

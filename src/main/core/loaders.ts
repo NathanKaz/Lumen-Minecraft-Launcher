@@ -86,10 +86,45 @@ function runInstaller(jarPath: string, args: string[], gameVersion: string): Pro
   })
 }
 
-async function findInstalledVersion(pattern: RegExp): Promise<string | null> {
-  const entries = await fs.readdir(dirs.versions)
-  const matches = entries.filter((entry) => pattern.test(entry) && fs.existsSync(path.join(dirs.versions, entry, `${entry}.json`)))
-  return matches.sort().at(-1) ?? null
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Forge/NeoForge installers choose the version id themselves: NeoForge 21.x
+ * writes `neoforge-<version>` (the game version lives in `inheritsFrom`),
+ * while older installers use `<gameVersion>-<loader>-<version>`. Read the JSON
+ * left by the installer instead of guessing its folder name.
+ */
+async function findInstalledLoaderVersion(
+  gameVersion: string,
+  loader: 'forge' | 'neoforge',
+  loaderVersion: string
+): Promise<string | null> {
+  const exact = new RegExp(`(?:^|-)${loader}-?${escapeRegExp(loaderVersion)}(?:[.-]|$)`, 'i')
+  const generic = new RegExp(`(?:^|-)${loader}(?:-|[0-9])`, 'i')
+  const matches: Array<{ id: string; exact: boolean; mtime: number }> = []
+
+  for (const entry of await fs.readdir(dirs.versions)) {
+    if (!generic.test(entry)) continue
+    const file = path.join(dirs.versions, entry, `${entry}.json`)
+    if (!(await fs.pathExists(file))) continue
+    const json = await fs.readJson(file).catch(() => null)
+    if (!json) continue
+    if (json.inheritsFrom !== gameVersion && !entry.startsWith(`${gameVersion}-`)) continue
+    const stat = await fs.stat(file).catch(() => null)
+    matches.push({ id: entry, exact: exact.test(entry), mtime: stat?.mtimeMs ?? 0 })
+  }
+
+  matches.sort((a, b) => Number(b.exact) - Number(a.exact) || b.mtime - a.mtime)
+  return matches[0]?.id ?? null
+}
+
+async function firstExistingVersion(ids: string[]): Promise<string | undefined> {
+  for (const id of ids) {
+    if (await readVersionJson(id)) return id
+  }
+  return undefined
 }
 
 async function installForge(gameVersion: string, requestedVersion?: string): Promise<string> {
@@ -116,7 +151,10 @@ async function installForge(gameVersion: string, requestedVersion?: string): Pro
   )
   emitLoader(msg("Установка Forge (это может занять минуту)"), 50)
   await runInstaller(jarPath, ['--installClient', dirs.root], gameVersion)
-  const id = (await findInstalledVersion(new RegExp(`${gameVersion}-forge-${forgeVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))) ?? `${gameVersion}-forge-${forgeVersion}`
+  const id =
+    (await findInstalledLoaderVersion(gameVersion, 'forge', forgeVersion)) ??
+    (await firstExistingVersion([`${gameVersion}-forge-${forgeVersion}`, `forge-${forgeVersion}`])) ??
+    `${gameVersion}-forge-${forgeVersion}`
   const json = await readVersionJson(id)
   if (json) {
     emitLoader(msg("Установка библиотек Forge"), 75)
@@ -151,8 +189,10 @@ async function installNeoForge(gameVersion: string, requestedVersion?: string): 
   )
   emitLoader(msg("Установка NeoForge"), 50)
   await runInstaller(jarPath, ['--installClient', dirs.root], gameVersion)
-  const escaped = neoVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const id = (await findInstalledVersion(new RegExp(`${gameVersion}-neoforge-${escaped}`))) ?? `${gameVersion}-neoforge-${neoVersion}`
+  const id =
+    (await findInstalledLoaderVersion(gameVersion, 'neoforge', neoVersion)) ??
+    (await firstExistingVersion([`neoforge-${neoVersion}`, `${gameVersion}-neoforge-${neoVersion}`])) ??
+    `neoforge-${neoVersion}`
   const json = await readVersionJson(id)
   if (json) {
     emitLoader(msg("Установка библиотек NeoForge"), 75)
