@@ -70,6 +70,17 @@ export interface LaunchOptions {
   server?: string
 }
 
+/**
+ * Forge/NeoForge bootstrap a patched Minecraft jar themselves. Putting the
+ * vanilla jar from `inheritsFrom` on the classpath as well gives two modules
+ * exporting `net.minecraft.*`, which fails Java module resolution before the
+ * game starts. Fabric and vanilla clients still need that jar.
+ */
+function bootstrapsMinecraft(version: VersionJson): boolean {
+  return version.mainClass === 'cpw.mods.bootstraplauncher.BootstrapLauncher'
+    || version.mainClass === 'net.minecraftforge.bootstrap.ForgeBootstrap'
+}
+
 /** Quick Play arguments only exist in 1.20.5+ and are ignored by older clients. */
 function supportsQuickPlay(versionId: string): boolean {
   const match = /^1\.(\d+)(?:\.(\d+))?$/.exec(versionId)
@@ -185,7 +196,7 @@ export async function launchGame(profileId: string, options: LaunchOptions = {})
     path: version.logging?.client ? path.join(versionDir(version.id), version.logging.client.file.id) : ''
   }
   const classpath = [
-    path.join(versionDir(profile.versionId), `${profile.versionId}.jar`),
+    ...(bootstrapsMinecraft(version) ? [] : [clientJar]),
     ...classpathLibraries(version)
   ].join(path.delimiter)
   replacements.classpath = classpath
